@@ -75,6 +75,7 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::get('/experiments/{id}/clusters', [ClusterController::class, 'index']);
     Route::post('/experiments/{id}/clusters', [ClusterController::class, 'store']);
     Route::post('/clusters/{id}/scale', [ClusterController::class, 'scale']);
+    Route::patch('/clusters/{id}/nodes', [ClusterController::class, 'updateNodes']);
     Route::delete('/clusters/{id}', [ClusterController::class, 'destroy']);
 
     Route::get('/clusters/{id}/instances', [ProvisionedInstanceController::class, 'listByCluster']);

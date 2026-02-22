@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Http\Resources\InstanceGroupResource;
 
 class ClusterResource extends JsonResource
 {
@@ -17,6 +18,7 @@ class ClusterResource extends JsonResource
             'environment_type' => $this->environment_type,
             'name' => $this->name,
             'status' => $this->status,
+            'instance_groups' => InstanceGroupResource::collection($this->whenLoaded('instanceGroups')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

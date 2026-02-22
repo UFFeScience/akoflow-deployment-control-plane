@@ -13,6 +13,8 @@ class ListClustersService
 
     public function handle(string $experimentId): Collection
     {
-        return $this->clusters->listByExperiment($experimentId);
+        return $this->clusters
+            ->listByExperiment($experimentId)
+            ->load(['instanceGroups.instanceType']);
     }
 }

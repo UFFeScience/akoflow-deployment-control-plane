@@ -7,8 +7,11 @@ use App\Models\ClusterTemplate;
 use App\Models\Experiment;
 use App\Models\ExperimentTemplate;
 use App\Models\ExperimentTemplateVersion;
+use App\Models\InstanceGroup;
+use App\Models\InstanceType;
 use App\Models\Project;
 use App\Models\Provider;
+use App\Models\ProvisionedInstance;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -52,6 +55,15 @@ class ClusterTest extends TestCase
             'custom_parameters_json' => ['size' => 3],
         ]);
 
+        $instanceType = InstanceType::create([
+            'provider_id' => $provider->id,
+            'name' => 'm6i.large',
+            'vcpus' => 2,
+            'memory_mb' => 8192,
+            'status' => InstanceType::STATUSES[0],
+            'is_active' => true,
+        ]);
+
         $project = Project::factory()->create();
         $experiment = Experiment::create([
             'project_id' => $project->id,
@@ -59,7 +71,7 @@ class ClusterTest extends TestCase
             'status' => Experiment::STATUSES[0],
         ]);
 
-        return compact('provider', 'clusterTemplate', 'experiment');
+        return compact('provider', 'clusterTemplate', 'experiment', 'instanceType');
     }
 
     public function test_user_can_list_clusters_by_experiment(): void
@@ -106,6 +118,151 @@ class ClusterTest extends TestCase
             'experiment_id' => $experiment->id,
             'name' => 'Created Cluster',
         ]);
+    }
+
+    public function test_user_can_create_cluster_with_instance_groups_and_metadata(): void
+    {
+        $user = User::factory()->create();
+        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'experiment' => $experiment, 'instanceType' => $instanceType] = $this->createDependencies();
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->postJson("/api/experiments/{$experiment->id}/clusters", [
+                'cluster_template_id' => $clusterTemplate->id,
+                'provider_id' => $provider->id,
+                'region' => 'us-east-1',
+                'environment_type' => Cluster::ENVIRONMENT_TYPES[0],
+                'name' => 'Cluster with groups',
+                'instance_groups' => [
+                    [
+                        'instance_type_id' => $instanceType->id,
+                        'role' => 'master',
+                        'quantity' => 1,
+                        'metadata' => ['tier' => 'control'],
+                    ],
+                    [
+                        'instance_type_id' => $instanceType->id,
+                        'role' => 'worker',
+                        'quantity' => 2,
+                        'metadata' => ['tier' => 'compute'],
+                    ],
+                ],
+            ]);
+
+        $response->assertStatus(201)
+            ->assertJsonCount(2, 'data.instance_groups');
+
+        $clusterId = $response->json('data.id');
+        $cluster = Cluster::with('instanceGroups')->find($clusterId);
+
+        $this->assertNotNull($cluster);
+        $this->assertCount(2, $cluster->instanceGroups);
+
+        $master = $cluster->instanceGroups->firstWhere('role', 'master');
+        $worker = $cluster->instanceGroups->firstWhere('role', 'worker');
+
+        $this->assertEquals(['tier' => 'control'], $master->metadata_json);
+        $this->assertEquals(['tier' => 'compute'], $worker->metadata_json);
+        $this->assertEquals(1, $master->quantity);
+        $this->assertEquals(2, $worker->quantity);
+
+        $this->assertDatabaseCount('provisioned_instances', 3);
+        $this->assertDatabaseHas('instance_groups', [
+            'cluster_id' => $clusterId,
+            'role' => 'master',
+            'quantity' => 1,
+        ]);
+        $this->assertDatabaseHas('instance_groups', [
+            'cluster_id' => $clusterId,
+            'role' => 'worker',
+            'quantity' => 2,
+        ]);
+
+        $this->assertDatabaseHas('provisioned_instances', [
+            'cluster_id' => $clusterId,
+            'instance_group_id' => $master->id,
+        ]);
+        $this->assertDatabaseHas('provisioned_instances', [
+            'cluster_id' => $clusterId,
+            'instance_group_id' => $worker->id,
+        ]);
+    }
+
+    public function test_user_can_update_cluster_nodes_per_group(): void
+    {
+        $user = User::factory()->create();
+        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'experiment' => $experiment, 'instanceType' => $instanceType] = $this->createDependencies();
+
+        $cluster = Cluster::create([
+            'experiment_id' => $experiment->id,
+            'cluster_template_id' => $clusterTemplate->id,
+            'provider_id' => $provider->id,
+            'region' => 'us-east-1',
+            'environment_type' => Cluster::ENVIRONMENT_TYPES[0],
+            'name' => 'Scalable Cluster',
+            'status' => Cluster::STATUSES[1],
+        ]);
+
+        $masterGroup = InstanceGroup::create([
+            'cluster_id' => $cluster->id,
+            'instance_type_id' => $instanceType->id,
+            'role' => 'master',
+            'quantity' => 2,
+        ]);
+        $workerGroup = InstanceGroup::create([
+            'cluster_id' => $cluster->id,
+            'instance_type_id' => $instanceType->id,
+            'role' => 'worker',
+            'quantity' => 1,
+        ]);
+
+        ProvisionedInstance::create([
+            'cluster_id' => $cluster->id,
+            'instance_group_id' => $masterGroup->id,
+            'instance_type_id' => $instanceType->id,
+            'role' => 'master',
+            'status' => ProvisionedInstance::STATUS_RUNNING,
+        ]);
+        ProvisionedInstance::create([
+            'cluster_id' => $cluster->id,
+            'instance_group_id' => $masterGroup->id,
+            'instance_type_id' => $instanceType->id,
+            'role' => 'master',
+            'status' => ProvisionedInstance::STATUS_RUNNING,
+        ]);
+        ProvisionedInstance::create([
+            'cluster_id' => $cluster->id,
+            'instance_group_id' => $workerGroup->id,
+            'instance_type_id' => $instanceType->id,
+            'role' => 'worker',
+            'status' => ProvisionedInstance::STATUS_RUNNING,
+        ]);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->patchJson("/api/clusters/{$cluster->id}/nodes", [
+                'instance_groups' => [
+                    ['id' => $masterGroup->id, 'quantity' => 1],
+                    ['id' => $workerGroup->id, 'quantity' => 2],
+                ],
+            ]);
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data.instance_groups');
+
+        $this->assertDatabaseHas('instance_groups', [
+            'id' => $masterGroup->id,
+            'quantity' => 1,
+        ]);
+        $this->assertDatabaseHas('instance_groups', [
+            'id' => $workerGroup->id,
+            'quantity' => 2,
+        ]);
+
+        $this->assertDatabaseHas('provisioned_instances', [
+            'instance_group_id' => $masterGroup->id,
+            'status' => ProvisionedInstance::STATUS_REMOVING,
+        ]);
+
+        $this->assertDatabaseCount('provisioned_instances', 4);
     }
 
     public function test_user_can_scale_cluster(): void

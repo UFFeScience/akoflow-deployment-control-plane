@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\InstanceGroup;
 
 class Cluster extends Model
 {
@@ -32,6 +33,11 @@ class Cluster extends Model
 	public function instances(): HasMany
 	{
 		return $this->hasMany(ProvisionedInstance::class, 'cluster_id');
+	}
+
+	public function instanceGroups(): HasMany
+	{
+		return $this->hasMany(InstanceGroup::class, 'cluster_id');
 	}
 
 	public function scalingEvents(): HasMany

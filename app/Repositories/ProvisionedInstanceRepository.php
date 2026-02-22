@@ -15,4 +15,9 @@ class ProvisionedInstanceRepository extends BaseRepository
     {
         return $this->model->where('cluster_id', $clusterId)->get();
     }
+
+    public function listByGroup(string $instanceGroupId)
+    {
+        return $this->model->where('instance_group_id', $instanceGroupId)->orderByDesc('id');
+    }
 }

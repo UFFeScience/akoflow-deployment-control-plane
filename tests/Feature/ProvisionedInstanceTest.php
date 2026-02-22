@@ -12,6 +12,7 @@ use App\Models\InstanceType;
 use App\Models\Project;
 use App\Models\Provider;
 use App\Models\ProvisionedInstance;
+use App\Models\InstanceGroup;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -81,13 +82,20 @@ class ProvisionedInstanceTest extends TestCase
             'is_active' => true,
         ]);
 
-        return compact('cluster', 'instanceType');
+        $group = InstanceGroup::create([
+            'cluster_id' => $cluster->id,
+            'instance_type_id' => $instanceType->id,
+            'role' => 'master',
+            'quantity' => 2,
+        ]);
+
+        return compact('cluster', 'instanceType', 'group');
     }
 
     public function test_user_can_list_instances_by_cluster(): void
     {
         $user = User::factory()->create();
-        ['cluster' => $cluster, 'instanceType' => $instanceType] = $this->createClusterAndInstanceType();
+        ['cluster' => $cluster, 'instanceType' => $instanceType, 'group' => $group] = $this->createClusterAndInstanceType();
 
         ProvisionedInstance::create([
             'cluster_id' => $cluster->id,
@@ -96,6 +104,7 @@ class ProvisionedInstanceTest extends TestCase
             'role' => ProvisionedInstance::ROLES[0],
             'status' => ProvisionedInstance::STATUSES[1],
             'health_status' => ProvisionedInstance::HEALTH_STATUSES[0],
+            'instance_group_id' => $group->id,
         ]);
         ProvisionedInstance::create([
             'cluster_id' => $cluster->id,
@@ -104,6 +113,7 @@ class ProvisionedInstanceTest extends TestCase
             'role' => ProvisionedInstance::ROLES[1],
             'status' => ProvisionedInstance::STATUSES[1],
             'health_status' => ProvisionedInstance::HEALTH_STATUSES[0],
+            'instance_group_id' => $group->id,
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))

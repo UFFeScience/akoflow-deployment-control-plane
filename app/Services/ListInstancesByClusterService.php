@@ -13,6 +13,6 @@ class ListInstancesByClusterService
 
     public function handle(string $clusterId): Collection
     {
-        return $this->instances->listByCluster($clusterId);
+        return $this->instances->listByCluster($clusterId)->load('instanceGroup');
     }
 }

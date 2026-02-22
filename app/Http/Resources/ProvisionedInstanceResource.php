@@ -11,6 +11,7 @@ class ProvisionedInstanceResource extends JsonResource
         return [
             'id' => $this->id,
             'cluster_id' => $this->cluster_id,
+            'instance_group_id' => $this->instance_group_id,
             'instance_type_id' => $this->instance_type_id,
             'provider_instance_id' => $this->provider_instance_id,
             'role' => $this->role,
@@ -19,6 +20,7 @@ class ProvisionedInstanceResource extends JsonResource
             'last_health_check_at' => $this->last_health_check_at,
             'public_ip' => $this->public_ip,
             'private_ip' => $this->private_ip,
+            'metadata' => $this->instanceGroup?->metadata_json,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
