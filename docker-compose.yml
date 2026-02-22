@@ -1,0 +1,30 @@
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: ./docker/dev.Dockerfile
+    container_name: akocloud_app
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
+    ports:
+      - "8080:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - db
+
+  db:
+    image: postgres:latest
+    container_name: akocloud_db
+    environment:
+      POSTGRES_DB: akocloud
+      POSTGRES_USER: akocloud
+      POSTGRES_PASSWORD: akocloud
+    ports:
+      - "5432:5432"
+    volumes:
+      - akocloud_db_data:/var/lib/postgresql
+
+volumes:
+  akocloud_db_data:
