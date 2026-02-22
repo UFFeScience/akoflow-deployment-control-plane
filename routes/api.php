@@ -70,6 +70,7 @@ Route::middleware([AuthMiddleware::class])->group(function () {
 
     Route::get('/projects/{projectId}/experiments', [ExperimentController::class, 'index']);
     Route::post('/projects/{projectId}/experiments', [ExperimentController::class, 'store']);
+    Route::get('/projects/{projectId}/experiments/{id}', [ExperimentController::class, 'show']);
 
     Route::get('/experiments/{id}/clusters', [ClusterController::class, 'index']);
     Route::post('/experiments/{id}/clusters', [ClusterController::class, 'store']);
