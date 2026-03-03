@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Exception;
-use App\Exceptions\OrganizationNotFoundException;
 use App\Http\Requests\AddOrganizationMemberRequest;
 use App\Http\Requests\CreateOrganizationRequest;
 use App\Http\Requests\UpdateOrganizationMemberRoleRequest;
@@ -16,6 +14,7 @@ use App\Services\CreateOrganizationService;
 use App\Services\DeleteOrganizationService;
 use App\Services\ListOrganizationMembersService;
 use App\Services\ListOrganizationsService;
+use App\Services\OrganizationAuthorizationService;
 use App\Services\RemoveOrganizationMemberService;
 use App\Services\UpdateOrganizationMemberRoleService;
 use App\Services\UpdateOrganizationService;
@@ -34,164 +33,123 @@ class OrganizationController extends Controller
         private UpdateOrganizationMemberRoleService $updateOrganizationMemberRoleService,
         private ListOrganizationMembersService $listOrganizationMembersService,
         private OrganizationRepository $organizationRepository,
+        private OrganizationAuthorizationService $organizationAuthorizationService,
     ) {}
 
     public function create(CreateOrganizationRequest $request): JsonResponse
     {
-        try {
-            $organization = $this->createOrganizationService->execute(
-                $request->user(),
-                $request->validated()
-            );
+        $organization = $this->createOrganizationService->execute(
+            $request->user(),
+            $request->validated()
+        );
 
-            return response()->json([
-                'message' => 'Organization created successfully',
-                'data' => new OrganizationResource($organization),
-            ], 201);
-        } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+        return response()->json([
+            'message' => 'Organization created successfully',
+            'data' => new OrganizationResource($organization),
+        ], 201);
     }
 
     public function list(Request $request): JsonResponse
     {
-        try {
-            $organizations = $this->listOrganizationsService->execute($request->user());
+        $organizations = $this->listOrganizationsService->execute($request->user());
 
-            return response()->json([
-                'message' => 'Organizations retrieved successfully',
-                'data' => OrganizationResource::collection($organizations),
-            ]);
-        } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+        return response()->json([
+            'message' => 'Organizations retrieved successfully',
+            'data' => OrganizationResource::collection($organizations),
+        ]);
     }
 
     public function getById(Request $request, int $organizationId): JsonResponse
     {
-        try {
-            $organization = $this->organizationRepository->findByIdWithAll($organizationId);
+        $this->organizationAuthorizationService->assertUserBelongsToOrganization($request->user(), $organizationId);
 
-            if (!$organization) {
-                throw new OrganizationNotFoundException();
-            }
+        $organization = $this->organizationRepository->findByIdWithAll($organizationId);
 
-            return response()->json([
-                'message' => 'Organization retrieved successfully',
-                'data' => new OrganizationResource($organization),
-            ]);
-        } catch (OrganizationNotFoundException $e) {
-            return response()->json(['error' => $e->getMessage()], $e->getCode());
-        } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+        return response()->json([
+            'message' => 'Organization retrieved successfully',
+            'data' => new OrganizationResource($organization),
+        ]);
     }
 
     public function update(UpdateOrganizationRequest $request, int $organizationId): JsonResponse
     {
-        try {
-            $organization = $this->organizationRepository->findById($organizationId);
+        $this->organizationAuthorizationService->assertUserBelongsToOrganization($request->user(), $organizationId);
 
-            if (!$organization) {
-                throw new OrganizationNotFoundException();
-            }
+        $organization = $this->organizationRepository->findById($organizationId);
 
-            $updated = $this->updateOrganizationService->execute(
-                $organization,
-                $request->validated()
-            );
+        $updated = $this->updateOrganizationService->execute($organization, $request->validated());
 
-            return response()->json([
-                'message' => 'Organization updated successfully',
-                'data' => new OrganizationResource($updated),
-            ]);
-        } catch (OrganizationNotFoundException $e) {
-            return response()->json(['error' => $e->getMessage()], $e->getCode());
-        } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+        return response()->json([
+            'message' => 'Organization updated successfully',
+            'data' => new OrganizationResource($updated),
+        ]);
     }
 
     public function delete(Request $request, int $organizationId): JsonResponse
     {
-        try {
-            $organization = $this->organizationRepository->findById($organizationId);
+        $this->organizationAuthorizationService->assertUserBelongsToOrganization($request->user(), $organizationId);
 
-            if (!$organization) {
-                throw new OrganizationNotFoundException();
-            }
+        $organization = $this->organizationRepository->findById($organizationId);
 
-            $this->deleteOrganizationService->execute($organization);
+        $this->deleteOrganizationService->execute($organization);
 
-            return response()->json([
-                'message' => 'Organization deleted successfully',
-            ]);
-        } catch (OrganizationNotFoundException $e) {
-            return response()->json(['error' => $e->getMessage()], $e->getCode());
-        } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+        return response()->json([
+            'message' => 'Organization deleted successfully',
+        ]);
     }
 
     public function addMember(AddOrganizationMemberRequest $request, int $organizationId): JsonResponse
     {
-        try {
-            $member = $this->addOrganizationMemberService->execute(
-                $organizationId,
-                $request->validated()
-            );
+        $this->organizationAuthorizationService->assertUserBelongsToOrganization($request->user(), $organizationId);
 
-            return response()->json([
-                'message' => 'Member added successfully',
-                'data' => new OrganizationMemberResource($member),
-            ], 201);
-        } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+        $member = $this->addOrganizationMemberService->execute(
+            $organizationId,
+            $request->validated()
+        );
+
+        return response()->json([
+            'message' => 'Member added successfully',
+            'data' => new OrganizationMemberResource($member),
+        ], 201);
     }
 
     public function removeMember(Request $request, int $organizationId, int $userId): JsonResponse
     {
-        try {
-            $this->removeOrganizationMemberService->execute($organizationId, $userId);
+        $this->organizationAuthorizationService->assertUserBelongsToOrganization($request->user(), $organizationId);
 
-            return response()->json([
-                'message' => 'Member removed successfully',
-            ]);
-        } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+        $this->removeOrganizationMemberService->execute($organizationId, $userId);
+
+        return response()->json([
+            'message' => 'Member removed successfully',
+        ]);
     }
 
     public function updateMemberRole(UpdateOrganizationMemberRoleRequest $request, int $organizationId, int $userId): JsonResponse
     {
-        try {
-            $member = $this->updateOrganizationMemberRoleService->execute(
-                $organizationId,
-                $userId,
-                $request->validated('role')
-            );
+        $this->organizationAuthorizationService->assertUserBelongsToOrganization($request->user(), $organizationId);
 
-            return response()->json([
-                'message' => 'Member role updated successfully',
-                'data' => new OrganizationMemberResource($member),
-            ]);
-        } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+        $member = $this->updateOrganizationMemberRoleService->execute(
+            $organizationId,
+            $userId,
+            $request->validated('role')
+        );
+
+        return response()->json([
+            'message' => 'Member role updated successfully',
+            'data' => new OrganizationMemberResource($member),
+        ]);
     }
 
     public function listMembers(Request $request, int $organizationId): JsonResponse
     {
-        try {
-            $members = $this->listOrganizationMembersService->execute($organizationId);
+        $this->organizationAuthorizationService->assertUserBelongsToOrganization($request->user(), $organizationId);
 
-            return response()->json([
-                'message' => 'Members retrieved successfully',
-                'data' => OrganizationMemberResource::collection($members),
-            ]);
-        } catch (Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
-        }
+        $members = $this->listOrganizationMembersService->execute($organizationId);
+
+        return response()->json([
+            'message' => 'Members retrieved successfully',
+            'data' => OrganizationMemberResource::collection($members),
+        ]);
     }
 }
+

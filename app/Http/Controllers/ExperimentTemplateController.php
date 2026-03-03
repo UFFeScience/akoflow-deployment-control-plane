@@ -6,10 +6,11 @@ use App\Http\Requests\CreateExperimentTemplateRequest;
 use App\Http\Requests\CreateExperimentTemplateVersionRequest;
 use App\Http\Resources\ExperimentTemplateResource;
 use App\Http\Resources\ExperimentTemplateVersionResource;
-use App\Services\ListExperimentTemplatesService;
-use App\Services\CreateExperimentTemplateService;
 use App\Services\AddExperimentTemplateVersionService;
+use App\Services\CreateExperimentTemplateService;
 use App\Services\GetActiveExperimentTemplateVersionService;
+use App\Services\ListExperimentTemplatesService;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ExperimentTemplateController extends Controller
 {
@@ -20,7 +21,7 @@ class ExperimentTemplateController extends Controller
         protected GetActiveExperimentTemplateVersionService $activeVersionService,
     ) {}
 
-    public function index()
+    public function index(): AnonymousResourceCollection
     {
         return ExperimentTemplateResource::collection($this->listService->handle());
     }

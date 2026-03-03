@@ -9,6 +9,7 @@ use App\Models\ExperimentTemplate;
 use App\Models\ExperimentTemplateVersion;
 use App\Models\InstanceLog;
 use App\Models\InstanceType;
+use App\Models\Organization;
 use App\Models\Project;
 use App\Models\Provider;
 use App\Models\ProvisionedInstance;
@@ -28,65 +29,66 @@ class ProvisionedInstanceTest extends TestCase
         return ['Authorization' => "Bearer $token"];
     }
 
-    private function createClusterAndInstanceType(): array
+    private function createClusterAndInstanceType(User $user): array
     {
         $provider = Provider::create([
-            'name' => 'Instance Provider',
-            'type' => Provider::TYPES[0],
+            'name'   => 'Instance Provider',
+            'type'   => Provider::TYPES[0],
             'status' => Provider::STATUSES[0],
         ]);
 
         $template = ExperimentTemplate::create([
-            'name' => 'Instance Template',
-            'slug' => 'instance-template-' . uniqid(),
+            'name'         => 'Instance Template',
+            'slug'         => 'instance-template-' . uniqid(),
             'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
-            'description' => 'Template for instances',
-            'is_public' => true,
+            'description'  => 'Template for instances',
+            'is_public'    => true,
         ]);
 
         $version = ExperimentTemplateVersion::create([
-            'template_id' => $template->id,
-            'version' => 'v1',
+            'template_id'     => $template->id,
+            'version'         => 'v1',
             'definition_json' => ['steps' => []],
-            'is_active' => true,
+            'is_active'       => true,
         ]);
 
         $clusterTemplate = ClusterTemplate::create([
-            'template_version_id' => $version->id,
+            'template_version_id'    => $version->id,
             'custom_parameters_json' => ['nodes' => 2],
         ]);
 
-        $project = Project::factory()->create();
+        $org        = Organization::factory()->create(['user_id' => $user->id]);
+        $project    = Project::factory()->create(['organization_id' => $org->id]);
         $experiment = Experiment::create([
             'project_id' => $project->id,
-            'name' => 'Instance Experiment',
-            'status' => Experiment::STATUSES[0],
+            'name'       => 'Instance Experiment',
+            'status'     => Experiment::STATUSES[0],
         ]);
 
         $cluster = Cluster::create([
-            'experiment_id' => $experiment->id,
+            'experiment_id'    => $experiment->id,
             'cluster_template_id' => $clusterTemplate->id,
-            'provider_id' => $provider->id,
-            'region' => 'us-central1',
+            'provider_id'      => $provider->id,
+            'region'           => 'us-central1',
             'environment_type' => Cluster::ENVIRONMENT_TYPES[0],
-            'name' => 'Cluster for instances',
-            'status' => Cluster::STATUSES[1],
+            'name'             => 'Cluster for instances',
+            'status'           => Cluster::STATUSES[1],
         ]);
 
         $instanceType = InstanceType::create([
             'provider_id' => $provider->id,
-            'name' => 'n2-standard-4',
-            'vcpus' => 4,
-            'memory_mb' => 16384,
-            'status' => InstanceType::STATUSES[0],
-            'is_active' => true,
+            'name'        => 'n2-standard-4',
+            'vcpus'       => 4,
+            'memory_mb'   => 16384,
+            'status'      => InstanceType::STATUSES[0],
+            'is_active'   => true,
         ]);
 
         $group = InstanceGroup::create([
-            'cluster_id' => $cluster->id,
+            'cluster_id'       => $cluster->id,
             'instance_type_id' => $instanceType->id,
-            'role' => 'master',
-            'quantity' => 2,
+            'role'             => 'master',
+            'quantity'         => 2,
         ]);
 
         return compact('cluster', 'instanceType', 'group');
@@ -95,7 +97,7 @@ class ProvisionedInstanceTest extends TestCase
     public function test_user_can_list_instances_by_cluster(): void
     {
         $user = User::factory()->create();
-        ['cluster' => $cluster, 'instanceType' => $instanceType, 'group' => $group] = $this->createClusterAndInstanceType();
+        ['cluster' => $cluster, 'instanceType' => $instanceType, 'group' => $group] = $this->createClusterAndInstanceType($user);
 
         ProvisionedInstance::create([
             'cluster_id' => $cluster->id,
@@ -126,7 +128,7 @@ class ProvisionedInstanceTest extends TestCase
     public function test_user_can_get_instance_details(): void
     {
         $user = User::factory()->create();
-        ['cluster' => $cluster, 'instanceType' => $instanceType] = $this->createClusterAndInstanceType();
+        ['cluster' => $cluster, 'instanceType' => $instanceType] = $this->createClusterAndInstanceType($user);
 
         $instance = ProvisionedInstance::create([
             'cluster_id' => $cluster->id,
@@ -148,7 +150,7 @@ class ProvisionedInstanceTest extends TestCase
     public function test_user_can_list_instance_logs(): void
     {
         $user = User::factory()->create();
-        ['cluster' => $cluster, 'instanceType' => $instanceType] = $this->createClusterAndInstanceType();
+        ['cluster' => $cluster, 'instanceType' => $instanceType] = $this->createClusterAndInstanceType($user);
 
         $instance = ProvisionedInstance::create([
             'cluster_id' => $cluster->id,

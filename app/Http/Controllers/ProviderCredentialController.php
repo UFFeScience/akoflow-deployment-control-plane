@@ -7,6 +7,8 @@ use App\Http\Resources\ProviderCredentialResource;
 use App\Services\CreateProviderCredentialService;
 use App\Services\DeleteProviderCredentialService;
 use App\Services\ListProviderCredentialsService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ProviderCredentialController extends Controller
 {
@@ -16,7 +18,7 @@ class ProviderCredentialController extends Controller
         protected DeleteProviderCredentialService $deleteService,
     ) {}
 
-    public function index(string $providerId): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+    public function index(string $providerId): AnonymousResourceCollection
     {
         $credentials = $this->listService->handle($providerId);
         return ProviderCredentialResource::collection($credentials);
@@ -28,7 +30,7 @@ class ProviderCredentialController extends Controller
         return new ProviderCredentialResource($credential);
     }
 
-    public function destroy(string $providerId, string $credentialId): \Illuminate\Http\JsonResponse
+    public function destroy(string $providerId, string $credentialId): JsonResponse
     {
         $this->deleteService->handle($providerId, $credentialId);
         return response()->json(['message' => 'Credential deleted successfully']);

@@ -5,10 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CreateProviderRequest;
 use App\Http\Requests\UpdateProviderHealthRequest;
 use App\Http\Resources\ProviderResource;
+use App\Services\CreateProviderService;
 use App\Services\ListProvidersService;
 use App\Services\ShowProviderService;
-use App\Services\CreateProviderService;
 use App\Services\UpdateProviderHealthService;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ProviderController extends Controller
 {
@@ -19,7 +20,7 @@ class ProviderController extends Controller
         protected UpdateProviderHealthService $healthService,
     ) {}
 
-    public function index(): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
+    public function index(): AnonymousResourceCollection
     {
         $list = $this->listService->handle();
         return ProviderResource::collection($list);

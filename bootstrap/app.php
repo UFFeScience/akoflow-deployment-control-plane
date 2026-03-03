@@ -1,8 +1,20 @@
 <?php
 
+use App\Exceptions\ClusterNotFoundException;
+use App\Exceptions\ExperimentNotFoundException;
+use App\Exceptions\InstanceNotFoundException;
+use App\Exceptions\InvalidPasswordException;
+use App\Exceptions\MemberAlreadyExistsException;
+use App\Exceptions\OrganizationNotFoundException;
+use App\Exceptions\ProjectNotFoundException;
+use App\Exceptions\UnauthorizedExperimentAccessException;
+use App\Exceptions\UnauthorizedOrganizationAccessException;
+use App\Exceptions\UnauthorizedProjectAccessException;
+use App\Exceptions\UserNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,8 +24,50 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (OrganizationNotFoundException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 404);
+        });
+
+        $exceptions->render(function (ProjectNotFoundException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 404);
+        });
+
+        $exceptions->render(function (UserNotFoundException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 404);
+        });
+
+        $exceptions->render(function (ExperimentNotFoundException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 404);
+        });
+
+        $exceptions->render(function (ClusterNotFoundException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 404);
+        });
+
+        $exceptions->render(function (InstanceNotFoundException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 404);
+        });
+
+        $exceptions->render(function (InvalidPasswordException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 401);
+        });
+
+        $exceptions->render(function (MemberAlreadyExistsException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 409);
+        });
+
+        $exceptions->render(function (UnauthorizedOrganizationAccessException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 403);
+        });
+
+        $exceptions->render(function (UnauthorizedProjectAccessException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 403);
+        });
+
+        $exceptions->render(function (UnauthorizedExperimentAccessException $e, Request $request) {
+            return response()->json(['error' => $e->getMessage()], 403);
+        });
     })->create();
