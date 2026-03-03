@@ -25,10 +25,14 @@ class CreateClusterService
         return DB::transaction(function () use ($experimentId, $data) {
             $data['experiment_id'] = $experimentId;
 
-            // Default cluster template if not provided
+            // Default cluster template if not provided — only set if one actually exists
             if (empty($data['cluster_template_id'])) {
                 $fallbackTemplateId = ClusterTemplate::value('id');
-                $data['cluster_template_id'] = $fallbackTemplateId;
+                if ($fallbackTemplateId) {
+                    $data['cluster_template_id'] = $fallbackTemplateId;
+                } else {
+                    unset($data['cluster_template_id']);
+                }
             }
 
             // Default environment type
