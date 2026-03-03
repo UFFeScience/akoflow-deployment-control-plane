@@ -16,6 +16,8 @@ class CreateProviderRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255',
+            'slug' => 'nullable|string|max:100|unique:providers,slug',
+            'description' => 'nullable|string',
             'type' => ['required','string', function($attr, $value, $fail) {
                 if (!in_array($value, Provider::TYPES, true)) {
                     $fail('Invalid provider type');

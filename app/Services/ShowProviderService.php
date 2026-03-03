@@ -2,17 +2,17 @@
 
 namespace App\Services;
 
+use App\Models\Provider;
 use App\Repositories\ProviderRepository;
-use Illuminate\Database\Eloquent\Collection;
 
-class ListProvidersService
+class ShowProviderService
 {
     public function __construct(private ProviderRepository $providers)
     {
     }
 
-    public function handle(): Collection
+    public function handle(string $id): Provider
     {
-        return $this->providers->allWithCredentialsCount();
+        return $this->providers->findWithCredentialsCountOrFail($id);
     }
 }

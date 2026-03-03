@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Provider extends Model
 {
 	protected $table = 'providers';
-	protected $fillable = ['name', 'type', 'status', 'health_status', 'health_message', 'last_health_check_at'];
+	protected $fillable = ['name', 'slug', 'description', 'type', 'status', 'health_status', 'health_message', 'last_health_check_at'];
 
 	public const TYPES = ['CLOUD', 'ON_PREM', 'HPC'];
 	public const STATUSES = ['ACTIVE', 'DEGRADED', 'DOWN', 'MAINTENANCE'];
@@ -26,5 +26,10 @@ class Provider extends Model
 	public function clusters(): HasMany
 	{
 		return $this->hasMany(Cluster::class, 'provider_id');
+	}
+
+	public function credentials(): HasMany
+	{
+		return $this->hasMany(ProviderCredential::class, 'provider_id');
 	}
 }

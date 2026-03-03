@@ -7,6 +7,7 @@ use Database\Seeders\Development\UsersSeeder;
 use Database\Seeders\Development\OrganizationsSeeder;
 use Database\Seeders\Development\ProjectsSeeder;
 use Database\Seeders\Development\ProvidersSeeder;
+use Database\Seeders\Development\ProviderSchemasSeeder;
 use Database\Seeders\Development\InstanceTypesSeeder;
 use Database\Seeders\Development\TemplatesSeeder;
 use Database\Seeders\Development\ExperimentsSeeder;
@@ -20,6 +21,7 @@ class DevelopmentSeeder extends Seeder
             OrganizationsSeeder::class,
             ProjectsSeeder::class,
             ProvidersSeeder::class,
+            ProviderSchemasSeeder::class,
             InstanceTypesSeeder::class,
             TemplatesSeeder::class,
             ExperimentsSeeder::class,

@@ -7,6 +7,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProviderController;
+use App\Http\Controllers\ProviderCredentialController;
+use App\Http\Controllers\ProviderVariableSchemaController;
 use App\Http\Controllers\InstanceTypeController;
 use App\Http\Controllers\ExperimentTemplateController;
 use App\Http\Controllers\ExperimentController;
@@ -58,7 +60,17 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     // AkôCloud core infrastructure module
     Route::get('/providers', [ProviderController::class, 'index']);
     Route::post('/providers', [ProviderController::class, 'store']);
+    Route::get('/providers/{id}', [ProviderController::class, 'show']);
     Route::patch('/providers/{id}/health', [ProviderController::class, 'updateHealth']);
+
+    // Provider credentials
+    Route::get('/providers/{providerId}/credentials', [ProviderCredentialController::class, 'index']);
+    Route::post('/providers/{providerId}/credentials', [ProviderCredentialController::class, 'store']);
+    Route::delete('/providers/{providerId}/credentials/{credentialId}', [ProviderCredentialController::class, 'destroy']);
+
+    // Provider variable schemas
+    Route::get('/provider-type-schemas', [ProviderVariableSchemaController::class, 'index']);
+    Route::get('/provider-type-schemas/{slug}', [ProviderVariableSchemaController::class, 'show']);
 
     Route::get('/instance-types', [InstanceTypeController::class, 'index']);
     Route::post('/instance-types', [InstanceTypeController::class, 'store']);

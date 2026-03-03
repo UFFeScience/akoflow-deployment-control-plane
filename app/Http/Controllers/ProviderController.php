@@ -6,6 +6,7 @@ use App\Http\Requests\CreateProviderRequest;
 use App\Http\Requests\UpdateProviderHealthRequest;
 use App\Http\Resources\ProviderResource;
 use App\Services\ListProvidersService;
+use App\Services\ShowProviderService;
 use App\Services\CreateProviderService;
 use App\Services\UpdateProviderHealthService;
 
@@ -13,6 +14,7 @@ class ProviderController extends Controller
 {
     public function __construct(
         protected ListProvidersService $listService,
+        protected ShowProviderService $showService,
         protected CreateProviderService $createService,
         protected UpdateProviderHealthService $healthService,
     ) {}
@@ -21,6 +23,12 @@ class ProviderController extends Controller
     {
         $list = $this->listService->handle();
         return ProviderResource::collection($list);
+    }
+
+    public function show(string $id): ProviderResource
+    {
+        $provider = $this->showService->handle($id);
+        return new ProviderResource($provider);
     }
 
     public function store(CreateProviderRequest $request): ProviderResource

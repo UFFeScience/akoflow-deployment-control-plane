@@ -10,17 +10,19 @@ class ProvidersSeeder extends Seeder
     public function run(): void
     {
         $providers = [
-            ['name' => 'AWS', 'type' => 'CLOUD'],
-            ['name' => 'GCP', 'type' => 'CLOUD'],
-            ['name' => 'HPC', 'type' => 'HPC'],
+            ['name' => 'AWS',  'slug' => 'aws',   'type' => 'CLOUD', 'description' => 'Amazon Web Services — public cloud provider.'],
+            ['name' => 'GCP',  'slug' => 'gcp',   'type' => 'CLOUD', 'description' => 'Google Cloud Platform — public cloud provider.'],
+            ['name' => 'HPC',  'slug' => 'slurm', 'type' => 'HPC',   'description' => 'On-premises HPC cluster managed via Slurm workload manager.'],
         ];
 
         foreach ($providers as $provider) {
             Provider::firstOrCreate(
                 ['name' => $provider['name']],
                 [
-                    'type' => $provider['type'],
-                    'status' => 'ACTIVE',
+                    'slug'          => $provider['slug'],
+                    'description'   => $provider['description'],
+                    'type'          => $provider['type'],
+                    'status'        => 'ACTIVE',
                     'health_status' => 'HEALTHY',
                 ]
             );
