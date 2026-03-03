@@ -9,6 +9,7 @@ use App\Http\Resources\ExperimentTemplateVersionResource;
 use App\Services\ListExperimentTemplatesService;
 use App\Services\CreateExperimentTemplateService;
 use App\Services\AddExperimentTemplateVersionService;
+use App\Services\GetActiveExperimentTemplateVersionService;
 
 class ExperimentTemplateController extends Controller
 {
@@ -16,6 +17,7 @@ class ExperimentTemplateController extends Controller
         protected ListExperimentTemplatesService $listService,
         protected CreateExperimentTemplateService $createService,
         protected AddExperimentTemplateVersionService $addVersionService,
+        protected GetActiveExperimentTemplateVersionService $activeVersionService,
     ) {}
 
     public function index()
@@ -32,6 +34,15 @@ class ExperimentTemplateController extends Controller
     public function addVersion(string $id, CreateExperimentTemplateVersionRequest $request)
     {
         $version = $this->addVersionService->handle($id, $request->validated());
+        return new ExperimentTemplateVersionResource($version);
+    }
+
+    public function showActiveVersion(string $id)
+    {
+        $version = $this->activeVersionService->handle($id);
+        if (!$version) {
+            return response()->json(['error' => 'No active version found for this template'], 404);
+        }
         return new ExperimentTemplateVersionResource($version);
     }
 }

@@ -66,6 +66,7 @@ Route::middleware([AuthMiddleware::class])->group(function () {
 
     Route::get('/experiment-templates', [ExperimentTemplateController::class, 'index']);
     Route::post('/experiment-templates', [ExperimentTemplateController::class, 'store']);
+    Route::get('/experiment-templates/{id}/versions/active', [ExperimentTemplateController::class, 'showActiveVersion']);
     Route::post('/experiment-templates/{id}/versions', [ExperimentTemplateController::class, 'addVersion']);
 
     Route::get('/projects/{projectId}/experiments', [ExperimentController::class, 'index']);

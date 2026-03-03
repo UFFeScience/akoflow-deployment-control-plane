@@ -18,4 +18,13 @@ class ExperimentTemplateVersionRepository extends BaseRepository
             ->where('id', '!=', $exceptId)
             ->update(['is_active' => false]);
     }
+
+    public function getActiveByTemplateId(string $templateId): ?\App\Models\ExperimentTemplateVersion
+    {
+        return $this->model
+            ->where('template_id', $templateId)
+            ->where('is_active', true)
+            ->latest('created_at')
+            ->first();
+    }
 }

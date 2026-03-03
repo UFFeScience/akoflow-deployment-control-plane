@@ -13,7 +13,10 @@ class ExperimentRepository extends BaseRepository
 
     public function listByProject(string $projectId)
     {
-        return $this->model->where('project_id', $projectId)->get();
+        return $this->model
+            ->where('project_id', $projectId)
+            ->with(['templateVersion.template'])
+            ->get();
     }
 
     public function findByProject(string $projectId, string $id): ?Experiment
@@ -21,6 +24,7 @@ class ExperimentRepository extends BaseRepository
         return $this->model
             ->where('project_id', $projectId)
             ->where('id', $id)
+            ->with(['templateVersion.template'])
             ->first();
     }
 }
