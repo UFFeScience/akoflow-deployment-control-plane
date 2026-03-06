@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ExperimentTemplateVersion extends Model
 {
@@ -19,5 +20,10 @@ class ExperimentTemplateVersion extends Model
     public function template(): BelongsTo
     {
         return $this->belongsTo(ExperimentTemplate::class, 'template_id');
+    }
+
+    public function terraformModule(): HasOne
+    {
+        return $this->hasOne(ExperimentTemplateTerraformModule::class, 'template_version_id');
     }
 }

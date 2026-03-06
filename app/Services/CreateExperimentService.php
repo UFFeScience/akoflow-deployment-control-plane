@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\ProvisionExperimentJob;
 use App\Repositories\ExperimentRepository;
 use App\Repositories\ExperimentTemplateVersionRepository;
 use App\Models\Experiment;
@@ -39,7 +40,14 @@ class CreateExperimentService
             }
         }
 
-        return $this->experiments->create($data);
+        $experiment = $this->experiments->create($data);
+
+        // Dispatch Terraform provisioning job asynchronously.
+        // The job will generate the workspace, run terraform apply, and
+        // update the experiment status to RUNNING (or FAILED).
+        ProvisionExperimentJob::dispatch($experiment->id);
+
+        return $experiment;
     }
 
     /**

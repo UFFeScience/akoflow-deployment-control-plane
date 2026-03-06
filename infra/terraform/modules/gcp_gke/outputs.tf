@@ -1,0 +1,29 @@
+output "gke_cluster_name" {
+  description = "GKE cluster name"
+  value       = google_container_cluster.primary.name
+}
+
+output "gke_endpoint" {
+  description = "GKE cluster endpoint"
+  value       = google_container_cluster.primary.endpoint
+  sensitive   = true
+}
+
+output "akoflow_instance_name" {
+  description = "Akoflow compute instance name"
+  value       = google_compute_instance.akoflow.name
+}
+
+output "akoflow_public_ip" {
+  description = "Akoflow public IP (if enabled)"
+  value = (
+    var.akoflow_enable_public_ip ?
+    google_compute_instance.akoflow.network_interface[0].access_config[0].nat_ip :
+    null
+  )
+}
+
+output "vpc_name" {
+  description = "VPC network name"
+  value       = google_compute_network.vpc.name
+}

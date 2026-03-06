@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\TemplateTerraformModuleResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ExperimentTemplateVersionResource extends JsonResource
@@ -9,12 +10,16 @@ class ExperimentTemplateVersionResource extends JsonResource
     public function toArray($request): array
     {
         return [
-            'id' => $this->id,
-            'template_id' => $this->template_id,
-            'version' => $this->version,
-            'definition_json' => $this->definition_json,
-            'is_active' => (bool) $this->is_active,
-            'created_at' => $this->created_at,
+            'id'                  => $this->id,
+            'template_id'         => $this->template_id,
+            'version'             => $this->version,
+            'definition_json'     => $this->definition_json,
+            'is_active'           => (bool) $this->is_active,
+            'terraform_module'    => $this->whenLoaded(
+                'terraformModule',
+                fn() => new TemplateTerraformModuleResource($this->terraformModule),
+            ),
+            'created_at'          => $this->created_at,
         ];
     }
 }

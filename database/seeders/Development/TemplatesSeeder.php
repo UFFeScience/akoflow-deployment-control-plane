@@ -20,7 +20,7 @@ class TemplatesSeeder extends Seeder
         return [
             [
                 'slug'                  => 'akoflow-gke',
-                'name'                  => 'AkoFlow + GKE',
+                'name'                  => 'Workflow Orchestration on Google Kubernetes Engine',
                 'runtime_type'          => 'AKOFLOW',
                 'description'           => 'AkoFlow orchestrator running on top of a Google Kubernetes Engine cluster. '
                     . 'Includes one GKE node-pool and one AkoFlow compute instance.',

@@ -1,0 +1,273 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Experiment;
+use App\Models\ExperimentTemplateTerraformModule;
+
+/**
+ * Generic Terraform workspace builder.
+ *
+ * All HCL content, variable mappings, type casts, and provider configuration
+ * come exclusively from the ExperimentTemplateTerraformModule record stored in
+ * the database. No template- or provider-specific logic lives here.
+ *
+ * ── tfvars_mapping_json format ────────────────────────────────────────────────
+ *
+ * Each leaf entry can be:
+ *   a) a plain string  → Terraform variable name, value passed as-is
+ *   b) an object       → { "tf_var": "var_name", "cast": "int|float|bool|string|json" }
+ *
+ * Example:
+ * {
+ *   "experiment_configuration": {
+ *     "nvflare_version": "nvflare_version",
+ *     "fl_rounds":       { "tf_var": "fl_rounds", "cast": "int" },
+ *     "enable_tls":      { "tf_var": "enable_tls", "cast": "bool" }
+ *   },
+ *   "instance_configurations": {
+ *     "nvflare-server": {
+ *       "instance_type":  "server_instance_type",
+ *       "disk_size_gb":   { "tf_var": "server_disk_size_gb", "cast": "int" }
+ *     }
+ *   }
+ * }
+ *
+ * ── credential_env_keys (optional DB field) ───────────────────────────────────
+ *
+ * An array of environment-variable names the worker must expose to the
+ * Terraform container. Read from ExperimentTemplateTerraformModule::credential_env_keys.
+ * Example: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]
+ *
+ * ── Directory layout (storage/app/terraform/{experiment_id}/) ─────────────────
+ *   main.tf                – from DB main_tf
+ *   variables.tf           – from DB variables_tf (optional)
+ *   outputs.tf             – from DB outputs_tf (optional)
+ *   terraform.tfvars.json  – produced by applying tfvars_mapping_json
+ *   .env                   – credential env vars listed in credential_env_keys
+ */
+class TerraformWorkspaceService
+{
+    private const BASE_DIR = 'terraform';
+
+    public function workspaceRelativePath(Experiment $experiment): string
+    {
+        return self::BASE_DIR . '/' . $experiment->id;
+    }
+
+    public function workspaceAbsolutePath(Experiment $experiment): string
+    {
+        return storage_path('app/' . $this->workspaceRelativePath($experiment));
+    }
+
+    /**
+     * Build the workspace directory and write all Terraform files from DB.
+     *
+     * @throws \RuntimeException when no TerraformModule is registered for the template version.
+     * @return array{workspace_path: string, provider_type: string, tfvars: array}
+     */
+    public function build(Experiment $experiment): array
+    {
+        $tfModule = $this->loadModule($experiment);
+
+        $workspacePath = $this->workspaceAbsolutePath($experiment);
+        if (!is_dir($workspacePath)) {
+            mkdir($workspacePath, 0755, true);
+        }
+
+        // 1. Write HCL files from DB
+        $this->writeHclFiles($tfModule, $workspacePath);
+
+        // 2. Build tfvars by applying DB mapping to experiment's configuration_json
+        $tfvars = $this->buildTfvars($experiment, $tfModule);
+
+        // 3. Write tfvars.json
+        file_put_contents(
+            $workspacePath . '/terraform.tfvars.json',
+            json_encode($tfvars, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+        );
+
+        // 4. Write .env with credentials declared in the template module
+        file_put_contents($workspacePath . '/.env', $this->buildEnvFile($tfModule));
+
+        return [
+            'workspace_path' => $workspacePath,
+            'provider_type'  => $tfModule->provider_type ?? 'unknown',
+            'tfvars'         => $tfvars,
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Module loading
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function loadModule(Experiment $experiment): ExperimentTemplateTerraformModule
+    {
+        if (empty($experiment->experiment_template_version_id)) {
+            throw new RuntimeException(
+                "Experiment {$experiment->id} has no template version assigned. A TerraformModule cannot be resolved without a template version.",
+            );
+        }
+
+        $version = $experiment->templateVersion()->with('terraformModule')->first();
+        $module  = $version?->terraformModule;
+
+        if (!$module) {
+            throw new \RuntimeException(
+                "Template version #{$experiment->experiment_template_version_id} " .
+                'has no TerraformModule configured. ' .
+                'Register one via PUT /experiment-templates/{id}/versions/{versionId}/terraform-module.',
+            );
+        }
+
+        if (empty($module->main_tf)) {
+            throw new \RuntimeException(
+                "TerraformModule #{$module->id} has no main_tf content. " .
+                'Set the main_tf field with valid HCL before provisioning.',
+            );
+        }
+
+        return $module;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HCL file writing
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function writeHclFiles(ExperimentTemplateTerraformModule $module, string $workspacePath): void
+    {
+        file_put_contents($workspacePath . '/main.tf', $module->main_tf);
+
+        if (!empty($module->variables_tf)) {
+            file_put_contents($workspacePath . '/variables.tf', $module->variables_tf);
+        }
+
+        if (!empty($module->outputs_tf)) {
+            file_put_contents($workspacePath . '/outputs.tf', $module->outputs_tf);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Tfvars building — fully driven by DB mapping
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function buildTfvars(Experiment $experiment, ExperimentTemplateTerraformModule $module): array
+    {
+        $base    = ['experiment_id' => (string) $experiment->id];
+        $mapping = $module->tfvars_mapping_json ?? [];
+
+        if (empty($mapping)) {
+            return $base;
+        }
+
+        return $base + $this->applyMapping($experiment->configuration_json ?? [], $mapping);
+    }
+
+    /**
+     * Applies tfvars_mapping_json to the experiment configuration, respecting
+     * optional type casts declared per field.
+     *
+     * Each entry value may be:
+     *   - string  → Terraform variable name, value passed as-is
+     *   - array   → { "tf_var": string, "cast": "int|float|bool|string|json" }
+     */
+    private function applyMapping(array $config, array $mapping): array
+    {
+        $tfvars = [];
+
+        // ── experiment_configuration fields ───────────────────────────────
+        $expCfg      = $config['experiment_configuration'] ?? [];
+        $expMappings = $mapping['experiment_configuration'] ?? [];
+
+        foreach ($expMappings as $configField => $entry) {
+            if (array_key_exists($configField, $expCfg)) {
+                [$tfVar, $cast] = $this->parseEntry($entry);
+                $tfvars[$tfVar] = $this->castValue($expCfg[$configField], $cast);
+            }
+        }
+
+        // ── instance_configurations fields ────────────────────────────────
+        $instCfgs     = $config['instance_configurations'] ?? [];
+        $instMappings = $mapping['instance_configurations'] ?? [];
+
+        foreach ($instMappings as $instanceKey => $fieldMappings) {
+            $instance = $instCfgs[$instanceKey] ?? [];
+            foreach ($fieldMappings as $configField => $entry) {
+                if (array_key_exists($configField, $instance)) {
+                    [$tfVar, $cast] = $this->parseEntry($entry);
+                    $tfvars[$tfVar] = $this->castValue($instance[$configField], $cast);
+                }
+            }
+        }
+
+        return $tfvars;
+    }
+
+    /**
+     * Parses a mapping entry into [tf_var_name, cast_type|null].
+     *
+     * Accepts:
+     *   "variable_name"                               → ['variable_name', null]
+     *   { "tf_var": "variable_name", "cast": "int" }  → ['variable_name', 'int']
+     */
+    private function parseEntry(mixed $entry): array
+    {
+        if (is_string($entry)) {
+            return [$entry, null];
+        }
+
+        if (is_array($entry) && isset($entry['tf_var'])) {
+            return [$entry['tf_var'], $entry['cast'] ?? null];
+        }
+
+        throw new \InvalidArgumentException(
+            'Invalid tfvars_mapping_json entry. Expected a string or ' .
+            '{"tf_var": "name", "cast": "int|float|bool|string|json"}. Got: ' .
+            json_encode($entry),
+        );
+    }
+
+    /**
+     * Casts a value to the declared type.
+     *
+     * Supported casts: int, float, bool, string, json.
+     * When cast is null the value is returned as-is (preserving the original type).
+     */
+    private function castValue(mixed $value, ?string $cast): mixed
+    {
+        return match ($cast) {
+            'int'    => (int)    $value,
+            'float'  => (float)  $value,
+            'bool'   => (bool)   $value,
+            'string' => (string) $value,
+            'json'   => is_string($value) ? json_decode($value, true) : $value,
+            default  => $value,
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // .env credential file — keys declared in the DB module record
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Writes a .env file containing the credentials the Terraform container
+     * needs. The list of environment variable names comes from the DB field
+     * `credential_env_keys` (JSON array of strings).
+     *
+     * Example DB value: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
+     *
+     * Each key is resolved from the application's own environment at job
+     * dispatch time. Unknown keys produce empty values (safe default).
+     */
+    private function buildEnvFile(ExperimentTemplateTerraformModule $module): string
+    {
+        $keys  = $module->credential_env_keys ?? [];
+        $lines = [];
+
+        foreach ($keys as $key) {
+            $lines[] = $key . '=' . env($key, '');
+        }
+
+        return implode("\n", $lines) . "\n";
+    }
+}

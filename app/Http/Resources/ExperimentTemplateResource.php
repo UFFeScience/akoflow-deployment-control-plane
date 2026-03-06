@@ -8,16 +8,29 @@ class ExperimentTemplateResource extends JsonResource
 {
     public function toArray($request): array
     {
+        $versions = $this->whenLoaded('versions');
+
+        $activeVersion = null;
+        if ($this->relationLoaded('versions')) {
+            $activeVersion = $this->versions->firstWhere('is_active', true);
+        }
+
         return [
-            'id' => $this->id,
-            'name' => $this->name,
-            'slug' => $this->slug,
-            'runtime_type' => $this->runtime_type,
-            'description' => $this->description,
-            'is_public' => (bool)$this->is_public,
+            'id'                    => $this->id,
+            'name'                  => $this->name,
+            'slug'                  => $this->slug,
+            'runtime_type'          => $this->runtime_type,
+            'description'           => $this->description,
+            'is_public'             => (bool) $this->is_public,
             'owner_organization_id' => $this->owner_organization_id,
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+            'versions_count'        => $this->relationLoaded('versions') ? $this->versions->count() : null,
+            'active_version'        => $activeVersion ? new ExperimentTemplateVersionResource($activeVersion) : null,
+            'versions'              => $this->whenLoaded('versions', fn() =>
+                ExperimentTemplateVersionResource::collection($this->versions)
+            ),
+            'created_at'            => $this->created_at,
+            'updated_at'            => $this->updated_at,
         ];
     }
 }
+
