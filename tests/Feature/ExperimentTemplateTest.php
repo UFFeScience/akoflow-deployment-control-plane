@@ -97,4 +97,192 @@ class ExperimentTemplateTest extends TestCase
             'version' => 'v2',
         ]);
     }
+
+    public function test_user_can_get_experiment_template_by_id(): void
+    {
+        $user = User::factory()->create();
+        $template = ExperimentTemplate::create([
+            'name'         => 'Findable Template',
+            'slug'         => 'findable-template',
+            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
+            'description'  => 'A template to fetch by id',
+            'is_public'    => true,
+        ]);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/experiment-templates/{$template->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.id', $template->id)
+            ->assertJsonPath('data.slug', 'findable-template');
+    }
+
+    public function test_show_template_returns_404_for_nonexistent_id(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson('/api/experiment-templates/99999');
+
+        $response->assertStatus(404);
+    }
+
+    public function test_user_can_list_experiment_template_versions(): void
+    {
+        $user = User::factory()->create();
+        $template = ExperimentTemplate::create([
+            'name'         => 'Versioned Template',
+            'slug'         => 'versioned-template-list',
+            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
+            'is_public'    => true,
+        ]);
+        ExperimentTemplateVersion::create([
+            'template_id'     => $template->id,
+            'version'         => 'v1',
+            'definition_json' => ['steps' => []],
+            'is_active'       => false,
+        ]);
+        ExperimentTemplateVersion::create([
+            'template_id'     => $template->id,
+            'version'         => 'v2',
+            'definition_json' => ['steps' => []],
+            'is_active'       => true,
+        ]);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/experiment-templates/{$template->id}/versions");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data');
+    }
+
+    public function test_list_versions_returns_404_for_nonexistent_template(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson('/api/experiment-templates/99999/versions');
+
+        $response->assertStatus(404);
+    }
+
+    public function test_user_can_get_experiment_template_version_by_id(): void
+    {
+        $user = User::factory()->create();
+        $template = ExperimentTemplate::create([
+            'name'         => 'Template Show Version',
+            'slug'         => 'template-show-version',
+            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
+            'is_public'    => true,
+        ]);
+        $version = ExperimentTemplateVersion::create([
+            'template_id'     => $template->id,
+            'version'         => 'v3',
+            'definition_json' => ['steps' => []],
+            'is_active'       => true,
+        ]);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/experiment-templates/{$template->id}/versions/{$version->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.id', $version->id)
+            ->assertJsonPath('data.version', 'v3');
+    }
+
+    public function test_show_version_returns_404_for_nonexistent_version(): void
+    {
+        $user = User::factory()->create();
+        $template = ExperimentTemplate::create([
+            'name'         => 'Template 404 Version',
+            'slug'         => 'template-404-version',
+            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
+            'is_public'    => true,
+        ]);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/experiment-templates/{$template->id}/versions/99999");
+
+        $response->assertStatus(404);
+    }
+
+    public function test_user_can_activate_experiment_template_version(): void
+    {
+        $user = User::factory()->create();
+        $template = ExperimentTemplate::create([
+            'name'         => 'Template Activate',
+            'slug'         => 'template-activate',
+            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
+            'is_public'    => true,
+        ]);
+        $v1 = ExperimentTemplateVersion::create([
+            'template_id'     => $template->id,
+            'version'         => 'v1',
+            'definition_json' => ['steps' => []],
+            'is_active'       => true,
+        ]);
+        $v2 = ExperimentTemplateVersion::create([
+            'template_id'     => $template->id,
+            'version'         => 'v2',
+            'definition_json' => ['steps' => []],
+            'is_active'       => false,
+        ]);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->patchJson("/api/experiment-templates/{$template->id}/versions/{$v2->id}/activate");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.version', 'v2');
+
+        $this->assertDatabaseHas('experiment_template_versions', [
+            'id'        => $v2->id,
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_activate_version_returns_404_for_nonexistent_version(): void
+    {
+        $user = User::factory()->create();
+        $template = ExperimentTemplate::create([
+            'name'         => 'Template Activate 404',
+            'slug'         => 'template-activate-404',
+            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
+            'is_public'    => true,
+        ]);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->patchJson("/api/experiment-templates/{$template->id}/versions/99999/activate");
+
+        $response->assertStatus(404);
+    }
+
+    public function test_user_can_get_active_version_for_template(): void
+    {
+        $user = User::factory()->create();
+        $template = ExperimentTemplate::create([
+            'name'         => 'Template Active Version',
+            'slug'         => 'template-active-version',
+            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
+            'is_public'    => true,
+        ]);
+        ExperimentTemplateVersion::create([
+            'template_id'     => $template->id,
+            'version'         => 'v1',
+            'definition_json' => ['steps' => []],
+            'is_active'       => false,
+        ]);
+        $active = ExperimentTemplateVersion::create([
+            'template_id'     => $template->id,
+            'version'         => 'v2',
+            'definition_json' => ['steps' => []],
+            'is_active'       => true,
+        ]);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/experiment-templates/{$template->id}/versions/active");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.id', $active->id)
+            ->assertJsonPath('data.version', 'v2');
+    }
 }

@@ -9,8 +9,9 @@ use Illuminate\Database\Seeder;
 /**
  * Seeds ExperimentTemplateTerraformModule for the two built-in templates.
  *
- * HCL content is read directly from infra/terraform/modules/{slug}/ so the
- * source of truth for the actual Terraform code stays in the repository files.
+ * HCL content is embedded directly in this seeder — it is the single source
+ * of truth for built-in Terraform modules. No files from infra/terraform/ are
+ * read at runtime; everything lives in the database after seeding.
  *
  * tfvars_mapping_json maps experiment configuration_json fields → Terraform
  * variable names, with optional type cast declarations.
@@ -59,14 +60,12 @@ class TemplateTerraformModulesSeeder extends Seeder
 
     private function awsNvflare(): array
     {
-        $base = base_path('infra/terraform/modules/aws_nvflare');
-
         return [
             'module_slug'         => 'aws_nvflare',
             'provider_type'       => 'aws',
-            'main_tf'             => file_get_contents("{$base}/main.tf"),
-            'variables_tf'        => file_get_contents("{$base}/variables.tf"),
-            'outputs_tf'          => file_get_contents("{$base}/outputs.tf"),
+            'main_tf'             => $this->awsNvflareMainTf(),
+            'variables_tf'        => $this->awsNvflareVariablesTf(),
+            'outputs_tf'          => $this->awsNvflareOutputsTf(),
             'credential_env_keys' => [
                 'AWS_ACCESS_KEY_ID',
                 'AWS_SECRET_ACCESS_KEY',
@@ -124,14 +123,12 @@ class TemplateTerraformModulesSeeder extends Seeder
 
     private function gcpGke(): array
     {
-        $base = base_path('infra/terraform/modules/gcp_gke');
-
         return [
             'module_slug'         => 'gcp_gke',
             'provider_type'       => 'gcp',
-            'main_tf'             => file_get_contents("{$base}/main.tf"),
-            'variables_tf'        => file_get_contents("{$base}/variables.tf"),
-            'outputs_tf'          => file_get_contents("{$base}/outputs.tf"),
+            'main_tf'             => $this->gcpGkeMainTf(),
+            'variables_tf'        => $this->gcpGkeVariablesTf(),
+            'outputs_tf'          => $this->gcpGkeOutputsTf(),
             'credential_env_keys' => [
                 'GOOGLE_CREDENTIALS',
                 'GOOGLE_PROJECT',
@@ -166,5 +163,43 @@ class TemplateTerraformModulesSeeder extends Seeder
                 ],
             ],
         ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HCL file readers — aws_nvflare
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function awsNvflareMainTf(): string
+    {
+        return file_get_contents(__DIR__ . '/TemplateDefinitions/terraform/modules/aws_nvflare/main.tf');
+    }
+
+    private function awsNvflareVariablesTf(): string
+    {
+        return file_get_contents(__DIR__ . '/TemplateDefinitions/terraform/modules/aws_nvflare/variables.tf');
+    }
+
+    private function awsNvflareOutputsTf(): string
+    {
+        return file_get_contents(__DIR__ . '/TemplateDefinitions/terraform/modules/aws_nvflare/outputs.tf');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HCL file readers — gcp_gke
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function gcpGkeMainTf(): string
+    {
+        return file_get_contents(__DIR__ . '/TemplateDefinitions/terraform/modules/gcp_gke/main.tf');
+    }
+
+    private function gcpGkeVariablesTf(): string
+    {
+        return file_get_contents(__DIR__ . '/TemplateDefinitions/terraform/modules/gcp_gke/variables.tf');
+    }
+
+    private function gcpGkeOutputsTf(): string
+    {
+        return file_get_contents(__DIR__ . '/TemplateDefinitions/terraform/modules/gcp_gke/outputs.tf');
     }
 }
