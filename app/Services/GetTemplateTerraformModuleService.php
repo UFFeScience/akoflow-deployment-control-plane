@@ -18,6 +18,12 @@ class GetTemplateTerraformModuleService
         return $this->moduleRepository->findAllByVersionId($versionId);
     }
 
+    /** Returns the first module for a version (any provider), or null if absent. */
+    public function firstForVersion(string $versionId): ?ExperimentTemplateTerraformModule
+    {
+        return $this->moduleRepository->findFirstByVersion($versionId);
+    }
+
     /** Returns a single module by version + providerType, or null if absent. */
     public function handle(string $versionId, string $providerType): ?ExperimentTemplateTerraformModule
     {

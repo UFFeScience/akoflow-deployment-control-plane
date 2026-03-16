@@ -39,7 +39,6 @@ class ClusterTest extends TestCase
         $template = ExperimentTemplate::create([
             'name'         => 'Cluster Template',
             'slug'         => 'cluster-template-' . uniqid(),
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
             'description'  => 'Cluster template description',
             'is_public'    => true,
         ]);

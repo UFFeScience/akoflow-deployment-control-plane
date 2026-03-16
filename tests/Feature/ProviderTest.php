@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\HealthStatus;
 use App\Models\Provider;
 use App\Models\User;
+use App\Services\CheckProviderHealthService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -184,6 +185,31 @@ class ProviderTest extends TestCase
             'health_status' => HealthStatus::UNHEALTHY->value,
             'health_message' => 'Timeouts detected',
         ]);
+    }
+
+    public function test_user_can_run_health_check(): void
+    {
+        $user = User::factory()->create();
+        $provider = Provider::create([
+            'name'   => 'HealthCheck Provider',
+            'slug'   => 'aws',
+            'type'   => Provider::TYPES[0],
+            'status' => Provider::STATUSES[0],
+        ]);
+
+        $mock = \Mockery::mock(CheckProviderHealthService::class);
+        $mock->shouldReceive('handle')
+            ->once()
+            ->with($provider->id)
+            ->andReturn($provider);
+
+        $this->app->instance(CheckProviderHealthService::class, $mock);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->postJson("/api/providers/{$provider->id}/health/check");
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.id', $provider->id);
     }
 
     // ─── Auth guard ───────────────────────────────────────────────────────────

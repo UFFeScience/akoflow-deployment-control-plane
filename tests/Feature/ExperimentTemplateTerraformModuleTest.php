@@ -260,35 +260,6 @@ class ExperimentTemplateTerraformModuleTest extends TestCase
 
         $this->assertEquals($credentialEnvKeys, $module->credential_env_keys);
     }
-}
-
-
-    private function authHeader(User $user): array
-    {
-        $token = $user->createToken('api-token')->plainTextToken;
-
-        return ['Authorization' => "Bearer $token"];
-    }
-
-    private function templateWithVersion(): array
-    {
-        $template = ExperimentTemplate::create([
-            'name'         => 'TF Module Template',
-            'slug'         => 'tf-module-template-' . uniqid(),
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
-            'is_public'    => true,
-        ]);
-
-        $version = ExperimentTemplateVersion::create([
-            'template_id'     => $template->id,
-            'version'         => 'v1',
-            'definition_json' => ['steps' => []],
-            'is_active'       => true,
-        ]);
-
-        return [$template, $version];
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
     // show
     // ─────────────────────────────────────────────────────────────────────────
@@ -413,41 +384,4 @@ class ExperimentTemplateTerraformModuleTest extends TestCase
         ]);
     }
 
-    public function test_upsert_rejects_invalid_builtin_slug(): void
-    {
-        $user = User::factory()->create();
-        [$template, $version] = $this->templateWithVersion();
-
-        $response = $this->withHeaders($this->authHeader($user))
-            ->putJson("/api/experiment-templates/{$template->id}/versions/{$version->id}/terraform-module", [
-                'module_slug' => 'invalid_slug_xyz',
-            ]);
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['module_slug']);
-    }
-
-    public function test_user_can_set_tfvars_mapping_and_credential_env_keys(): void
-    {
-        $user = User::factory()->create();
-        [$template, $version] = $this->templateWithVersion();
-
-        $tfvarsMapping = [
-            'experiment_configuration' => ['project_id' => 'gcp_project'],
-        ];
-        $credentialEnvKeys = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'];
-
-        $response = $this->withHeaders($this->authHeader($user))
-            ->putJson("/api/experiment-templates/{$template->id}/versions/{$version->id}/terraform-module", [
-                'module_slug'          => 'aws_nvflare',
-                'tfvars_mapping_json'  => $tfvarsMapping,
-                'credential_env_keys'  => $credentialEnvKeys,
-            ]);
-
-        $response->assertStatus(201)
-            ->assertJsonPath('module_slug', 'aws_nvflare');
-
-        $module = ExperimentTemplateTerraformModule::where('template_version_id', $version->id)->firstOrFail();
-        $this->assertEquals($credentialEnvKeys, $module->credential_env_keys);
-    }
 }

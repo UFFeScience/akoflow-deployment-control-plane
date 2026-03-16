@@ -25,6 +25,13 @@ class ExperimentTemplateTerraformModuleRepository extends BaseRepository
             ->first();
     }
 
+    public function findFirstByVersion(string $versionId): ?ExperimentTemplateTerraformModule
+    {
+        return ExperimentTemplateTerraformModule::where('template_version_id', $versionId)
+            ->orderBy('provider_type')
+            ->first();
+    }
+
     public function upsertForVersionAndProvider(string $versionId, string $providerType, array $data): ExperimentTemplateTerraformModule
     {
         $data['template_version_id'] = $versionId;

@@ -15,6 +15,7 @@ use App\Http\Controllers\ExperimentController;
 use App\Http\Controllers\ClusterController;
 use App\Http\Controllers\ProvisionedInstanceController;
 use App\Http\Controllers\TerraformRunController;
+use App\Http\Controllers\ExperimentTemplateTerraformModuleController;
 use App\Http\Middleware\AuthMiddleware;
 
 
@@ -90,15 +91,23 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     // Terraform modules for a template version (one per cloud provider)
     Route::get(
         '/experiment-templates/{templateId}/versions/{versionId}/terraform-modules',
-        [\App\Http\Controllers\ExperimentTemplateTerraformModuleController::class, 'index']
+        [ExperimentTemplateTerraformModuleController::class, 'index']
     )->name('template-versions.terraform-modules.index');
     Route::get(
+        '/experiment-templates/{templateId}/versions/{versionId}/terraform-module',
+        [ExperimentTemplateTerraformModuleController::class, 'showByVersion']
+    )->name('template-versions.terraform-module.show');
+    Route::get(
         '/experiment-templates/{templateId}/versions/{versionId}/terraform-modules/{providerType}',
-        [\App\Http\Controllers\ExperimentTemplateTerraformModuleController::class, 'show']
+        [ExperimentTemplateTerraformModuleController::class, 'show']
     )->name('template-versions.terraform-modules.show');
     Route::put(
+        '/experiment-templates/{templateId}/versions/{versionId}/terraform-module',
+        [ExperimentTemplateTerraformModuleController::class, 'upsertByVersion']
+    )->name('template-versions.terraform-module.upsert');
+    Route::put(
         '/experiment-templates/{templateId}/versions/{versionId}/terraform-modules/{providerType}',
-        [\App\Http\Controllers\ExperimentTemplateTerraformModuleController::class, 'upsert']
+        [ExperimentTemplateTerraformModuleController::class, 'upsert']
     )->name('template-versions.terraform-modules.upsert');
 
     Route::get('/projects/{projectId}/experiments', [ExperimentController::class, 'index']);

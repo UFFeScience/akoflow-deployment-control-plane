@@ -59,7 +59,7 @@ class ExperimentTemplateTest extends TestCase
             ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('data.slug', $slug)
+            ->assertJsonPath('data.slug', $slug);
 
         $this->assertDatabaseHas('experiment_templates', [
             'slug' => $slug,

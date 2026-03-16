@@ -40,7 +40,6 @@ class ProvisionedInstanceTest extends TestCase
         $template = ExperimentTemplate::create([
             'name'         => 'Instance Template',
             'slug'         => 'instance-template-' . uniqid(),
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
             'description'  => 'Template for instances',
             'is_public'    => true,
         ]);

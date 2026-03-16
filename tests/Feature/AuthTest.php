@@ -91,4 +91,12 @@ class AuthTest extends TestCase
                 'token',
             ]);
     }
+
+    public function test_user_can_call_lost_endpoint(): void
+    {
+        $response = $this->getJson('/api/lost');
+
+        $response->assertStatus(400)
+            ->assertJson(['message' => 'Lost Session']);
+    }
 }
