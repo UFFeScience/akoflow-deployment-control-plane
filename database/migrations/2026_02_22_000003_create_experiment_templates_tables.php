@@ -11,13 +11,11 @@ return new class extends Migration {
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
-            $table->string('runtime_type');
             $table->text('description')->nullable();
             $table->boolean('is_public')->default(false);
             $table->foreignId('owner_organization_id')->nullable()->constrained('organizations')->nullOnDelete();
             $table->timestamps();
 
-            $table->index('runtime_type');
             $table->index('owner_organization_id');
         });
 

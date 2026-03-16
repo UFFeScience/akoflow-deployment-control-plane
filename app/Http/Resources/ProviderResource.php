@@ -12,6 +12,7 @@ class ProviderResource extends JsonResource
             'id'                  => $this->id,
             'name'                => $this->name,
             'slug'                => $this->slug,
+            'default_module_slug' => $this->default_module_slug,
             'description'         => $this->description,
             'type'                => $this->type,
             'status'              => $this->status,

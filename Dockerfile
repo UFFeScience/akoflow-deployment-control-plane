@@ -26,6 +26,13 @@ RUN apt-get update && apt-get install -y \
     opcache \
     redis
 
+# Install Terraform
+RUN TERRAFORM_VERSION=1.9.5 && \
+    curl -fsSL https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o /tmp/terraform.zip && \
+    unzip /tmp/terraform.zip -d /usr/local/bin && \
+    rm /tmp/terraform.zip && \
+    terraform version
+
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 COPY . /var/www/html

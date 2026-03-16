@@ -10,17 +10,14 @@ return new class extends Migration {
         Schema::create('experiment_template_terraform_modules', function (Blueprint $table) {
             $table->id();
             $table->foreignId('template_version_id')
-                ->unique()
                 ->constrained('experiment_template_versions')
                 ->cascadeOnDelete();
 
-            // Referência a módulo built-in da plataforma (ex.: 'aws_nvflare', 'gcp_gke').
-            // Se preenchido, o workspace usa o módulo estático em infra/terraform/modules/{module_slug}.
-            $table->string('module_slug')->nullable();
+            // Tipo de provider – obrigatório, identifica o cloud alvo do módulo.
+            $table->string('provider_type'); // aws | gcp | azure | custom
 
-            // Tipo de provider derivado do módulo ou preenchido manualmente.
-            // Usado para injetar credenciais corretas no .env do workspace.
-            $table->string('provider_type')->nullable(); // aws | gcp | azure | custom
+            // Referência a módulo built-in da plataforma (ex.: 'aws_nvflare', 'gcp_gke').
+            $table->string('module_slug')->nullable();
 
             // Conteúdo HCL customizado – sobrepõe o módulo built-in quando presente.
             $table->longText('main_tf')->nullable();
@@ -28,19 +25,17 @@ return new class extends Migration {
             $table->longText('outputs_tf')->nullable();
 
             // Mapeamento configuration_json → variáveis Terraform.
-            // Estrutura:
-            // {
-            //   "experiment_configuration": { "<campo_config>": "<tf_var_name>" },
-            //   "instance_configurations": {
-            //     "<instance_key>": { "<campo_config>": "<tf_var_name>" }
-            //   }
-            // }
-            // Quando nulo, o sistema usa o mapeamento built-in baseado em provider_type.
             $table->json('tfvars_mapping_json')->nullable();
+
+            // Lista de variáveis de ambiente que o container Terraform precisa
+            // (ex.: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]).
+            $table->json('credential_env_keys')->nullable();
 
             $table->timestamp('created_at')->useCurrent();
             $table->timestamp('updated_at')->useCurrentOnUpdate()->useCurrent();
 
+            // Um módulo por version+provider
+            $table->unique(['template_version_id', 'provider_type'], 'terraform_modules_version_provider_unique');
             $table->index('module_slug');
             $table->index('provider_type');
         });

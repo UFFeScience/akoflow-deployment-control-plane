@@ -18,6 +18,15 @@ class ProviderRepository extends BaseRepository
         return $this->model->withCount('credentials')->orderBy('name')->get();
     }
 
+    public function allCloudWithCredentialsCount(): Collection
+    {
+        return $this->model
+            ->where('type', 'CLOUD')
+            ->withCount('credentials')
+            ->orderBy('name')
+            ->get();
+    }
+
     public function findOrFailById(string $id): Provider
     {
         $provider = $this->find($id);

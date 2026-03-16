@@ -15,7 +15,7 @@ class ListExperimentTemplateVersionsService
         }
 
         return $template->versions()
-            ->with('terraformModule')
+            ->with('terraformModules')
             ->orderBy('created_at', 'desc')
             ->get();
     }

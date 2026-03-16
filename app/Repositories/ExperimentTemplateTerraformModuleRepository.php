@@ -11,17 +11,27 @@ class ExperimentTemplateTerraformModuleRepository extends BaseRepository
         parent::__construct(new ExperimentTemplateTerraformModule());
     }
 
-    public function findByVersionId(string $versionId): ?ExperimentTemplateTerraformModule
+    public function findAllByVersionId(string $versionId): \Illuminate\Database\Eloquent\Collection
     {
-        return ExperimentTemplateTerraformModule::where('template_version_id', $versionId)->first();
+        return ExperimentTemplateTerraformModule::where('template_version_id', $versionId)
+            ->orderBy('provider_type')
+            ->get();
     }
 
-    public function upsertForVersion(string $versionId, array $data): ExperimentTemplateTerraformModule
+    public function findByVersionAndProvider(string $versionId, string $providerType): ?ExperimentTemplateTerraformModule
+    {
+        return ExperimentTemplateTerraformModule::where('template_version_id', $versionId)
+            ->where('provider_type', $providerType)
+            ->first();
+    }
+
+    public function upsertForVersionAndProvider(string $versionId, string $providerType, array $data): ExperimentTemplateTerraformModule
     {
         $data['template_version_id'] = $versionId;
+        $data['provider_type']       = $providerType;
 
         return ExperimentTemplateTerraformModule::updateOrCreate(
-            ['template_version_id' => $versionId],
+            ['template_version_id' => $versionId, 'provider_type' => $providerType],
             $data,
         );
     }

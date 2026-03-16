@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Provider extends Model
 {
 	protected $table = 'providers';
-	protected $fillable = ['name', 'slug', 'description', 'type', 'status', 'health_status', 'health_message', 'last_health_check_at'];
+	protected $fillable = ['name', 'slug', 'default_module_slug', 'description', 'type', 'status', 'health_status', 'health_message', 'last_health_check_at'];
 
 	public const TYPES = ['CLOUD', 'ON_PREM', 'HPC'];
 	public const STATUSES = ['ACTIVE', 'DEGRADED', 'DOWN', 'MAINTENANCE'];

@@ -15,4 +15,9 @@ class ListProvidersService
     {
         return $this->providers->allWithCredentialsCount();
     }
+
+    public function onlyCloud(): Collection
+    {
+        return $this->providers->allCloudWithCredentialsCount();
+    }
 }

@@ -13,17 +13,16 @@ class UpsertTemplateTerraformModuleService
         private ExperimentTemplateVersionRepository         $versionRepository,
     ) {}
 
-    public function handle(string $versionId, array $data): ExperimentTemplateTerraformModule
+    public function handle(string $versionId, string $providerType, array $data): ExperimentTemplateTerraformModule
     {
-        // Derive provider_type from module_slug when not explicitly provided
-        if (empty($data['provider_type']) && !empty($data['module_slug'])) {
-            $data['provider_type'] = $this->detectProviderTypeFromSlug($data['module_slug']);
-        }
+        // provider_type is always the one from the route — ignore any body value
+        unset($data['provider_type']);
 
-        return $this->moduleRepository->upsertForVersion($versionId, $data);
+        return $this->moduleRepository->upsertForVersionAndProvider($versionId, $providerType, $data);
     }
 
-    private function detectProviderTypeFromSlug(string $slug): string
+    // kept for slug-based auto-detection when module_slug arrives without provider_type context
+    public function detectProviderTypeFromSlug(string $slug): string
     {
         if (str_starts_with($slug, 'aws')) {
             return 'aws';

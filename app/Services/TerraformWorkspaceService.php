@@ -63,12 +63,14 @@ class TerraformWorkspaceService
     /**
      * Build the workspace directory and write all Terraform files from DB.
      *
+     * @param  string|null  $providerType  Target cloud provider. When null the first
+     *                                     module found for the version is used.
      * @throws \RuntimeException when no TerraformModule is registered for the template version.
      * @return array{workspace_path: string, provider_type: string, tfvars: array}
      */
-    public function build(Experiment $experiment): array
+    public function build(Experiment $experiment, ?string $providerType = null): array
     {
-        $tfModule = $this->loadModule($experiment);
+        $tfModule = $this->loadModule($experiment, $providerType);
 
         $workspacePath = $this->workspaceAbsolutePath($experiment);
         if (!is_dir($workspacePath)) {
@@ -101,7 +103,7 @@ class TerraformWorkspaceService
     // Module loading
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function loadModule(Experiment $experiment): ExperimentTemplateTerraformModule
+    private function loadModule(Experiment $experiment, ?string $providerType = null): ExperimentTemplateTerraformModule
     {
         if (empty($experiment->experiment_template_version_id)) {
             throw new RuntimeException(
@@ -109,14 +111,20 @@ class TerraformWorkspaceService
             );
         }
 
-        $version = $experiment->templateVersion()->with('terraformModule')->first();
-        $module  = $version?->terraformModule;
+        $version = $experiment->templateVersion()->with('terraformModules')->first();
+
+        if ($providerType) {
+            $module = $version?->terraformModules->firstWhere('provider_type', $providerType);
+        } else {
+            $module = $version?->terraformModules->first();
+        }
 
         if (!$module) {
+            $hint = $providerType ? "provider '{$providerType}'" : 'any provider';
             throw new \RuntimeException(
                 "Template version #{$experiment->experiment_template_version_id} " .
-                'has no TerraformModule configured. ' .
-                'Register one via PUT /experiment-templates/{id}/versions/{versionId}/terraform-module.',
+                "has no TerraformModule configured for {$hint}. " .
+                'Register one via PUT /experiment-templates/{id}/versions/{versionId}/terraform-modules/{providerType}.',
             );
         }
 

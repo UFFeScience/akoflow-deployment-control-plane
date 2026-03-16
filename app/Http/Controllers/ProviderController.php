@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CreateProviderRequest;
 use App\Http\Requests\UpdateProviderHealthRequest;
 use App\Http\Resources\ProviderResource;
+use App\Services\CheckProviderHealthService;
 use App\Services\CreateProviderService;
 use App\Services\ListProvidersService;
 use App\Services\ShowProviderService;
@@ -18,6 +19,7 @@ class ProviderController extends Controller
         protected ShowProviderService $showService,
         protected CreateProviderService $createService,
         protected UpdateProviderHealthService $healthService,
+        protected CheckProviderHealthService $checkHealthService,
     ) {}
 
     public function index(): AnonymousResourceCollection
@@ -41,6 +43,12 @@ class ProviderController extends Controller
     public function updateHealth(string $id, UpdateProviderHealthRequest $request): ProviderResource
     {
         $provider = $this->healthService->handle($id, $request->validated());
+        return new ProviderResource($provider);
+    }
+
+    public function runHealthCheck(string $id): ProviderResource
+    {
+        $provider = $this->checkHealthService->handle($id);
         return new ProviderResource($provider);
     }
 }

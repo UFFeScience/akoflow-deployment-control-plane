@@ -63,6 +63,7 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::post('/providers', [ProviderController::class, 'store']);
     Route::get('/providers/{id}', [ProviderController::class, 'show']);
     Route::patch('/providers/{id}/health', [ProviderController::class, 'updateHealth']);
+    Route::post('/providers/{id}/health/check', [ProviderController::class, 'runHealthCheck']);
 
     // Provider credentials
     Route::get('/providers/{providerId}/credentials', [ProviderCredentialController::class, 'index']);
@@ -86,15 +87,19 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::get('/experiment-templates/{id}/versions/{versionId}', [ExperimentTemplateController::class, 'showVersion']);
     Route::patch('/experiment-templates/{id}/versions/{versionId}/activate', [ExperimentTemplateController::class, 'activateVersion']);
 
-    // Terraform module associated with a template version
+    // Terraform modules for a template version (one per cloud provider)
     Route::get(
-        '/experiment-templates/{templateId}/versions/{versionId}/terraform-module',
+        '/experiment-templates/{templateId}/versions/{versionId}/terraform-modules',
+        [\App\Http\Controllers\ExperimentTemplateTerraformModuleController::class, 'index']
+    )->name('template-versions.terraform-modules.index');
+    Route::get(
+        '/experiment-templates/{templateId}/versions/{versionId}/terraform-modules/{providerType}',
         [\App\Http\Controllers\ExperimentTemplateTerraformModuleController::class, 'show']
-    )->name('template-versions.terraform-module.show');
+    )->name('template-versions.terraform-modules.show');
     Route::put(
-        '/experiment-templates/{templateId}/versions/{versionId}/terraform-module',
+        '/experiment-templates/{templateId}/versions/{versionId}/terraform-modules/{providerType}',
         [\App\Http\Controllers\ExperimentTemplateTerraformModuleController::class, 'upsert']
-    )->name('template-versions.terraform-module.upsert');
+    )->name('template-versions.terraform-modules.upsert');
 
     Route::get('/projects/{projectId}/experiments', [ExperimentController::class, 'index']);
     Route::post('/projects/{projectId}/experiments', [ExperimentController::class, 'store']);

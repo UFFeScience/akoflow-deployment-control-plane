@@ -21,7 +21,6 @@ class TemplatesSeeder extends Seeder
             [
                 'slug'                  => 'akoflow-gke',
                 'name'                  => 'Workflow Orchestration on Google Kubernetes Engine',
-                'runtime_type'          => 'AKOFLOW',
                 'description'           => 'AkoFlow orchestrator running on top of a Google Kubernetes Engine cluster. '
                     . 'Includes one GKE node-pool and one AkoFlow compute instance.',
                 'is_public'             => true,
@@ -32,7 +31,6 @@ class TemplatesSeeder extends Seeder
             [
                 'slug'                  => 'nvflare-federated',
                 'name'                  => 'NVIDIA FLARE – Federated Learning',
-                'runtime_type'          => 'NVFLARE',
                 'description'           => 'NVIDIA FLARE federated learning cluster. '
                     . 'Includes one FL Server, one Overseer, one DF-Analyse node, '
                     . 'and ten federated client sites – all running as Docker containers on EC2.',
@@ -40,6 +38,15 @@ class TemplatesSeeder extends Seeder
                 'owner_organization_id' => $organizationId,
                 'version'               => '1.0.0',
                 'definition'            => NvflareFederatedDefinition::get(),
+            ],
+            [
+                'slug'                  => 'hello-docker',
+                'name'                  => 'Hello Docker (AWS/GCP single VM)',
+                'description'           => 'Provisiona uma única VM na AWS ou GCP com Docker e executa um script simples.',
+                'is_public'             => true,
+                'owner_organization_id' => $organizationId,
+                'version'               => '1.0.0',
+                'definition'            => \Database\Seeders\Development\TemplateDefinitions\HelloWorldDockerDefinition::get(),
             ],
         ];
     }
@@ -56,7 +63,6 @@ class TemplatesSeeder extends Seeder
                 ['slug' => $data['slug']],
                 [
                     'name'                  => $data['name'],
-                    'runtime_type'          => $data['runtime_type'],
                     'description'           => $data['description'],
                     'is_public'             => $data['is_public'],
                     'owner_organization_id' => $data['owner_organization_id'],

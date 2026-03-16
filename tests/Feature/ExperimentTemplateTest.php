@@ -26,7 +26,6 @@ class ExperimentTemplateTest extends TestCase
         $template = ExperimentTemplate::create([
             'name' => 'Template One',
             'slug' => 'template-one',
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
             'description' => 'First template',
             'is_public' => true,
         ]);
@@ -54,7 +53,6 @@ class ExperimentTemplateTest extends TestCase
             ->postJson('/api/experiment-templates', [
                 'name' => 'New Template',
                 'slug' => $slug,
-                'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[1],
                 'description' => 'Runtime description',
                 'is_public' => false,
                 'owner_organization_id' => $organization->id,
@@ -62,7 +60,6 @@ class ExperimentTemplateTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('data.slug', $slug)
-            ->assertJsonPath('data.runtime_type', ExperimentTemplate::RUNTIME_TYPES[1]);
 
         $this->assertDatabaseHas('experiment_templates', [
             'slug' => $slug,
@@ -76,7 +73,6 @@ class ExperimentTemplateTest extends TestCase
         $template = ExperimentTemplate::create([
             'name' => 'Template Versioned',
             'slug' => 'template-versioned',
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[2],
             'description' => 'Versioned template',
             'is_public' => false,
         ]);
@@ -104,7 +100,6 @@ class ExperimentTemplateTest extends TestCase
         $template = ExperimentTemplate::create([
             'name'         => 'Findable Template',
             'slug'         => 'findable-template',
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
             'description'  => 'A template to fetch by id',
             'is_public'    => true,
         ]);
@@ -133,7 +128,6 @@ class ExperimentTemplateTest extends TestCase
         $template = ExperimentTemplate::create([
             'name'         => 'Versioned Template',
             'slug'         => 'versioned-template-list',
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
             'is_public'    => true,
         ]);
         ExperimentTemplateVersion::create([
@@ -172,7 +166,6 @@ class ExperimentTemplateTest extends TestCase
         $template = ExperimentTemplate::create([
             'name'         => 'Template Show Version',
             'slug'         => 'template-show-version',
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
             'is_public'    => true,
         ]);
         $version = ExperimentTemplateVersion::create([
@@ -196,7 +189,6 @@ class ExperimentTemplateTest extends TestCase
         $template = ExperimentTemplate::create([
             'name'         => 'Template 404 Version',
             'slug'         => 'template-404-version',
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
             'is_public'    => true,
         ]);
 
@@ -212,7 +204,6 @@ class ExperimentTemplateTest extends TestCase
         $template = ExperimentTemplate::create([
             'name'         => 'Template Activate',
             'slug'         => 'template-activate',
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
             'is_public'    => true,
         ]);
         $v1 = ExperimentTemplateVersion::create([
@@ -246,7 +237,6 @@ class ExperimentTemplateTest extends TestCase
         $template = ExperimentTemplate::create([
             'name'         => 'Template Activate 404',
             'slug'         => 'template-activate-404',
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
             'is_public'    => true,
         ]);
 
@@ -262,7 +252,6 @@ class ExperimentTemplateTest extends TestCase
         $template = ExperimentTemplate::create([
             'name'         => 'Template Active Version',
             'slug'         => 'template-active-version',
-            'runtime_type' => ExperimentTemplate::RUNTIME_TYPES[0],
             'is_public'    => true,
         ]);
         ExperimentTemplateVersion::create([

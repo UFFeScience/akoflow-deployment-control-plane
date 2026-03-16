@@ -15,9 +15,8 @@ class ExperimentTemplateVersionResource extends JsonResource
             'version'             => $this->version,
             'definition_json'     => $this->definition_json,
             'is_active'           => (bool) $this->is_active,
-            'terraform_module'    => $this->whenLoaded(
-                'terraformModule',
-                fn() => new TemplateTerraformModuleResource($this->terraformModule),
+            'terraform_modules'   => TemplateTerraformModuleResource::collection(
+                $this->whenLoaded('terraformModules'),
             ),
             'created_at'          => $this->created_at,
         ];

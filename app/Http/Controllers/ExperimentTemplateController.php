@@ -60,7 +60,7 @@ class ExperimentTemplateController extends Controller
     public function showVersion(string $id, string $versionId)
     {
         $version = ExperimentTemplateVersion::where('template_id', $id)
-            ->with('terraformModule')
+            ->with('terraformModules')
             ->find($versionId);
 
         if (!$version) {

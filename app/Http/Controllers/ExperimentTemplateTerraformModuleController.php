@@ -7,6 +7,7 @@ use App\Http\Resources\TemplateTerraformModuleResource;
 use App\Services\GetTemplateTerraformModuleService;
 use App\Services\UpsertTemplateTerraformModuleService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ExperimentTemplateTerraformModuleController extends Controller
 {
@@ -16,33 +17,43 @@ class ExperimentTemplateTerraformModuleController extends Controller
     ) {}
 
     /**
-     * GET /experiment-templates/{templateId}/versions/{versionId}/terraform-module
+     * GET /experiment-templates/{templateId}/versions/{versionId}/terraform-modules
      *
-     * Returns the Terraform module associated with a template version.
+     * Lists all Terraform modules for a template version (one per provider).
      */
-    public function show(string $templateId, string $versionId): JsonResponse
+    public function index(string $templateId, string $versionId): AnonymousResourceCollection
     {
-        $module = $this->getService->handle($versionId);
+        $modules = $this->getService->allForVersion($versionId);
+
+        return TemplateTerraformModuleResource::collection($modules);
+    }
+
+    /**
+     * GET /experiment-templates/{templateId}/versions/{versionId}/terraform-modules/{providerType}
+     */
+    public function show(string $templateId, string $versionId, string $providerType): JsonResponse
+    {
+        $module = $this->getService->handle($versionId, $providerType);
 
         if (!$module) {
-            return response()->json(['message' => 'No Terraform module found for this version.'], 404);
+            return response()->json(['message' => 'No Terraform module found for this version and provider.'], 404);
         }
 
         return response()->json(new TemplateTerraformModuleResource($module));
     }
 
     /**
-     * PUT /experiment-templates/{templateId}/versions/{versionId}/terraform-module
+     * PUT /experiment-templates/{templateId}/versions/{versionId}/terraform-modules/{providerType}
      *
-     * Creates or fully replaces the Terraform module for a template version.
-     * Accepts built-in module_slug and/or custom HCL files + tfvars_mapping_json.
+     * Creates or fully replaces the Terraform module for a specific provider.
      */
     public function upsert(
         string $templateId,
         string $versionId,
+        string $providerType,
         UpsertTemplateTerraformModuleRequest $request,
     ): JsonResponse {
-        $module = $this->upsertService->handle($versionId, $request->validated());
+        $module = $this->upsertService->handle($versionId, $providerType, $request->validated());
 
         $statusCode = $module->wasRecentlyCreated ? 201 : 200;
 

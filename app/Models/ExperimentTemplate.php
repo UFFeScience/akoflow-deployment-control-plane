@@ -9,9 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ExperimentTemplate extends Model
 {
 	protected $table = 'experiment_templates';
-	protected $fillable = ['name','slug','runtime_type','description','is_public','owner_organization_id'];
-
-	public const RUNTIME_TYPES = ['AKOFLOW', 'FLARE', 'HPC', 'CUSTOM'];
+	protected $fillable = ['name','slug','description','is_public','owner_organization_id'];
 
 	protected $casts = [
 		'is_public' => 'boolean',

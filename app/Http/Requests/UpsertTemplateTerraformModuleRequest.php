@@ -23,9 +23,6 @@ class UpsertTemplateTerraformModuleRequest extends FormRequest
                 Rule::in(ExperimentTemplateTerraformModule::BUILT_IN_SLUGS),
             ],
 
-            // ── Provider (obrigatório quando HCL custom sem module_slug) ──────
-            'provider_type' => 'nullable|string|in:aws,gcp,azure,custom',
-
             // ── HCL customizado (todos opcionais; se presente, sobrepõe slug) ─
             'main_tf'      => 'nullable|string',
             'variables_tf' => 'nullable|string',
@@ -37,7 +34,6 @@ class UpsertTemplateTerraformModuleRequest extends FormRequest
             'tfvars_mapping_json.instance_configurations'      => 'nullable|array',
 
             // Lista de nomes de env vars que o container Terraform precisa ter.
-            // Ex.: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
             'credential_env_keys'   => 'nullable|array',
             'credential_env_keys.*' => 'string',
         ];
