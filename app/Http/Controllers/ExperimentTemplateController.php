@@ -39,13 +39,13 @@ class ExperimentTemplateController extends Controller
         if (!$template) {
             return response()->json(['error' => 'Template not found'], 404);
         }
-        return new ExperimentTemplateResource($template);
+        return ExperimentTemplateResource::make($template);
     }
 
     public function store(CreateExperimentTemplateRequest $request)
     {
         $tpl = $this->createService->handle($request->validated());
-        return new ExperimentTemplateResource($tpl);
+        return ExperimentTemplateResource::make($tpl);
     }
 
     public function listVersions(string $id): mixed
@@ -66,13 +66,13 @@ class ExperimentTemplateController extends Controller
         if (!$version) {
             return response()->json(['error' => 'Version not found'], 404);
         }
-        return new ExperimentTemplateVersionResource($version);
+        return ExperimentTemplateVersionResource::make($version);
     }
 
     public function addVersion(string $id, CreateExperimentTemplateVersionRequest $request)
     {
         $version = $this->addVersionService->handle($id, $request->validated());
-        return (new ExperimentTemplateVersionResource($version))->response()->setStatusCode(201);
+        return ExperimentTemplateVersionResource::make($version)->response()->setStatusCode(201);
     }
 
     public function activateVersion(string $id, string $versionId)
@@ -81,7 +81,7 @@ class ExperimentTemplateController extends Controller
         if (!$version) {
             return response()->json(['error' => 'Version not found'], 404);
         }
-        return new ExperimentTemplateVersionResource($version);
+        return ExperimentTemplateVersionResource::make($version);
     }
 
     public function showActiveVersion(string $id)
@@ -90,6 +90,6 @@ class ExperimentTemplateController extends Controller
         if (!$version) {
             return response()->json(['error' => 'No active version found for this template'], 404);
         }
-        return new ExperimentTemplateVersionResource($version);
+        return ExperimentTemplateVersionResource::make($version);
     }
 }

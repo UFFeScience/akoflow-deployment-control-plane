@@ -31,24 +31,24 @@ class ProviderController extends Controller
     public function show(string $id): ProviderResource
     {
         $provider = $this->showService->handle($id);
-        return new ProviderResource($provider);
+        return ProviderResource::make($provider);
     }
 
     public function store(CreateProviderRequest $request): ProviderResource
     {
         $provider = $this->createService->handle($request->validated());
-        return new ProviderResource($provider);
+        return ProviderResource::make($provider);
     }
 
     public function updateHealth(string $id, UpdateProviderHealthRequest $request): ProviderResource
     {
         $provider = $this->healthService->handle($id, $request->validated());
-        return new ProviderResource($provider);
+        return ProviderResource::make($provider);
     }
 
     public function runHealthCheck(string $id): ProviderResource
     {
         $provider = $this->checkHealthService->handle($id);
-        return new ProviderResource($provider);
+        return ProviderResource::make($provider);
     }
 }

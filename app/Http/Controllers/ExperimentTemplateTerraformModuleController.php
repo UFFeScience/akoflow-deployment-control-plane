@@ -39,7 +39,7 @@ class ExperimentTemplateTerraformModuleController extends Controller
             return response()->json(['message' => 'No Terraform module found for this version and provider.'], 404);
         }
 
-        return response()->json(new TemplateTerraformModuleResource($module));
+        return response()->json(TemplateTerraformModuleResource::make($module));
     }
 
     /**
@@ -55,7 +55,7 @@ class ExperimentTemplateTerraformModuleController extends Controller
             return response()->json(['message' => 'No Terraform module found for this version.'], 404);
         }
 
-        return response()->json(new TemplateTerraformModuleResource($module));
+        return response()->json(TemplateTerraformModuleResource::make($module));
     }
 
     /**
@@ -112,12 +112,12 @@ class ExperimentTemplateTerraformModuleController extends Controller
             ]));
             $existing->save();
 
-            return response()->json(new TemplateTerraformModuleResource($existing), 200);
+            return response()->json(TemplateTerraformModuleResource::make($existing), 200);
         }
 
         $module = $this->upsertService->handle($versionId, $providerType, $data);
         $statusCode = $module->wasRecentlyCreated ? 201 : 200;
 
-        return response()->json(new TemplateTerraformModuleResource($module), $statusCode);
+        return response()->json(TemplateTerraformModuleResource::make($module), $statusCode);
     }
 }

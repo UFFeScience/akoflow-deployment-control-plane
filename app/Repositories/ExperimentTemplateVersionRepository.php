@@ -19,7 +19,7 @@ class ExperimentTemplateVersionRepository extends BaseRepository
             ->update(['is_active' => false]);
     }
 
-    public function getActiveByTemplateId(string $templateId): ?\App\Models\ExperimentTemplateVersion
+    public function getActiveByTemplateId(string $templateId): ?ExperimentTemplateVersion
     {
         return $this->model
             ->where('template_id', $templateId)

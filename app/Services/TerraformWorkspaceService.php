@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Experiment;
 use App\Models\ExperimentTemplateTerraformModule;
+use RuntimeException;
 
 /**
  * Generic Terraform workspace builder.
@@ -121,7 +122,7 @@ class TerraformWorkspaceService
 
         if (!$module) {
             $hint = $providerType ? "provider '{$providerType}'" : 'any provider';
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "Template version #{$experiment->experiment_template_version_id} " .
                 "has no TerraformModule configured for {$hint}. " .
                 'Register one via PUT /experiment-templates/{id}/versions/{versionId}/terraform-modules/{providerType}.',
@@ -129,7 +130,7 @@ class TerraformWorkspaceService
         }
 
         if (empty($module->main_tf)) {
-            throw new \RuntimeException(
+            throw new RuntimeException(
                 "TerraformModule #{$module->id} has no main_tf content. " .
                 'Set the main_tf field with valid HCL before provisioning.',
             );
