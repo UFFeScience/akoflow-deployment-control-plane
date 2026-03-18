@@ -2,6 +2,7 @@
 
 namespace Database\Seeders\Development;
 
+use App\Models\Organization;
 use App\Models\Provider;
 use Illuminate\Database\Seeder;
 
@@ -9,6 +10,11 @@ class ProvidersSeeder extends Seeder
 {
     public function run(): void
     {
+        $organization = Organization::where('name', 'AkoCloud Demo')->first();
+        if (! $organization) {
+            return;
+        }
+
         $providers = [
             [
                 'name'                => 'AWS',
@@ -35,8 +41,9 @@ class ProvidersSeeder extends Seeder
 
         foreach ($providers as $provider) {
             Provider::firstOrCreate(
-                ['name' => $provider['name']],
+                ['organization_id' => $organization->id, 'name' => $provider['name']],
                 [
+                    'organization_id'     => $organization->id,
                     'slug'                => $provider['slug'],
                     'default_module_slug' => $provider['default_module_slug'],
                     'description'         => $provider['description'],

@@ -11,13 +11,13 @@ class ListProvidersService
     {
     }
 
-    public function handle(): Collection
+    public function handle(string $organizationId): Collection
     {
-        return $this->providers->allWithCredentialsCount();
+        return $this->providers->allByOrganizationWithCredentialsCount($organizationId);
     }
 
-    public function onlyCloud(): Collection
+    public function onlyCloud(string $organizationId): Collection
     {
-        return $this->providers->allCloudWithCredentialsCount();
+        return $this->providers->allCloudByOrganizationWithCredentialsCount($organizationId);
     }
 }

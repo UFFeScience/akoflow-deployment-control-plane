@@ -59,17 +59,17 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::patch('/organizations/{organizationId}/projects/{projectId}', [ProjectController::class, 'update'])->name('projects.update');
     Route::delete('/organizations/{organizationId}/projects/{projectId}', [ProjectController::class, 'delete'])->name('projects.delete');
 
-    // AkôCloud core infrastructure module
-    Route::get('/providers', [ProviderController::class, 'index']);
-    Route::post('/providers', [ProviderController::class, 'store']);
-    Route::get('/providers/{id}', [ProviderController::class, 'show']);
-    Route::patch('/providers/{id}/health', [ProviderController::class, 'updateHealth']);
-    Route::post('/providers/{id}/health/check', [ProviderController::class, 'runHealthCheck']);
+    // AkôCloud core infrastructure module — scoped per organization
+    Route::get('/organizations/{organizationId}/providers', [ProviderController::class, 'index']);
+    Route::post('/organizations/{organizationId}/providers', [ProviderController::class, 'store']);
+    Route::get('/organizations/{organizationId}/providers/{id}', [ProviderController::class, 'show']);
+    Route::patch('/organizations/{organizationId}/providers/{id}/health', [ProviderController::class, 'updateHealth']);
+    Route::post('/organizations/{organizationId}/providers/{id}/health/check', [ProviderController::class, 'runHealthCheck']);
 
     // Provider credentials
-    Route::get('/providers/{providerId}/credentials', [ProviderCredentialController::class, 'index']);
-    Route::post('/providers/{providerId}/credentials', [ProviderCredentialController::class, 'store']);
-    Route::delete('/providers/{providerId}/credentials/{credentialId}', [ProviderCredentialController::class, 'destroy']);
+    Route::get('/organizations/{organizationId}/providers/{providerId}/credentials', [ProviderCredentialController::class, 'index']);
+    Route::post('/organizations/{organizationId}/providers/{providerId}/credentials', [ProviderCredentialController::class, 'store']);
+    Route::delete('/organizations/{organizationId}/providers/{providerId}/credentials/{credentialId}', [ProviderCredentialController::class, 'destroy']);
 
     // Provider variable schemas
     Route::get('/provider-type-schemas', [ProviderVariableSchemaController::class, 'index']);
@@ -113,6 +113,7 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::get('/projects/{projectId}/environments', [EnvironmentController::class, 'index']);
     Route::post('/projects/{projectId}/environments', [EnvironmentController::class, 'store']);
     Route::get('/projects/{projectId}/environments/{id}', [EnvironmentController::class, 'show']);
+    Route::get('/organizations/{organizationId}/environments', [EnvironmentController::class, 'indexByOrganization']);
 
     // Terraform provisioning runs
     Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs', [TerraformRunController::class, 'index']);

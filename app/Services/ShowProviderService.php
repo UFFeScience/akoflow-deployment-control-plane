@@ -11,8 +11,8 @@ class ShowProviderService
     {
     }
 
-    public function handle(string $id): Provider
+    public function handle(string $id, string $organizationId): Provider
     {
-        return $this->providers->findWithCredentialsCountOrFail($id);
+        return $this->providers->findByOrganizationWithCredentialsCountOrFail($id, $organizationId);
     }
 }

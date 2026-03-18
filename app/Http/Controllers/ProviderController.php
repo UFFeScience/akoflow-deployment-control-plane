@@ -10,6 +10,7 @@ use App\Services\CreateProviderService;
 use App\Services\ListProvidersService;
 use App\Services\ShowProviderService;
 use App\Services\UpdateProviderHealthService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ProviderController extends Controller
@@ -22,33 +23,34 @@ class ProviderController extends Controller
         protected CheckProviderHealthService $checkHealthService,
     ) {}
 
-    public function index(): AnonymousResourceCollection
+    public function index(string $organizationId): AnonymousResourceCollection
     {
-        $list = $this->listService->handle();
+        $list = $this->listService->handle($organizationId);
         return ProviderResource::collection($list);
     }
 
-    public function show(string $id): ProviderResource
+    public function show(string $organizationId, string $id): ProviderResource
     {
-        $provider = $this->showService->handle($id);
+        $provider = $this->showService->handle($id, $organizationId);
         return ProviderResource::make($provider);
     }
 
-    public function store(CreateProviderRequest $request): ProviderResource
+    public function store(string $organizationId, CreateProviderRequest $request): JsonResponse
     {
-        $provider = $this->createService->handle($request->validated());
+        $data = array_merge($request->validated(), ['organization_id' => $organizationId]);
+        $provider = $this->createService->handle($data);
+        return response()->json(['data' => new ProviderResource($provider)], 201);
+    }
+
+    public function updateHealth(string $organizationId, string $id, UpdateProviderHealthRequest $request): ProviderResource
+    {
+        $provider = $this->healthService->handle($id, $organizationId, $request->validated());
         return ProviderResource::make($provider);
     }
 
-    public function updateHealth(string $id, UpdateProviderHealthRequest $request): ProviderResource
+    public function runHealthCheck(string $organizationId, string $id): JsonResponse
     {
-        $provider = $this->healthService->handle($id, $request->validated());
-        return ProviderResource::make($provider);
-    }
-
-    public function runHealthCheck(string $id): ProviderResource
-    {
-        $provider = $this->checkHealthService->handle($id);
-        return ProviderResource::make($provider);
+        $provider = $this->checkHealthService->handle($id, $organizationId);
+        return response()->json(['data' => new ProviderResource($provider)], 201);
     }
 }

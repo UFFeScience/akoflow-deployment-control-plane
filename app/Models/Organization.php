@@ -37,4 +37,9 @@ class Organization extends Model
     {
         return $this->hasMany(Project::class);
     }
+
+	public function providers(): HasMany
+	{
+		return $this->hasMany(Provider::class);
+	}
 }

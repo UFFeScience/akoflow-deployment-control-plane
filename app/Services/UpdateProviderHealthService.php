@@ -11,8 +11,10 @@ class UpdateProviderHealthService
     {
     }
 
-    public function handle(string $id, array $data): ?Provider
+    public function handle(string $id, string $organizationId, array $data): ?Provider
     {
+        $this->providers->findByOrganizationOrFail($id, $organizationId);
+
         return $this->providers->update($id, $data);
     }
 }

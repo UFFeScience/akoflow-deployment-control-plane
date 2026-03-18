@@ -10,6 +10,7 @@ class ProviderResource extends JsonResource
     {
         return [
             'id'                  => $this->id,
+            'organization_id'     => (int) $this->organization_id,
             'name'                => $this->name,
             'slug'                => $this->slug,
             'default_module_slug' => $this->default_module_slug,

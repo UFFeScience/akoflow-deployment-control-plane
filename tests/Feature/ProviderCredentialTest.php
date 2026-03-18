@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Organization;
 use App\Models\Provider;
 use App\Models\ProviderCredential;
 use App\Models\ProviderCredentialValue;
@@ -19,13 +20,19 @@ class ProviderCredentialTest extends TestCase
         return ['Authorization' => "Bearer $token"];
     }
 
-    private function makeProvider(array $overrides = []): Provider
+    private function makeOrganization(User $user): Organization
+    {
+        return Organization::factory()->create(['user_id' => $user->id]);
+    }
+
+    private function makeProvider(Organization $org, array $overrides = []): Provider
     {
         return Provider::create(array_merge([
-            'name'   => 'GCP',
-            'slug'   => 'gcp',
-            'type'   => Provider::TYPES[0],
-            'status' => Provider::STATUSES[0],
+            'organization_id' => $org->id,
+            'name'            => 'GCP',
+            'slug'            => 'gcp',
+            'type'            => Provider::TYPES[0],
+            'status'          => Provider::STATUSES[0],
         ], $overrides));
     }
 
@@ -34,7 +41,8 @@ class ProviderCredentialTest extends TestCase
     public function test_user_can_list_credentials_for_provider(): void
     {
         $user     = User::factory()->create();
-        $provider = $this->makeProvider();
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org);
 
         $cred = ProviderCredential::create([
             'provider_id' => $provider->id,
@@ -49,7 +57,7 @@ class ProviderCredentialTest extends TestCase
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/providers/{$provider->id}/credentials");
+            ->getJson("/api/organizations/{$org->id}/providers/{$provider->id}/credentials");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -60,17 +68,19 @@ class ProviderCredentialTest extends TestCase
     public function test_listing_credentials_of_nonexistent_provider_returns_404(): void
     {
         $user = User::factory()->create();
+        $org  = $this->makeOrganization($user);
 
         $this->withHeaders($this->authHeader($user))
-            ->getJson('/api/providers/99999/credentials')
+            ->getJson("/api/organizations/{$org->id}/providers/99999/credentials")
             ->assertStatus(404);
     }
 
     public function test_listing_credentials_does_not_return_values_from_other_provider(): void
     {
         $user  = User::factory()->create();
-        $provA = $this->makeProvider(['name' => 'GCP', 'slug' => 'gcp']);
-        $provB = $this->makeProvider(['name' => 'AWS', 'slug' => 'aws']);
+        $org   = $this->makeOrganization($user);
+        $provA = $this->makeProvider($org, ['name' => 'GCP', 'slug' => 'gcp']);
+        $provB = $this->makeProvider($org, ['name' => 'AWS', 'slug' => 'aws']);
 
         ProviderCredential::create([
             'provider_id' => $provB->id,
@@ -79,7 +89,7 @@ class ProviderCredentialTest extends TestCase
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/providers/{$provA->id}/credentials");
+            ->getJson("/api/organizations/{$org->id}/providers/{$provA->id}/credentials");
 
         $response->assertStatus(200)
             ->assertJsonCount(0, 'data');
@@ -90,7 +100,8 @@ class ProviderCredentialTest extends TestCase
     public function test_user_can_create_credential_with_values(): void
     {
         $user     = User::factory()->create();
-        $provider = $this->makeProvider();
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org);
 
         $payload = [
             'name'        => 'Staging Key',
@@ -103,7 +114,7 @@ class ProviderCredentialTest extends TestCase
         ];
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/providers/{$provider->id}/credentials", $payload);
+            ->postJson("/api/organizations/{$org->id}/providers/{$provider->id}/credentials", $payload);
 
         $response->assertStatus(201)
             ->assertJsonPath('data.name', 'Staging Key')
@@ -129,10 +140,11 @@ class ProviderCredentialTest extends TestCase
     public function test_creating_credential_requires_name(): void
     {
         $user     = User::factory()->create();
-        $provider = $this->makeProvider();
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org);
 
         $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/providers/{$provider->id}/credentials", [
+            ->postJson("/api/organizations/{$org->id}/providers/{$provider->id}/credentials", [
                 'values' => ['key' => 'value'],
             ])
             ->assertStatus(422)
@@ -142,10 +154,11 @@ class ProviderCredentialTest extends TestCase
     public function test_creating_credential_requires_values(): void
     {
         $user     = User::factory()->create();
-        $provider = $this->makeProvider();
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org);
 
         $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/providers/{$provider->id}/credentials", [
+            ->postJson("/api/organizations/{$org->id}/providers/{$provider->id}/credentials", [
                 'name' => 'My Key',
             ])
             ->assertStatus(422)
@@ -155,9 +168,10 @@ class ProviderCredentialTest extends TestCase
     public function test_creating_credential_for_nonexistent_provider_returns_404(): void
     {
         $user = User::factory()->create();
+        $org  = $this->makeOrganization($user);
 
         $this->withHeaders($this->authHeader($user))
-            ->postJson('/api/providers/99999/credentials', [
+            ->postJson("/api/organizations/{$org->id}/providers/99999/credentials", [
                 'name'   => 'Key',
                 'values' => ['some_field' => 'some_value'],
             ])
@@ -169,7 +183,8 @@ class ProviderCredentialTest extends TestCase
     public function test_user_can_delete_credential(): void
     {
         $user     = User::factory()->create();
-        $provider = $this->makeProvider();
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org);
         $cred     = ProviderCredential::create([
             'provider_id' => $provider->id,
             'name'        => 'Old Key',
@@ -177,7 +192,7 @@ class ProviderCredentialTest extends TestCase
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->deleteJson("/api/providers/{$provider->id}/credentials/{$cred->id}");
+            ->deleteJson("/api/organizations/{$org->id}/providers/{$provider->id}/credentials/{$cred->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('message', 'Credential deleted successfully');
@@ -188,8 +203,9 @@ class ProviderCredentialTest extends TestCase
     public function test_deleting_credential_belonging_to_different_provider_returns_404(): void
     {
         $user  = User::factory()->create();
-        $provA = $this->makeProvider(['name' => 'GCP', 'slug' => 'gcp']);
-        $provB = $this->makeProvider(['name' => 'AWS', 'slug' => 'aws']);
+        $org   = $this->makeOrganization($user);
+        $provA = $this->makeProvider($org, ['name' => 'GCP', 'slug' => 'gcp']);
+        $provB = $this->makeProvider($org, ['name' => 'AWS', 'slug' => 'aws']);
 
         $credB = ProviderCredential::create([
             'provider_id' => $provB->id,
@@ -199,7 +215,7 @@ class ProviderCredentialTest extends TestCase
 
         // Attempt to delete provB's credential via provA's route
         $this->withHeaders($this->authHeader($user))
-            ->deleteJson("/api/providers/{$provA->id}/credentials/{$credB->id}")
+            ->deleteJson("/api/organizations/{$org->id}/providers/{$provA->id}/credentials/{$credB->id}")
             ->assertStatus(404);
 
         $this->assertDatabaseHas('provider_credentials', ['id' => $credB->id]);
@@ -208,10 +224,11 @@ class ProviderCredentialTest extends TestCase
     public function test_deleting_nonexistent_credential_returns_404(): void
     {
         $user     = User::factory()->create();
-        $provider = $this->makeProvider();
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org);
 
         $this->withHeaders($this->authHeader($user))
-            ->deleteJson("/api/providers/{$provider->id}/credentials/99999")
+            ->deleteJson("/api/organizations/{$org->id}/providers/{$provider->id}/credentials/99999")
             ->assertStatus(404);
     }
 
@@ -219,7 +236,9 @@ class ProviderCredentialTest extends TestCase
 
     public function test_unauthenticated_user_cannot_access_credentials(): void
     {
-        $provider = $this->makeProvider();
-        $this->getJson("/api/providers/{$provider->id}/credentials")->assertStatus(401);
+        $user     = User::factory()->create();
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org);
+        $this->getJson("/api/organizations/{$org->id}/providers/{$provider->id}/credentials")->assertStatus(401);
     }
 }

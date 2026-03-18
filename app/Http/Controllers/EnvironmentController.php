@@ -8,16 +8,28 @@ use App\Http\Resources\EnvironmentResource;
 use App\Services\CreateEnvironmentService;
 use App\Services\GetEnvironmentService;
 use App\Services\ListEnvironmentsService;
+use App\Services\ListEnvironmentsByOrganizationService;
+use App\Services\OrganizationAuthorizationService;
 use App\Services\ProjectAuthorizationService;
+use Illuminate\Http\Request;
 
 class EnvironmentController extends Controller
 {
     public function __construct(
         protected ListEnvironmentsService $listService,
+        protected ListEnvironmentsByOrganizationService $listByOrgService,
         protected CreateEnvironmentService $createService,
         protected GetEnvironmentService $getService,
         protected ProjectAuthorizationService $projectAuthorizationService,
+        protected OrganizationAuthorizationService $organizationAuthorizationService,
     ) {}
+
+    public function indexByOrganization(Request $request, int $organizationId)
+    {
+        $this->organizationAuthorizationService->assertUserBelongsToOrganization($request->user(), $organizationId);
+
+        return EnvironmentResource::collection($this->listByOrgService->handle($organizationId));
+    }
 
     public function index(string $projectId)
     {

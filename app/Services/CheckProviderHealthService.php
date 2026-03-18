@@ -19,9 +19,9 @@ class CheckProviderHealthService
         private TerraformHealthCheckRunnerService $runner,
     ) {}
 
-    public function handle(string $providerId): Provider
+    public function handle(string $providerId, string $organizationId): Provider
     {
-        $provider = $this->providerRepository->findOrFailById($providerId);
+        $provider = $this->providerRepository->findByOrganizationOrFail($providerId, $organizationId);
 
         $activeCredential = $provider->credentials()
             ->where('is_active', true)

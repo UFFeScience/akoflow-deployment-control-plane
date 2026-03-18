@@ -11,6 +11,7 @@ class EnvironmentResource extends JsonResource
         return [
             'id' => $this->id,
             'project_id' => $this->project_id,
+            'project_name' => $this->whenLoaded('project', fn() => optional($this->project)->name),
             'environment_template_version_id' => $this->environment_template_version_id,
             'template_name' => $this->whenLoaded('templateVersion', fn() =>
                 optional(optional($this->templateVersion)->template)->name

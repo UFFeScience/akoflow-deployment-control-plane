@@ -18,19 +18,19 @@ class ProviderCredentialController extends Controller
         protected DeleteProviderCredentialService $deleteService,
     ) {}
 
-    public function index(string $providerId): AnonymousResourceCollection
+    public function index(string $organizationId, string $providerId): AnonymousResourceCollection
     {
         $credentials = $this->listService->handle($providerId);
         return ProviderCredentialResource::collection($credentials);
     }
 
-    public function store(string $providerId, CreateProviderCredentialRequest $request): ProviderCredentialResource
+    public function store(string $organizationId, string $providerId, CreateProviderCredentialRequest $request): ProviderCredentialResource
     {
         $credential = $this->createService->handle($providerId, $request->validated());
         return new ProviderCredentialResource($credential);
     }
 
-    public function destroy(string $providerId, string $credentialId): JsonResponse
+    public function destroy(string $organizationId, string $providerId, string $credentialId): JsonResponse
     {
         $this->deleteService->handle($providerId, $credentialId);
         return response()->json(['message' => 'Credential deleted successfully']);

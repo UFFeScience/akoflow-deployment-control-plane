@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\HealthStatus;
+use App\Models\Organization;
 use App\Models\Provider;
 use App\Models\User;
 use App\Services\CheckProviderHealthService;
@@ -20,41 +21,65 @@ class ProviderTest extends TestCase
         return ['Authorization' => "Bearer $token"];
     }
 
+    private function makeOrganization(User $user): Organization
+    {
+        return Organization::factory()->create(['user_id' => $user->id]);
+    }
+
+    private function makeProvider(Organization $org, array $overrides = []): Provider
+    {
+        return Provider::create(array_merge([
+            'organization_id' => $org->id,
+            'name'            => 'GCP',
+            'slug'            => 'gcp',
+            'type'            => Provider::TYPES[0],
+            'status'          => Provider::STATUSES[0],
+        ], $overrides));
+    }
+
     // ─── List ─────────────────────────────────────────────────────────────────
 
     public function test_user_can_list_providers(): void
     {
         $user = User::factory()->create();
-        Provider::create([
-            'name' => 'AWS',
-            'type' => Provider::TYPES[0],
-            'status' => Provider::STATUSES[0],
-        ]);
-        Provider::create([
-            'name' => 'GCP',
-            'type' => Provider::TYPES[1],
-            'status' => Provider::STATUSES[1],
-        ]);
+        $org  = $this->makeOrganization($user);
+
+        $this->makeProvider($org, ['name' => 'AWS', 'slug' => 'aws', 'type' => Provider::TYPES[0], 'status' => Provider::STATUSES[0]]);
+        $this->makeProvider($org, ['name' => 'GCP', 'slug' => 'gcp', 'type' => Provider::TYPES[1], 'status' => Provider::STATUSES[1]]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson('/api/providers');
+            ->getJson("/api/organizations/{$org->id}/providers");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data');
     }
 
+    public function test_list_providers_only_returns_providers_of_the_organization(): void
+    {
+        $userA = User::factory()->create();
+        $userB = User::factory()->create();
+        $orgA  = $this->makeOrganization($userA);
+        $orgB  = $this->makeOrganization($userB);
+
+        $this->makeProvider($orgA, ['name' => 'AWS', 'slug' => 'aws']);
+        $this->makeProvider($orgB, ['name' => 'GCP', 'slug' => 'gcp']);
+
+        $response = $this->withHeaders($this->authHeader($userA))
+            ->getJson("/api/organizations/{$orgA->id}/providers");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'AWS');
+    }
+
     public function test_list_providers_includes_credentials_count(): void
     {
         $user = User::factory()->create();
-        Provider::create([
-            'name'   => 'GCP',
-            'slug'   => 'gcp',
-            'type'   => Provider::TYPES[0],
-            'status' => Provider::STATUSES[0],
-        ]);
+        $org  = $this->makeOrganization($user);
+        $this->makeProvider($org);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson('/api/providers');
+            ->getJson("/api/organizations/{$org->id}/providers");
 
         $response->assertStatus(200)
             ->assertJsonPath('data.0.credentials_count', 0);
@@ -65,31 +90,46 @@ class ProviderTest extends TestCase
     public function test_user_can_get_provider_by_id(): void
     {
         $user     = User::factory()->create();
-        $provider = Provider::create([
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org, [
             'name'        => 'GCP',
             'slug'        => 'gcp',
             'description' => 'Google Cloud',
-            'type'        => Provider::TYPES[0],
-            'status'      => Provider::STATUSES[0],
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/providers/{$provider->id}");
+            ->getJson("/api/organizations/{$org->id}/providers/{$provider->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('data.id', $provider->id)
+            ->assertJsonPath('data.organization_id', $org->id)
             ->assertJsonPath('data.name', 'GCP')
             ->assertJsonPath('data.slug', 'gcp')
             ->assertJsonPath('data.description', 'Google Cloud')
             ->assertJsonPath('data.credentials_count', 0);
     }
 
+    public function test_getting_provider_from_another_organization_returns_404(): void
+    {
+        $userA    = User::factory()->create();
+        $userB    = User::factory()->create();
+        $orgA     = $this->makeOrganization($userA);
+        $orgB     = $this->makeOrganization($userB);
+        $provider = $this->makeProvider($orgB);
+
+        $response = $this->withHeaders($this->authHeader($userA))
+            ->getJson("/api/organizations/{$orgA->id}/providers/{$provider->id}");
+
+        $response->assertStatus(404);
+    }
+
     public function test_getting_nonexistent_provider_returns_404(): void
     {
         $user = User::factory()->create();
+        $org  = $this->makeOrganization($user);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson('/api/providers/99999');
+            ->getJson("/api/organizations/{$org->id}/providers/99999");
 
         $response->assertStatus(404);
     }
@@ -99,30 +139,34 @@ class ProviderTest extends TestCase
     public function test_user_can_create_provider(): void
     {
         $user = User::factory()->create();
+        $org  = $this->makeOrganization($user);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson('/api/providers', [
-                'name' => 'On Prem',
-                'type' => Provider::TYPES[2],
+            ->postJson("/api/organizations/{$org->id}/providers", [
+                'name'   => 'On Prem',
+                'type'   => Provider::TYPES[2],
                 'status' => Provider::STATUSES[0],
             ]);
 
         $response->assertStatus(201)
             ->assertJsonPath('data.name', 'On Prem')
-            ->assertJsonPath('data.type', Provider::TYPES[2]);
+            ->assertJsonPath('data.type', Provider::TYPES[2])
+            ->assertJsonPath('data.organization_id', $org->id);
 
         $this->assertDatabaseHas('providers', [
-            'name' => 'On Prem',
-            'type' => Provider::TYPES[2],
+            'organization_id' => $org->id,
+            'name'            => 'On Prem',
+            'type'            => Provider::TYPES[2],
         ]);
     }
 
     public function test_user_can_create_provider_with_slug_and_description(): void
     {
         $user = User::factory()->create();
+        $org  = $this->makeOrganization($user);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson('/api/providers', [
+            ->postJson("/api/organizations/{$org->id}/providers", [
                 'name'        => 'AWS Production',
                 'slug'        => 'aws',
                 'description' => 'Amazon Web Services',
@@ -133,21 +177,39 @@ class ProviderTest extends TestCase
             ->assertJsonPath('data.slug', 'aws')
             ->assertJsonPath('data.description', 'Amazon Web Services');
 
-        $this->assertDatabaseHas('providers', ['slug' => 'aws']);
+        $this->assertDatabaseHas('providers', ['organization_id' => $org->id, 'slug' => 'aws']);
     }
 
-    public function test_creating_provider_with_duplicate_slug_fails(): void
+    public function test_same_slug_can_exist_in_different_organizations(): void
+    {
+        $userA = User::factory()->create();
+        $userB = User::factory()->create();
+        $orgA  = $this->makeOrganization($userA);
+        $orgB  = $this->makeOrganization($userB);
+
+        $this->withHeaders($this->authHeader($userA))
+            ->postJson("/api/organizations/{$orgA->id}/providers", [
+                'name' => 'AWS A',
+                'slug' => 'aws',
+                'type' => Provider::TYPES[0],
+            ])->assertStatus(201);
+
+        $this->withHeaders($this->authHeader($userB))
+            ->postJson("/api/organizations/{$orgB->id}/providers", [
+                'name' => 'AWS B',
+                'slug' => 'aws',
+                'type' => Provider::TYPES[0],
+            ])->assertStatus(201);
+    }
+
+    public function test_creating_provider_with_duplicate_slug_in_same_org_fails(): void
     {
         $user = User::factory()->create();
-        Provider::create([
-            'name'   => 'GCP',
-            'slug'   => 'gcp',
-            'type'   => Provider::TYPES[0],
-            'status' => Provider::STATUSES[0],
-        ]);
+        $org  = $this->makeOrganization($user);
+        $this->makeProvider($org, ['name' => 'GCP', 'slug' => 'gcp']);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson('/api/providers', [
+            ->postJson("/api/organizations/{$org->id}/providers", [
                 'name' => 'GCP Duplicate',
                 'slug' => 'gcp',
                 'type' => Provider::TYPES[0],
@@ -160,53 +222,46 @@ class ProviderTest extends TestCase
 
     public function test_user_can_update_provider_health(): void
     {
-        $user = User::factory()->create();
-        $provider = Provider::create([
-            'name' => 'Health Provider',
-            'type' => Provider::TYPES[0],
-            'status' => Provider::STATUSES[0],
-        ]);
+        $user     = User::factory()->create();
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org, ['name' => 'Health Provider', 'slug' => null]);
 
         $payload = [
-            'health_status' => HealthStatus::UNHEALTHY->value,
-            'health_message' => 'Timeouts detected',
+            'health_status'        => HealthStatus::UNHEALTHY->value,
+            'health_message'       => 'Timeouts detected',
             'last_health_check_at' => now()->toISOString(),
         ];
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->patchJson("/api/providers/{$provider->id}/health", $payload);
+            ->patchJson("/api/organizations/{$org->id}/providers/{$provider->id}/health", $payload);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.health_status', HealthStatus::UNHEALTHY->value)
             ->assertJsonPath('data.health_message', 'Timeouts detected');
 
         $this->assertDatabaseHas('providers', [
-            'id' => $provider->id,
-            'health_status' => HealthStatus::UNHEALTHY->value,
+            'id'             => $provider->id,
+            'health_status'  => HealthStatus::UNHEALTHY->value,
             'health_message' => 'Timeouts detected',
         ]);
     }
 
     public function test_user_can_run_health_check(): void
     {
-        $user = User::factory()->create();
-        $provider = Provider::create([
-            'name'   => 'HealthCheck Provider',
-            'slug'   => 'aws',
-            'type'   => Provider::TYPES[0],
-            'status' => Provider::STATUSES[0],
-        ]);
+        $user     = User::factory()->create();
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org, ['name' => 'HealthCheck Provider', 'slug' => 'aws', 'type' => Provider::TYPES[0]]);
 
         $mock = \Mockery::mock(CheckProviderHealthService::class);
         $mock->shouldReceive('handle')
             ->once()
-            ->with($provider->id)
+            ->with((string) $provider->id, (string) $org->id)
             ->andReturn($provider);
 
         $this->app->instance(CheckProviderHealthService::class, $mock);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/providers/{$provider->id}/health/check");
+            ->postJson("/api/organizations/{$org->id}/providers/{$provider->id}/health/check");
 
         $response->assertStatus(201)
             ->assertJsonPath('data.id', $provider->id);
@@ -216,17 +271,15 @@ class ProviderTest extends TestCase
 
     public function test_unauthenticated_user_cannot_list_providers(): void
     {
-        $this->getJson('/api/providers')->assertStatus(401);
+        $this->getJson('/api/organizations/1/providers')->assertStatus(401);
     }
 
     public function test_unauthenticated_user_cannot_get_provider(): void
     {
-        $provider = Provider::create([
-            'name'   => 'GCP',
-            'type'   => Provider::TYPES[0],
-            'status' => Provider::STATUSES[0],
-        ]);
+        $user     = User::factory()->create();
+        $org      = $this->makeOrganization($user);
+        $provider = $this->makeProvider($org);
 
-        $this->getJson("/api/providers/{$provider->id}")->assertStatus(401);
+        $this->getJson("/api/organizations/{$org->id}/providers/{$provider->id}")->assertStatus(401);
     }
 }
