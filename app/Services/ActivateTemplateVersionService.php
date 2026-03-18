@@ -2,16 +2,16 @@
 
 namespace App\Services;
 
-use App\Models\ExperimentTemplateVersion;
-use App\Repositories\ExperimentTemplateVersionRepository;
+use App\Models\EnvironmentTemplateVersion;
+use App\Repositories\EnvironmentTemplateVersionRepository;
 
 class ActivateTemplateVersionService
 {
-    public function __construct(private ExperimentTemplateVersionRepository $versions) {}
+    public function __construct(private EnvironmentTemplateVersionRepository $versions) {}
 
-    public function handle(string $templateId, string $versionId): ?ExperimentTemplateVersion
+    public function handle(string $templateId, string $versionId): ?EnvironmentTemplateVersion
     {
-        $version = ExperimentTemplateVersion::where('template_id', $templateId)->find($versionId);
+        $version = EnvironmentTemplateVersion::where('template_id', $templateId)->find($versionId);
 
         if (!$version) {
             return null;

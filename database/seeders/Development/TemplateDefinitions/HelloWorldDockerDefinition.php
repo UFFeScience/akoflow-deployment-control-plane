@@ -7,10 +7,10 @@ class HelloWorldDockerDefinition
     public static function get(): array
     {
         return [
-            'experiment_configuration' => [
+            'environment_configuration' => [
                 'label'       => 'Deployment Settings',
                 'description' => 'Parâmetros básicos para subir uma única VM com Docker.',
-                'type'        => 'experiment',
+                'type'        => 'environment',
                 'sections'    => [
                     [
                         'name'        => 'cloud',

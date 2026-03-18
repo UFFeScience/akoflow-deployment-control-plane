@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\DestroyExperimentJob;
-use App\Jobs\ProvisionExperimentJob;
-use App\Models\Experiment;
+use App\Jobs\DestroyEnvironmentJob;
+use App\Jobs\ProvisionEnvironmentJob;
+use App\Models\Environment;
 use App\Models\Organization;
 use App\Models\Project;
 use App\Models\TerraformRun;
@@ -31,19 +31,19 @@ class TerraformRunTest extends TestCase
         return Project::factory()->create(['organization_id' => $org->id]);
     }
 
-    private function experimentInProject(Project $project): Experiment
+    private function environmentInProject(Project $project): Environment
     {
-        return Experiment::create([
+        return Environment::create([
             'project_id' => $project->id,
-            'name'       => 'Test Experiment',
-            'status'     => Experiment::STATUSES[0],
+            'name'       => 'Test Environment',
+            'status'     => Environment::STATUSES[0],
         ]);
     }
 
-    private function terraformRunForExperiment(Experiment $experiment, string $status = TerraformRun::STATUS_APPLIED): TerraformRun
+    private function terraformRunForEnvironment(Environment $environment, string $status = TerraformRun::STATUS_APPLIED): TerraformRun
     {
         return TerraformRun::create([
-            'experiment_id' => $experiment->id,
+            'environment_id' => $environment->id,
             'status'        => $status,
             'action'        => TerraformRun::ACTION_APPLY,
         ]);
@@ -53,17 +53,17 @@ class TerraformRunTest extends TestCase
     // index
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function test_user_can_list_terraform_runs_for_experiment(): void
+    public function test_user_can_list_terraform_runs_for_environment(): void
     {
         $user       = User::factory()->create();
         $project    = $this->projectBelongingToUser($user);
-        $experiment = $this->experimentInProject($project);
+        $environment = $this->environmentInProject($project);
 
-        $this->terraformRunForExperiment($experiment, TerraformRun::STATUS_APPLIED);
-        $this->terraformRunForExperiment($experiment, TerraformRun::STATUS_FAILED);
+        $this->terraformRunForEnvironment($environment, TerraformRun::STATUS_APPLIED);
+        $this->terraformRunForEnvironment($environment, TerraformRun::STATUS_FAILED);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/projects/{$project->id}/experiments/{$experiment->id}/terraform-runs");
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs");
 
         $response->assertStatus(200)
             ->assertJsonCount(2);
@@ -74,21 +74,21 @@ class TerraformRunTest extends TestCase
         $userA      = User::factory()->create();
         $userB      = User::factory()->create();
         $project    = $this->projectBelongingToUser($userB);
-        $experiment = $this->experimentInProject($project);
+        $environment = $this->environmentInProject($project);
 
         $response = $this->withHeaders($this->authHeader($userA))
-            ->getJson("/api/projects/{$project->id}/experiments/{$experiment->id}/terraform-runs");
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs");
 
         $response->assertStatus(403);
     }
 
-    public function test_list_terraform_runs_returns_404_when_experiment_not_found(): void
+    public function test_list_terraform_runs_returns_404_when_environment_not_found(): void
     {
         $user    = User::factory()->create();
         $project = $this->projectBelongingToUser($user);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/projects/{$project->id}/experiments/99999/terraform-runs");
+            ->getJson("/api/projects/{$project->id}/environments/99999/terraform-runs");
 
         $response->assertStatus(404);
     }
@@ -101,11 +101,11 @@ class TerraformRunTest extends TestCase
     {
         $user       = User::factory()->create();
         $project    = $this->projectBelongingToUser($user);
-        $experiment = $this->experimentInProject($project);
-        $run        = $this->terraformRunForExperiment($experiment);
+        $environment = $this->environmentInProject($project);
+        $run        = $this->terraformRunForEnvironment($environment);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/projects/{$project->id}/experiments/{$experiment->id}/terraform-runs/{$run->id}");
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/{$run->id}");
 
         $response->assertStatus(200)
             ->assertJsonPath('id', $run->id)
@@ -116,25 +116,25 @@ class TerraformRunTest extends TestCase
     {
         $user       = User::factory()->create();
         $project    = $this->projectBelongingToUser($user);
-        $experiment = $this->experimentInProject($project);
+        $environment = $this->environmentInProject($project);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/projects/{$project->id}/experiments/{$experiment->id}/terraform-runs/99999");
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/99999");
 
         $response->assertStatus(404);
     }
 
-    public function test_show_terraform_run_returns_404_when_run_belongs_to_different_experiment(): void
+    public function test_show_terraform_run_returns_404_when_run_belongs_to_different_environment(): void
     {
         $user        = User::factory()->create();
         $project     = $this->projectBelongingToUser($user);
-        $experimentA = $this->experimentInProject($project);
-        $experimentB = $this->experimentInProject($project);
-        $run         = $this->terraformRunForExperiment($experimentA);
+        $environmentA = $this->environmentInProject($project);
+        $environmentB = $this->environmentInProject($project);
+        $run         = $this->terraformRunForEnvironment($environmentA);
 
-        // Try to access experimentA's run via experimentB's URL
+        // Try to access environmentA's run via environmentB's URL
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/projects/{$project->id}/experiments/{$experimentB->id}/terraform-runs/{$run->id}");
+            ->getJson("/api/projects/{$project->id}/environments/{$environmentB->id}/terraform-runs/{$run->id}");
 
         $response->assertStatus(404);
     }
@@ -149,35 +149,35 @@ class TerraformRunTest extends TestCase
 
         $user       = User::factory()->create();
         $project    = $this->projectBelongingToUser($user);
-        $experiment = $this->experimentInProject($project);
+        $environment = $this->environmentInProject($project);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/projects/{$project->id}/experiments/{$experiment->id}/terraform-runs");
+            ->postJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs");
 
         $response->assertStatus(202)
             ->assertJsonPath('message', 'Provisioning job queued.');
 
-        Queue::assertPushed(ProvisionExperimentJob::class);
+        Queue::assertPushed(ProvisionEnvironmentJob::class);
     }
 
-    public function test_user_cannot_trigger_provisioning_on_another_users_experiment(): void
+    public function test_user_cannot_trigger_provisioning_on_another_users_environment(): void
     {
         Queue::fake();
 
         $userA      = User::factory()->create();
         $userB      = User::factory()->create();
         $project    = $this->projectBelongingToUser($userB);
-        $experiment = $this->experimentInProject($project);
+        $environment = $this->environmentInProject($project);
 
         $response = $this->withHeaders($this->authHeader($userA))
-            ->postJson("/api/projects/{$project->id}/experiments/{$experiment->id}/terraform-runs");
+            ->postJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs");
 
         $response->assertStatus(403);
 
-        Queue::assertNotPushed(ProvisionExperimentJob::class);
+        Queue::assertNotPushed(ProvisionEnvironmentJob::class);
     }
 
-    public function test_provision_returns_404_when_experiment_not_found(): void
+    public function test_provision_returns_404_when_environment_not_found(): void
     {
         Queue::fake();
 
@@ -185,11 +185,11 @@ class TerraformRunTest extends TestCase
         $project = $this->projectBelongingToUser($user);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/projects/{$project->id}/experiments/99999/terraform-runs");
+            ->postJson("/api/projects/{$project->id}/environments/99999/terraform-runs");
 
         $response->assertStatus(404);
 
-        Queue::assertNotPushed(ProvisionExperimentJob::class);
+        Queue::assertNotPushed(ProvisionEnvironmentJob::class);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -202,35 +202,35 @@ class TerraformRunTest extends TestCase
 
         $user       = User::factory()->create();
         $project    = $this->projectBelongingToUser($user);
-        $experiment = $this->experimentInProject($project);
+        $environment = $this->environmentInProject($project);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/projects/{$project->id}/experiments/{$experiment->id}/terraform-runs/destroy");
+            ->postJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/destroy");
 
         $response->assertStatus(202)
             ->assertJsonPath('message', 'Destroy job queued.');
 
-        Queue::assertPushed(DestroyExperimentJob::class);
+        Queue::assertPushed(DestroyEnvironmentJob::class);
     }
 
-    public function test_user_cannot_trigger_destroy_on_another_users_experiment(): void
+    public function test_user_cannot_trigger_destroy_on_another_users_environment(): void
     {
         Queue::fake();
 
         $userA      = User::factory()->create();
         $userB      = User::factory()->create();
         $project    = $this->projectBelongingToUser($userB);
-        $experiment = $this->experimentInProject($project);
+        $environment = $this->environmentInProject($project);
 
         $response = $this->withHeaders($this->authHeader($userA))
-            ->postJson("/api/projects/{$project->id}/experiments/{$experiment->id}/terraform-runs/destroy");
+            ->postJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/destroy");
 
         $response->assertStatus(403);
 
-        Queue::assertNotPushed(DestroyExperimentJob::class);
+        Queue::assertNotPushed(DestroyEnvironmentJob::class);
     }
 
-    public function test_destroy_returns_404_when_experiment_not_found(): void
+    public function test_destroy_returns_404_when_environment_not_found(): void
     {
         Queue::fake();
 
@@ -238,10 +238,10 @@ class TerraformRunTest extends TestCase
         $project = $this->projectBelongingToUser($user);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/projects/{$project->id}/experiments/99999/terraform-runs/destroy");
+            ->postJson("/api/projects/{$project->id}/environments/99999/terraform-runs/destroy");
 
         $response->assertStatus(404);
 
-        Queue::assertNotPushed(DestroyExperimentJob::class);
+        Queue::assertNotPushed(DestroyEnvironmentJob::class);
     }
 }

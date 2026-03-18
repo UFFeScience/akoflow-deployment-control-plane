@@ -11,10 +11,10 @@ class ListClustersService
     {
     }
 
-    public function handle(string $experimentId): Collection
+    public function handle(string $environmentId): Collection
     {
         return $this->clusters
-            ->listByExperiment($experimentId)
+            ->listByEnvironment($environmentId)
             ->load(['instanceGroups.instanceType']);
     }
 }

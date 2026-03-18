@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('terraform_runs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('experiment_id')->constrained('experiments')->cascadeOnDelete();
+            $table->foreignId('environment_id')->constrained('environments')->cascadeOnDelete();
             $table->string('status')->default('QUEUED');
             // QUEUED | INITIALIZING | PLANNING | APPLYING | APPLIED | DESTROYING | DESTROYED | FAILED
             $table->string('provider_type')->nullable(); // aws | gcp
@@ -22,7 +22,7 @@ return new class extends Migration {
             $table->timestamp('finished_at')->nullable();
             $table->timestamps();
 
-            $table->index('experiment_id');
+            $table->index('environment_id');
             $table->index('status');
             $table->index('action');
         });

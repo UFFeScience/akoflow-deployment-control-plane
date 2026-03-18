@@ -7,10 +7,10 @@ class AkoflowGkeDefinition
     public static function get(): array
     {
         return [
-            'experiment_configuration' => [
-                'label'       => 'Experiment Configuration',
-                'description' => 'High-level experiment settings that apply to the entire cluster',
-                'type'        => 'experiment',
+            'environment_configuration' => [
+                'label'       => 'Environment Configuration',
+                'description' => 'High-level environment settings that apply to the entire cluster',
+                'type'        => 'environment',
                 'sections'    => [
                     [
                         'name'        => 'gcp_general',

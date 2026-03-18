@@ -3,7 +3,7 @@
 # AkôCloud – Terraform runner
 # Usage: run.sh <action> <workspace_dir> [extra_terraform_args...]
 #   action       : apply | destroy | plan
-#   workspace_dir: absolute path to the experiment workspace
+#   workspace_dir: absolute path to the environment workspace
 # ---------------------------------------------------------------------------
 set -euo pipefail
 

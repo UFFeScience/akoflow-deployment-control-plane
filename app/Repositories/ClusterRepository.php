@@ -11,8 +11,8 @@ class ClusterRepository extends BaseRepository
         parent::__construct($model);
     }
 
-    public function listByExperiment(string $experimentId)
+    public function listByEnvironment(string $environmentId)
     {
-        return $this->model->where('experiment_id', $experimentId)->get();
+        return $this->model->where('environment_id', $environmentId)->get();
     }
 }

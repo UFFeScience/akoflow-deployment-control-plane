@@ -10,7 +10,7 @@ class TerraformRun extends Model
     protected $table = 'terraform_runs';
 
     protected $fillable = [
-        'experiment_id',
+        'environment_id',
         'status',
         'provider_type',
         'action',
@@ -41,9 +41,9 @@ class TerraformRun extends Model
         'finished_at'  => 'datetime',
     ];
 
-    public function experiment(): BelongsTo
+    public function environment(): BelongsTo
     {
-        return $this->belongsTo(Experiment::class, 'experiment_id');
+        return $this->belongsTo(Environment::class, 'environment_id');
     }
 
     public function appendLog(string $line): void

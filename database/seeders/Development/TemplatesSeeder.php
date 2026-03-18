@@ -2,8 +2,8 @@
 
 namespace Database\Seeders\Development;
 
-use App\Models\ExperimentTemplate;
-use App\Models\ExperimentTemplateVersion;
+use App\Models\EnvironmentTemplate;
+use App\Models\EnvironmentTemplateVersion;
 use App\Models\Organization;
 use Database\Seeders\Development\TemplateDefinitions\AkoflowGkeDefinition;
 use Database\Seeders\Development\TemplateDefinitions\NvflareFederatedDefinition;
@@ -59,7 +59,7 @@ class TemplatesSeeder extends Seeder
         }
 
         foreach ($this->templates($organization->id) as $data) {
-            $template = ExperimentTemplate::firstOrCreate(
+            $template = EnvironmentTemplate::firstOrCreate(
                 ['slug' => $data['slug']],
                 [
                     'name'                  => $data['name'],
@@ -69,14 +69,14 @@ class TemplatesSeeder extends Seeder
                 ]
             );
 
-            $version = ExperimentTemplateVersion::where('template_id', $template->id)
+            $version = EnvironmentTemplateVersion::where('template_id', $template->id)
                 ->where('version', $data['version'])
                 ->first();
 
             if ($version) {
                 $version->update(['definition_json' => $data['definition'], 'is_active' => true]);
             } else {
-                ExperimentTemplateVersion::create([
+                EnvironmentTemplateVersion::create([
                     'template_id'     => $template->id,
                     'version'         => $data['version'],
                     'is_active'       => true,

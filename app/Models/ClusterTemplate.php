@@ -16,7 +16,7 @@ class ClusterTemplate extends Model
 
     public function version(): BelongsTo
     {
-        return $this->belongsTo(ExperimentTemplateVersion::class, 'template_version_id');
+        return $this->belongsTo(EnvironmentTemplateVersion::class, 'template_version_id');
     }
 
     public function clusters(): HasMany

@@ -10,14 +10,14 @@ use App\Models\InstanceGroup;
 class Cluster extends Model
 {
 	protected $table = 'clusters';
-	protected $fillable = ['experiment_id','cluster_template_id','provider_id','region','environment_type','name','status'];
+	protected $fillable = ['environment_id','cluster_template_id','provider_id','region','environment_type','name','status'];
 
 	public const STATUSES = ['PROVISIONING', 'RUNNING', 'STOPPED', 'ERROR'];
 	public const ENVIRONMENT_TYPES = ['CLOUD', 'ON_PREM', 'HPC'];
 
-	public function experiment(): BelongsTo
+	public function environment(): BelongsTo
 	{
-		return $this->belongsTo(Experiment::class, 'experiment_id');
+		return $this->belongsTo(Environment::class, 'environment_id');
 	}
 
 	public function template(): BelongsTo

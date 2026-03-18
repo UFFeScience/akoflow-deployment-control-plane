@@ -10,12 +10,12 @@ use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ProviderCredentialController;
 use App\Http\Controllers\ProviderVariableSchemaController;
 use App\Http\Controllers\InstanceTypeController;
-use App\Http\Controllers\ExperimentTemplateController;
-use App\Http\Controllers\ExperimentController;
+use App\Http\Controllers\EnvironmentTemplateController;
+use App\Http\Controllers\EnvironmentController;
 use App\Http\Controllers\ClusterController;
 use App\Http\Controllers\ProvisionedInstanceController;
 use App\Http\Controllers\TerraformRunController;
-use App\Http\Controllers\ExperimentTemplateTerraformModuleController;
+use App\Http\Controllers\EnvironmentTemplateTerraformModuleController;
 use App\Http\Middleware\AuthMiddleware;
 
 
@@ -79,49 +79,49 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::post('/instance-types', [InstanceTypeController::class, 'store']);
     Route::patch('/instance-types/{id}/status', [InstanceTypeController::class, 'updateStatus']);
 
-    Route::get('/experiment-templates', [ExperimentTemplateController::class, 'index']);
-    Route::post('/experiment-templates', [ExperimentTemplateController::class, 'store']);
-    Route::get('/experiment-templates/{id}', [ExperimentTemplateController::class, 'show']);
-    Route::get('/experiment-templates/{id}/versions', [ExperimentTemplateController::class, 'listVersions']);
-    Route::get('/experiment-templates/{id}/versions/active', [ExperimentTemplateController::class, 'showActiveVersion']);
-    Route::post('/experiment-templates/{id}/versions', [ExperimentTemplateController::class, 'addVersion']);
-    Route::get('/experiment-templates/{id}/versions/{versionId}', [ExperimentTemplateController::class, 'showVersion']);
-    Route::patch('/experiment-templates/{id}/versions/{versionId}/activate', [ExperimentTemplateController::class, 'activateVersion']);
+    Route::get('/environment-templates', [EnvironmentTemplateController::class, 'index']);
+    Route::post('/environment-templates', [EnvironmentTemplateController::class, 'store']);
+    Route::get('/environment-templates/{id}', [EnvironmentTemplateController::class, 'show']);
+    Route::get('/environment-templates/{id}/versions', [EnvironmentTemplateController::class, 'listVersions']);
+    Route::get('/environment-templates/{id}/versions/active', [EnvironmentTemplateController::class, 'showActiveVersion']);
+    Route::post('/environment-templates/{id}/versions', [EnvironmentTemplateController::class, 'addVersion']);
+    Route::get('/environment-templates/{id}/versions/{versionId}', [EnvironmentTemplateController::class, 'showVersion']);
+    Route::patch('/environment-templates/{id}/versions/{versionId}/activate', [EnvironmentTemplateController::class, 'activateVersion']);
 
     // Terraform modules for a template version (one per cloud provider)
     Route::get(
-        '/experiment-templates/{templateId}/versions/{versionId}/terraform-modules',
-        [ExperimentTemplateTerraformModuleController::class, 'index']
+        '/environment-templates/{templateId}/versions/{versionId}/terraform-modules',
+        [EnvironmentTemplateTerraformModuleController::class, 'index']
     )->name('template-versions.terraform-modules.index');
     Route::get(
-        '/experiment-templates/{templateId}/versions/{versionId}/terraform-module',
-        [ExperimentTemplateTerraformModuleController::class, 'showByVersion']
+        '/environment-templates/{templateId}/versions/{versionId}/terraform-module',
+        [EnvironmentTemplateTerraformModuleController::class, 'showByVersion']
     )->name('template-versions.terraform-module.show');
     Route::get(
-        '/experiment-templates/{templateId}/versions/{versionId}/terraform-modules/{providerType}',
-        [ExperimentTemplateTerraformModuleController::class, 'show']
+        '/environment-templates/{templateId}/versions/{versionId}/terraform-modules/{providerType}',
+        [EnvironmentTemplateTerraformModuleController::class, 'show']
     )->name('template-versions.terraform-modules.show');
     Route::put(
-        '/experiment-templates/{templateId}/versions/{versionId}/terraform-module',
-        [ExperimentTemplateTerraformModuleController::class, 'upsertByVersion']
+        '/environment-templates/{templateId}/versions/{versionId}/terraform-module',
+        [EnvironmentTemplateTerraformModuleController::class, 'upsertByVersion']
     )->name('template-versions.terraform-module.upsert');
     Route::put(
-        '/experiment-templates/{templateId}/versions/{versionId}/terraform-modules/{providerType}',
-        [ExperimentTemplateTerraformModuleController::class, 'upsert']
+        '/environment-templates/{templateId}/versions/{versionId}/terraform-modules/{providerType}',
+        [EnvironmentTemplateTerraformModuleController::class, 'upsert']
     )->name('template-versions.terraform-modules.upsert');
 
-    Route::get('/projects/{projectId}/experiments', [ExperimentController::class, 'index']);
-    Route::post('/projects/{projectId}/experiments', [ExperimentController::class, 'store']);
-    Route::get('/projects/{projectId}/experiments/{id}', [ExperimentController::class, 'show']);
+    Route::get('/projects/{projectId}/environments', [EnvironmentController::class, 'index']);
+    Route::post('/projects/{projectId}/environments', [EnvironmentController::class, 'store']);
+    Route::get('/projects/{projectId}/environments/{id}', [EnvironmentController::class, 'show']);
 
     // Terraform provisioning runs
-    Route::get('/projects/{projectId}/experiments/{experimentId}/terraform-runs', [TerraformRunController::class, 'index']);
-    Route::post('/projects/{projectId}/experiments/{experimentId}/terraform-runs', [TerraformRunController::class, 'store']);
-    Route::get('/projects/{projectId}/experiments/{experimentId}/terraform-runs/{runId}', [TerraformRunController::class, 'show']);
-    Route::post('/projects/{projectId}/experiments/{experimentId}/terraform-runs/destroy', [TerraformRunController::class, 'destroy']);
+    Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs', [TerraformRunController::class, 'index']);
+    Route::post('/projects/{projectId}/environments/{environmentId}/terraform-runs', [TerraformRunController::class, 'store']);
+    Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}', [TerraformRunController::class, 'show']);
+    Route::post('/projects/{projectId}/environments/{environmentId}/terraform-runs/destroy', [TerraformRunController::class, 'destroy']);
 
-    Route::get('/experiments/{id}/clusters', [ClusterController::class, 'index']);
-    Route::post('/experiments/{id}/clusters', [ClusterController::class, 'store']);
+    Route::get('/environments/{id}/clusters', [ClusterController::class, 'index']);
+    Route::post('/environments/{id}/clusters', [ClusterController::class, 'store']);
     Route::post('/clusters/{id}/scale', [ClusterController::class, 'scale']);
     Route::patch('/clusters/{id}/nodes', [ClusterController::class, 'updateNodes']);
     Route::delete('/clusters/{id}', [ClusterController::class, 'destroy']);

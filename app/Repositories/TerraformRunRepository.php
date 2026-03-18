@@ -12,16 +12,16 @@ class TerraformRunRepository extends BaseRepository
         parent::__construct(new TerraformRun());
     }
 
-    public function findByExperiment(string $experimentId): Collection
+    public function findByEnvironment(string $environmentId): Collection
     {
-        return TerraformRun::where('experiment_id', $experimentId)
+        return TerraformRun::where('environment_id', $environmentId)
             ->orderByDesc('created_at')
             ->get();
     }
 
-    public function latestForExperiment(string $experimentId): ?TerraformRun
+    public function latestForEnvironment(string $environmentId): ?TerraformRun
     {
-        return TerraformRun::where('experiment_id', $experimentId)
+        return TerraformRun::where('environment_id', $environmentId)
             ->where('action', TerraformRun::ACTION_APPLY)
             ->latest()
             ->first();

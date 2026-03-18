@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Cluster;
 use App\Models\ClusterTemplate;
-use App\Models\Experiment;
-use App\Models\ExperimentTemplate;
-use App\Models\ExperimentTemplateVersion;
+use App\Models\Environment;
+use App\Models\EnvironmentTemplate;
+use App\Models\EnvironmentTemplateVersion;
 use App\Models\InstanceGroup;
 use App\Models\InstanceType;
 use App\Models\Organization;
@@ -36,14 +36,14 @@ class ClusterTest extends TestCase
             'status' => Provider::STATUSES[0],
         ]);
 
-        $template = ExperimentTemplate::create([
+        $template = EnvironmentTemplate::create([
             'name'         => 'Cluster Template',
             'slug'         => 'cluster-template-' . uniqid(),
             'description'  => 'Cluster template description',
             'is_public'    => true,
         ]);
 
-        $version = ExperimentTemplateVersion::create([
+        $version = EnvironmentTemplateVersion::create([
             'template_id'     => $template->id,
             'version'         => 'v1',
             'definition_json' => ['nodes' => []],
@@ -66,22 +66,22 @@ class ClusterTest extends TestCase
 
         $org        = Organization::factory()->create(['user_id' => $user->id]);
         $project    = Project::factory()->create(['organization_id' => $org->id]);
-        $experiment = Experiment::create([
+        $environment = Environment::create([
             'project_id' => $project->id,
-            'name'       => 'Experiment for cluster',
-            'status'     => Experiment::STATUSES[0],
+            'name'       => 'Environment for cluster',
+            'status'     => Environment::STATUSES[0],
         ]);
 
-        return compact('provider', 'clusterTemplate', 'experiment', 'instanceType');
+        return compact('provider', 'clusterTemplate', 'environment', 'instanceType');
     }
 
-    public function test_user_can_list_clusters_by_experiment(): void
+    public function test_user_can_list_clusters_by_environment(): void
     {
         $user = User::factory()->create();
-        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'experiment' => $experiment] = $this->createDependencies($user);
+        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment] = $this->createDependencies($user);
 
         Cluster::create([
-            'experiment_id' => $experiment->id,
+            'environment_id' => $environment->id,
             'cluster_template_id' => $clusterTemplate->id,
             'provider_id' => $provider->id,
             'region' => 'us-east-1',
@@ -91,7 +91,7 @@ class ClusterTest extends TestCase
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/experiments/{$experiment->id}/clusters");
+            ->getJson("/api/environments/{$environment->id}/clusters");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data');
@@ -100,10 +100,10 @@ class ClusterTest extends TestCase
     public function test_user_can_create_cluster(): void
     {
         $user = User::factory()->create();
-        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'experiment' => $experiment] = $this->createDependencies($user);
+        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment] = $this->createDependencies($user);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/experiments/{$experiment->id}/clusters", [
+            ->postJson("/api/environments/{$environment->id}/clusters", [
                 'cluster_template_id' => $clusterTemplate->id,
                 'provider_id' => $provider->id,
                 'region' => 'us-west-2',
@@ -113,10 +113,10 @@ class ClusterTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('data.name', 'Created Cluster')
-            ->assertJsonPath('data.experiment_id', (string) $experiment->id);
+            ->assertJsonPath('data.environment_id', (string) $environment->id);
 
         $this->assertDatabaseHas('clusters', [
-            'experiment_id' => $experiment->id,
+            'environment_id' => $environment->id,
             'name' => 'Created Cluster',
         ]);
     }
@@ -124,10 +124,10 @@ class ClusterTest extends TestCase
     public function test_user_can_create_cluster_with_instance_groups_and_metadata(): void
     {
         $user = User::factory()->create();
-        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'experiment' => $experiment, 'instanceType' => $instanceType] = $this->createDependencies($user);
+        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment, 'instanceType' => $instanceType] = $this->createDependencies($user);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/experiments/{$experiment->id}/clusters", [
+            ->postJson("/api/environments/{$environment->id}/clusters", [
                 'cluster_template_id' => $clusterTemplate->id,
                 'provider_id' => $provider->id,
                 'region' => 'us-east-1',
@@ -191,10 +191,10 @@ class ClusterTest extends TestCase
     public function test_user_can_update_cluster_nodes_per_group(): void
     {
         $user = User::factory()->create();
-        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'experiment' => $experiment, 'instanceType' => $instanceType] = $this->createDependencies($user);
+        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment, 'instanceType' => $instanceType] = $this->createDependencies($user);
 
         $cluster = Cluster::create([
-            'experiment_id' => $experiment->id,
+            'environment_id' => $environment->id,
             'cluster_template_id' => $clusterTemplate->id,
             'provider_id' => $provider->id,
             'region' => 'us-east-1',
@@ -269,10 +269,10 @@ class ClusterTest extends TestCase
     public function test_user_can_scale_cluster(): void
     {
         $user = User::factory()->create();
-        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'experiment' => $experiment] = $this->createDependencies($user);
+        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment] = $this->createDependencies($user);
 
         $cluster = Cluster::create([
-            'experiment_id' => $experiment->id,
+            'environment_id' => $environment->id,
             'cluster_template_id' => $clusterTemplate->id,
             'provider_id' => $provider->id,
             'region' => 'eu-west-1',
@@ -304,10 +304,10 @@ class ClusterTest extends TestCase
     public function test_user_can_delete_cluster(): void
     {
         $user = User::factory()->create();
-        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'experiment' => $experiment] = $this->createDependencies($user);
+        ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment] = $this->createDependencies($user);
 
         $cluster = Cluster::create([
-            'experiment_id' => $experiment->id,
+            'environment_id' => $environment->id,
             'cluster_template_id' => $clusterTemplate->id,
             'provider_id' => $provider->id,
             'region' => 'ap-southeast-1',

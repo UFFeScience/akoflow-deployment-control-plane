@@ -9,7 +9,7 @@ use App\Http\Requests\UpdateClusterNodesRequest;
 use App\Http\Resources\ClusterResource;
 use App\Services\CreateClusterService;
 use App\Services\DeleteClusterService;
-use App\Services\ExperimentAuthorizationService;
+use App\Services\EnvironmentAuthorizationService;
 use App\Services\ListClustersService;
 use App\Services\ScaleClusterService;
 use App\Services\UpdateClusterNodesService;
@@ -22,21 +22,21 @@ class ClusterController extends Controller
         protected ScaleClusterService $scaleService,
         protected DeleteClusterService $deleteService,
         protected UpdateClusterNodesService $updateNodesService,
-        protected ExperimentAuthorizationService $experimentAuthorizationService,
+        protected EnvironmentAuthorizationService $environmentAuthorizationService,
     ) {}
 
-    public function index(string $experimentId)
+    public function index(string $environmentId)
     {
-        $this->experimentAuthorizationService->assertUserCanAccessExperiment(auth()->user(), $experimentId);
+        $this->environmentAuthorizationService->assertUserCanAccessEnvironment(auth()->user(), $environmentId);
 
-        return ClusterResource::collection($this->listService->handle($experimentId));
+        return ClusterResource::collection($this->listService->handle($environmentId));
     }
 
-    public function store(string $experimentId, CreateClusterRequest $request)
+    public function store(string $environmentId, CreateClusterRequest $request)
     {
-        $this->experimentAuthorizationService->assertUserCanAccessExperiment(auth()->user(), $experimentId);
+        $this->environmentAuthorizationService->assertUserCanAccessEnvironment(auth()->user(), $environmentId);
 
-        $cluster = $this->createService->handle($experimentId, $request->validated());
+        $cluster = $this->createService->handle($environmentId, $request->validated());
 
         return new ClusterResource($cluster->load('instanceGroups'));
     }

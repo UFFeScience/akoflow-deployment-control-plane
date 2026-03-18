@@ -15,7 +15,7 @@ provider "aws" {
 locals {
   common_tags = {
     ManagedBy    = "akocloud-terraform"
-    ExperimentId = var.experiment_id
+    EnvironmentId = var.environment_id
     NVFlareVersion = var.nvflare_version
   }
 }
@@ -26,12 +26,12 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = merge(local.common_tags, { Name = "nvflare-vpc-${var.experiment_id}" })
+  tags = merge(local.common_tags, { Name = "nvflare-vpc-${var.environment_id}" })
 }
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
-  tags   = merge(local.common_tags, { Name = "nvflare-igw-${var.experiment_id}" })
+  tags   = merge(local.common_tags, { Name = "nvflare-igw-${var.environment_id}" })
 }
 
 resource "aws_subnet" "public" {
@@ -40,7 +40,7 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
   availability_zone       = "${var.aws_region}a"
 
-  tags = merge(local.common_tags, { Name = "nvflare-subnet-public-${var.experiment_id}" })
+  tags = merge(local.common_tags, { Name = "nvflare-subnet-public-${var.environment_id}" })
 }
 
 resource "aws_route_table" "public" {
@@ -49,7 +49,7 @@ resource "aws_route_table" "public" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
-  tags = merge(local.common_tags, { Name = "nvflare-rt-${var.experiment_id}" })
+  tags = merge(local.common_tags, { Name = "nvflare-rt-${var.environment_id}" })
 }
 
 resource "aws_route_table_association" "public" {
@@ -59,7 +59,7 @@ resource "aws_route_table_association" "public" {
 
 # ── Security Group ────────────────────────────────────────────────────────────
 resource "aws_security_group" "nvflare" {
-  name        = "nvflare-sg-${var.experiment_id}"
+  name        = "nvflare-sg-${var.environment_id}"
   description = "NVFlare federated learning ports"
   vpc_id      = aws_vpc.main.id
 
@@ -147,7 +147,7 @@ resource "aws_instance" "server" {
     encrypted   = true
   }
 
-  tags = merge(local.common_tags, { Name = "nvflare-server-${var.experiment_id}", Role = "nvflare-server" })
+  tags = merge(local.common_tags, { Name = "nvflare-server-${var.environment_id}", Role = "nvflare-server" })
 }
 
 # ── nvflare-overseer ──────────────────────────────────────────────────────────
@@ -171,7 +171,7 @@ resource "aws_instance" "overseer" {
     encrypted   = true
   }
 
-  tags = merge(local.common_tags, { Name = "nvflare-overseer-${var.experiment_id}", Role = "nvflare-overseer" })
+  tags = merge(local.common_tags, { Name = "nvflare-overseer-${var.environment_id}", Role = "nvflare-overseer" })
 }
 
 # ── nvflare-dfanalyse ─────────────────────────────────────────────────────────
@@ -195,7 +195,7 @@ resource "aws_instance" "dfanalyse" {
     encrypted   = true
   }
 
-  tags = merge(local.common_tags, { Name = "nvflare-dfanalyse-${var.experiment_id}", Role = "nvflare-dfanalyse" })
+  tags = merge(local.common_tags, { Name = "nvflare-dfanalyse-${var.environment_id}", Role = "nvflare-dfanalyse" })
 }
 
 # ── nvflare-site ──────────────────────────────────────────────────────────────
@@ -220,5 +220,5 @@ resource "aws_instance" "site" {
     encrypted   = true
   }
 
-  tags = merge(local.common_tags, { Name = "nvflare-site-${var.experiment_id}", Role = "nvflare-site" })
+  tags = merge(local.common_tags, { Name = "nvflare-site-${var.environment_id}", Role = "nvflare-site" })
 }

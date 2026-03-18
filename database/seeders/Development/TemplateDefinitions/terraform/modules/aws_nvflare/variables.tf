@@ -157,8 +157,8 @@ variable "key_name" {
   default     = ""
 }
 
-variable "experiment_id" {
+variable "environment_id" {
   type        = string
-  description = "AkôCloud experiment ID (used as tag)"
+  description = "AkôCloud environment ID (used as tag)"
   default     = ""
 }

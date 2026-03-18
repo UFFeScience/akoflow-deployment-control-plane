@@ -2,15 +2,15 @@
 
 namespace App\Services;
 
-use App\Models\Experiment;
-use App\Models\ExperimentTemplateTerraformModule;
+use App\Models\Environment;
+use App\Models\EnvironmentTemplateTerraformModule;
 use RuntimeException;
 
 /**
  * Generic Terraform workspace builder.
  *
  * All HCL content, variable mappings, type casts, and provider configuration
- * come exclusively from the ExperimentTemplateTerraformModule record stored in
+ * come exclusively from the EnvironmentTemplateTerraformModule record stored in
  * the database. No template- or provider-specific logic lives here.
  *
  * ── tfvars_mapping_json format ────────────────────────────────────────────────
@@ -21,7 +21,7 @@ use RuntimeException;
  *
  * Example:
  * {
- *   "experiment_configuration": {
+ *   "environment_configuration": {
  *     "nvflare_version": "nvflare_version",
  *     "fl_rounds":       { "tf_var": "fl_rounds", "cast": "int" },
  *     "enable_tls":      { "tf_var": "enable_tls", "cast": "bool" }
@@ -37,10 +37,10 @@ use RuntimeException;
  * ── credential_env_keys (optional DB field) ───────────────────────────────────
  *
  * An array of environment-variable names the worker must expose to the
- * Terraform container. Read from ExperimentTemplateTerraformModule::credential_env_keys.
+ * Terraform container. Read from EnvironmentTemplateTerraformModule::credential_env_keys.
  * Example: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]
  *
- * ── Directory layout (storage/app/terraform/{experiment_id}/) ─────────────────
+ * ── Directory layout (storage/app/terraform/{environment_id}/) ─────────────────
  *   main.tf                – from DB main_tf
  *   variables.tf           – from DB variables_tf (optional)
  *   outputs.tf             – from DB outputs_tf (optional)
@@ -51,14 +51,14 @@ class TerraformWorkspaceService
 {
     private const BASE_DIR = 'terraform';
 
-    public function workspaceRelativePath(Experiment $experiment): string
+    public function workspaceRelativePath(Environment $environment): string
     {
-        return self::BASE_DIR . '/' . $experiment->id;
+        return self::BASE_DIR . '/' . $environment->id;
     }
 
-    public function workspaceAbsolutePath(Experiment $experiment): string
+    public function workspaceAbsolutePath(Environment $environment): string
     {
-        return storage_path('app/' . $this->workspaceRelativePath($experiment));
+        return storage_path('app/' . $this->workspaceRelativePath($environment));
     }
 
     /**
@@ -69,11 +69,11 @@ class TerraformWorkspaceService
      * @throws \RuntimeException when no TerraformModule is registered for the template version.
      * @return array{workspace_path: string, provider_type: string, tfvars: array}
      */
-    public function build(Experiment $experiment, ?string $providerType = null): array
+    public function build(Environment $environment, ?string $providerType = null): array
     {
-        $tfModule = $this->loadModule($experiment, $providerType);
+        $tfModule = $this->loadModule($environment, $providerType);
 
-        $workspacePath = $this->workspaceAbsolutePath($experiment);
+        $workspacePath = $this->workspaceAbsolutePath($environment);
         if (!is_dir($workspacePath)) {
             mkdir($workspacePath, 0755, true);
         }
@@ -81,8 +81,8 @@ class TerraformWorkspaceService
         // 1. Write HCL files from DB
         $this->writeHclFiles($tfModule, $workspacePath);
 
-        // 2. Build tfvars by applying DB mapping to experiment's configuration_json
-        $tfvars = $this->buildTfvars($experiment, $tfModule);
+        // 2. Build tfvars by applying DB mapping to environment's configuration_json
+        $tfvars = $this->buildTfvars($environment, $tfModule);
 
         // 3. Write tfvars.json
         file_put_contents(
@@ -104,15 +104,15 @@ class TerraformWorkspaceService
     // Module loading
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function loadModule(Experiment $experiment, ?string $providerType = null): ExperimentTemplateTerraformModule
+    private function loadModule(Environment $environment, ?string $providerType = null): EnvironmentTemplateTerraformModule
     {
-        if (empty($experiment->experiment_template_version_id)) {
+        if (empty($environment->environment_template_version_id)) {
             throw new RuntimeException(
-                "Experiment {$experiment->id} has no template version assigned. A TerraformModule cannot be resolved without a template version.",
+                "Environment {$environment->id} has no template version assigned. A TerraformModule cannot be resolved without a template version.",
             );
         }
 
-        $version = $experiment->templateVersion()->with('terraformModules')->first();
+        $version = $environment->templateVersion()->with('terraformModules')->first();
 
         if ($providerType) {
             $module = $version?->terraformModules->firstWhere('provider_type', $providerType);
@@ -123,9 +123,9 @@ class TerraformWorkspaceService
         if (!$module) {
             $hint = $providerType ? "provider '{$providerType}'" : 'any provider';
             throw new RuntimeException(
-                "Template version #{$experiment->experiment_template_version_id} " .
+                "Template version #{$environment->environment_template_version_id} " .
                 "has no TerraformModule configured for {$hint}. " .
-                'Register one via PUT /experiment-templates/{id}/versions/{versionId}/terraform-modules/{providerType}.',
+                'Register one via PUT /environment-templates/{id}/versions/{versionId}/terraform-modules/{providerType}.',
             );
         }
 
@@ -143,7 +143,7 @@ class TerraformWorkspaceService
     // HCL file writing
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function writeHclFiles(ExperimentTemplateTerraformModule $module, string $workspacePath): void
+    private function writeHclFiles(EnvironmentTemplateTerraformModule $module, string $workspacePath): void
     {
         file_put_contents($workspacePath . '/main.tf', $module->main_tf);
 
@@ -160,20 +160,20 @@ class TerraformWorkspaceService
     // Tfvars building — fully driven by DB mapping
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function buildTfvars(Experiment $experiment, ExperimentTemplateTerraformModule $module): array
+    private function buildTfvars(Environment $environment, EnvironmentTemplateTerraformModule $module): array
     {
-        $base    = ['experiment_id' => (string) $experiment->id];
+        $base    = ['environment_id' => (string) $environment->id];
         $mapping = $module->tfvars_mapping_json ?? [];
 
         if (empty($mapping)) {
             return $base;
         }
 
-        return $base + $this->applyMapping($experiment->configuration_json ?? [], $mapping);
+        return $base + $this->applyMapping($environment->configuration_json ?? [], $mapping);
     }
 
     /**
-     * Applies tfvars_mapping_json to the experiment configuration, respecting
+     * Applies tfvars_mapping_json to the environment configuration, respecting
      * optional type casts declared per field.
      *
      * Each entry value may be:
@@ -184,9 +184,9 @@ class TerraformWorkspaceService
     {
         $tfvars = [];
 
-        // ── experiment_configuration fields ───────────────────────────────
-        $expCfg      = $config['experiment_configuration'] ?? [];
-        $expMappings = $mapping['experiment_configuration'] ?? [];
+        // ── environment_configuration fields ───────────────────────────────
+        $expCfg      = $config['environment_configuration'] ?? [];
+        $expMappings = $mapping['environment_configuration'] ?? [];
 
         foreach ($expMappings as $configField => $entry) {
             if (array_key_exists($configField, $expCfg)) {
@@ -268,7 +268,7 @@ class TerraformWorkspaceService
      * Each key is resolved from the application's own environment at job
      * dispatch time. Unknown keys produce empty values (safe default).
      */
-    private function buildEnvFile(ExperimentTemplateTerraformModule $module): string
+    private function buildEnvFile(EnvironmentTemplateTerraformModule $module): string
     {
         $keys  = $module->credential_env_keys ?? [];
         $lines = [];

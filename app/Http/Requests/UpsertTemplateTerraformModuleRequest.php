@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\Models\ExperimentTemplateTerraformModule;
+use App\Models\EnvironmentTemplateTerraformModule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -20,7 +20,7 @@ class UpsertTemplateTerraformModuleRequest extends FormRequest
             'module_slug'  => [
                 'nullable',
                 'string',
-                Rule::in(ExperimentTemplateTerraformModule::BUILT_IN_SLUGS),
+                Rule::in(EnvironmentTemplateTerraformModule::BUILT_IN_SLUGS),
             ],
 
             // ── HCL customizado (todos opcionais; se presente, sobrepõe slug) ─
@@ -30,7 +30,7 @@ class UpsertTemplateTerraformModuleRequest extends FormRequest
 
             // ── Mapeamento campo → variável Terraform ─────────────────────────
             'tfvars_mapping_json'                              => 'nullable|array',
-            'tfvars_mapping_json.experiment_configuration'     => 'nullable|array',
+            'tfvars_mapping_json.environment_configuration'     => 'nullable|array',
             'tfvars_mapping_json.instance_configurations'      => 'nullable|array',
 
             // Lista de nomes de env vars que o container Terraform precisa ter.
@@ -43,7 +43,7 @@ class UpsertTemplateTerraformModuleRequest extends FormRequest
     {
         return [
             'module_slug.in' => 'O slug deve ser um módulo built-in válido: ' .
-                implode(', ', ExperimentTemplateTerraformModule::BUILT_IN_SLUGS) . '.',
+                implode(', ', EnvironmentTemplateTerraformModule::BUILT_IN_SLUGS) . '.',
         ];
     }
 }

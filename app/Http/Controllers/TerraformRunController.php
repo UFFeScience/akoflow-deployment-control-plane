@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Exceptions\ExperimentNotFoundException;
+use App\Exceptions\EnvironmentNotFoundException;
 use App\Http\Resources\TerraformRunResource;
-use App\Jobs\DestroyExperimentJob;
-use App\Jobs\ProvisionExperimentJob;
+use App\Jobs\DestroyEnvironmentJob;
+use App\Jobs\ProvisionEnvironmentJob;
 use App\Models\TerraformRun;
 use App\Repositories\TerraformRunRepository;
-use App\Services\ExperimentAuthorizationService;
-use App\Services\GetExperimentService;
+use App\Services\EnvironmentAuthorizationService;
+use App\Services\GetEnvironmentService;
 use App\Services\ProjectAuthorizationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -18,26 +18,26 @@ class TerraformRunController extends Controller
 {
     public function __construct(
         private TerraformRunRepository       $runRepository,
-        private GetExperimentService         $getExperiment,
+        private GetEnvironmentService         $getEnvironment,
         private ProjectAuthorizationService  $projectAuth,
-        private ExperimentAuthorizationService $experimentAuth,
+        private EnvironmentAuthorizationService $environmentAuth,
     ) {}
 
     /**
-     * List all Terraform runs for an experiment.
+     * List all Terraform runs for an environment.
      *
-     * GET /projects/{projectId}/experiments/{experimentId}/terraform-runs
+     * GET /projects/{projectId}/environments/{environmentId}/terraform-runs
      */
-    public function index(string $projectId, string $experimentId): JsonResponse
+    public function index(string $projectId, string $environmentId): JsonResponse
     {
         $this->projectAuth->assertUserCanAccessProjectById(auth()->user(), (int) $projectId);
 
-        $experiment = $this->getExperiment->handle($projectId, $experimentId);
-        if (!$experiment) {
-            throw new ExperimentNotFoundException();
+        $environment = $this->getEnvironment->handle($projectId, $environmentId);
+        if (!$environment) {
+            throw new EnvironmentNotFoundException();
         }
 
-        $runs = $this->runRepository->findByExperiment($experimentId);
+        $runs = $this->runRepository->findByEnvironment($environmentId);
 
         return response()->json(TerraformRunResource::collection($runs));
     }
@@ -45,20 +45,20 @@ class TerraformRunController extends Controller
     /**
      * Get a single Terraform run (with logs).
      *
-     * GET /projects/{projectId}/experiments/{experimentId}/terraform-runs/{runId}
+     * GET /projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}
      */
-    public function show(string $projectId, string $experimentId, string $runId, Request $request): JsonResponse
+    public function show(string $projectId, string $environmentId, string $runId, Request $request): JsonResponse
     {
         $this->projectAuth->assertUserCanAccessProjectById(auth()->user(), (int) $projectId);
 
-        $experiment = $this->getExperiment->handle($projectId, $experimentId);
-        if (!$experiment) {
-            throw new ExperimentNotFoundException();
+        $environment = $this->getEnvironment->handle($projectId, $environmentId);
+        if (!$environment) {
+            throw new EnvironmentNotFoundException();
         }
 
         /** @var TerraformRun|null $run */
         $run = $this->runRepository->find($runId);
-        if (!$run || (string) $run->experiment_id !== $experimentId) {
+        if (!$run || (string) $run->environment_id !== $environmentId) {
             return response()->json(['message' => 'Terraform run not found.'], 404);
         }
 
@@ -69,39 +69,39 @@ class TerraformRunController extends Controller
     }
 
     /**
-     * Manually trigger provisioning for an experiment.
+     * Manually trigger provisioning for an environment.
      *
-     * POST /projects/{projectId}/experiments/{experimentId}/terraform-runs
+     * POST /projects/{projectId}/environments/{environmentId}/terraform-runs
      */
-    public function store(string $projectId, string $experimentId): JsonResponse
+    public function store(string $projectId, string $environmentId): JsonResponse
     {
         $this->projectAuth->assertUserCanAccessProjectById(auth()->user(), (int) $projectId);
 
-        $experiment = $this->getExperiment->handle($projectId, $experimentId);
-        if (!$experiment) {
-            throw new ExperimentNotFoundException();
+        $environment = $this->getEnvironment->handle($projectId, $environmentId);
+        if (!$environment) {
+            throw new EnvironmentNotFoundException();
         }
 
-        ProvisionExperimentJob::dispatch((int) $experimentId);
+        ProvisionEnvironmentJob::dispatch((int) $environmentId);
 
         return response()->json(['message' => 'Provisioning job queued.'], 202);
     }
 
     /**
-     * Trigger infrastructure teardown for an experiment.
+     * Trigger infrastructure teardown for an environment.
      *
-     * POST /projects/{projectId}/experiments/{experimentId}/terraform-runs/destroy
+     * POST /projects/{projectId}/environments/{environmentId}/terraform-runs/destroy
      */
-    public function destroy(string $projectId, string $experimentId): JsonResponse
+    public function destroy(string $projectId, string $environmentId): JsonResponse
     {
         $this->projectAuth->assertUserCanAccessProjectById(auth()->user(), (int) $projectId);
 
-        $experiment = $this->getExperiment->handle($projectId, $experimentId);
-        if (!$experiment) {
-            throw new ExperimentNotFoundException();
+        $environment = $this->getEnvironment->handle($projectId, $environmentId);
+        if (!$environment) {
+            throw new EnvironmentNotFoundException();
         }
 
-        DestroyExperimentJob::dispatch((int) $experimentId);
+        DestroyEnvironmentJob::dispatch((int) $environmentId);
 
         return response()->json(['message' => 'Destroy job queued.'], 202);
     }

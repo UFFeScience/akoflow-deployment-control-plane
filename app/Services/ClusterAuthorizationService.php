@@ -11,15 +11,15 @@ class ClusterAuthorizationService
 {
     public function __construct(
         private ClusterRepository $clusterRepository,
-        private ExperimentAuthorizationService $experimentAuthorizationService,
+        private EnvironmentAuthorizationService $environmentAuthorizationService,
     ) {}
 
     /**
      * Fetch a cluster by id and assert the user has access to its
-     * experiment's project's organization.
+     * environment's project's organization.
      *
      * @throws ClusterNotFoundException
-     * @throws \App\Exceptions\ExperimentNotFoundException
+     * @throws \App\Exceptions\EnvironmentNotFoundException
      * @throws \App\Exceptions\OrganizationNotFoundException
      * @throws \App\Exceptions\UnauthorizedOrganizationAccessException
      */
@@ -32,7 +32,7 @@ class ClusterAuthorizationService
             throw new ClusterNotFoundException();
         }
 
-        $this->experimentAuthorizationService->assertUserCanAccessExperiment($user, (string) $cluster->experiment_id);
+        $this->environmentAuthorizationService->assertUserCanAccessEnvironment($user, (string) $cluster->environment_id);
 
         return $cluster;
     }

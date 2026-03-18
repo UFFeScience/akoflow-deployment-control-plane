@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Cluster;
 use App\Models\ClusterTemplate;
-use App\Models\Experiment;
-use App\Models\ExperimentTemplate;
-use App\Models\ExperimentTemplateVersion;
+use App\Models\Environment;
+use App\Models\EnvironmentTemplate;
+use App\Models\EnvironmentTemplateVersion;
 use App\Models\InstanceLog;
 use App\Models\InstanceType;
 use App\Models\Organization;
@@ -37,14 +37,14 @@ class ProvisionedInstanceTest extends TestCase
             'status' => Provider::STATUSES[0],
         ]);
 
-        $template = ExperimentTemplate::create([
+        $template = EnvironmentTemplate::create([
             'name'         => 'Instance Template',
             'slug'         => 'instance-template-' . uniqid(),
             'description'  => 'Template for instances',
             'is_public'    => true,
         ]);
 
-        $version = ExperimentTemplateVersion::create([
+        $version = EnvironmentTemplateVersion::create([
             'template_id'     => $template->id,
             'version'         => 'v1',
             'definition_json' => ['steps' => []],
@@ -58,14 +58,14 @@ class ProvisionedInstanceTest extends TestCase
 
         $org        = Organization::factory()->create(['user_id' => $user->id]);
         $project    = Project::factory()->create(['organization_id' => $org->id]);
-        $experiment = Experiment::create([
+        $environment = Environment::create([
             'project_id' => $project->id,
-            'name'       => 'Instance Experiment',
-            'status'     => Experiment::STATUSES[0],
+            'name'       => 'Instance Environment',
+            'status'     => Environment::STATUSES[0],
         ]);
 
         $cluster = Cluster::create([
-            'experiment_id'    => $experiment->id,
+            'environment_id'    => $environment->id,
             'cluster_template_id' => $clusterTemplate->id,
             'provider_id'      => $provider->id,
             'region'           => 'us-central1',

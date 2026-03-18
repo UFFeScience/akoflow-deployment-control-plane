@@ -11,7 +11,7 @@ use Database\Seeders\Development\ProviderSchemasSeeder;
 use Database\Seeders\Development\InstanceTypesSeeder;
 use Database\Seeders\Development\TemplatesSeeder;
 use Database\Seeders\Development\TemplateTerraformModulesSeeder;
-use Database\Seeders\Development\ExperimentsSeeder;
+use Database\Seeders\Development\EnvironmentsSeeder;
 
 class DevelopmentSeeder extends Seeder
 {
@@ -26,7 +26,7 @@ class DevelopmentSeeder extends Seeder
             InstanceTypesSeeder::class,
             TemplatesSeeder::class,
             TemplateTerraformModulesSeeder::class,
-            ExperimentsSeeder::class,
+            EnvironmentsSeeder::class,
         ]);
     }
 }

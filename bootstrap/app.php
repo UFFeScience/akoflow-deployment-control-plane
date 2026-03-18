@@ -1,13 +1,13 @@
 <?php
 
 use App\Exceptions\ClusterNotFoundException;
-use App\Exceptions\ExperimentNotFoundException;
+use App\Exceptions\EnvironmentNotFoundException;
 use App\Exceptions\InstanceNotFoundException;
 use App\Exceptions\InvalidPasswordException;
 use App\Exceptions\MemberAlreadyExistsException;
 use App\Exceptions\OrganizationNotFoundException;
 use App\Exceptions\ProjectNotFoundException;
-use App\Exceptions\UnauthorizedExperimentAccessException;
+use App\Exceptions\UnauthorizedEnvironmentAccessException;
 use App\Exceptions\UnauthorizedOrganizationAccessException;
 use App\Exceptions\UnauthorizedProjectAccessException;
 use App\Exceptions\UserNotFoundException;
@@ -39,7 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json(['error' => $e->getMessage()], 404);
         });
 
-        $exceptions->render(function (ExperimentNotFoundException $e, Request $request) {
+        $exceptions->render(function (EnvironmentNotFoundException $e, Request $request) {
             return response()->json(['error' => $e->getMessage()], 404);
         });
 
@@ -67,7 +67,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json(['error' => $e->getMessage()], 403);
         });
 
-        $exceptions->render(function (UnauthorizedExperimentAccessException $e, Request $request) {
+        $exceptions->render(function (UnauthorizedEnvironmentAccessException $e, Request $request) {
             return response()->json(['error' => $e->getMessage()], 403);
         });
     })->create();

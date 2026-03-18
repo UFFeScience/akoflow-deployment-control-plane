@@ -14,19 +14,19 @@ provider "google" {
 }
 
 locals {
-  cluster_name  = "akocloud-gke-${var.experiment_id}"
-  akoflow_name  = "akoflow-${var.experiment_id}"
+  cluster_name  = "akocloud-gke-${var.environment_id}"
+  akoflow_name  = "akoflow-${var.environment_id}"
   allowed_cidrs = [for cidr in split(",", var.akoflow_allowed_ips) : trimspace(cidr)]
 }
 
 # ── VPC Network ───────────────────────────────────────────────────────────────
 resource "google_compute_network" "vpc" {
-  name                    = "akocloud-vpc-${var.experiment_id}"
+  name                    = "akocloud-vpc-${var.environment_id}"
   auto_create_subnetworks = false
 }
 
 resource "google_compute_subnetwork" "subnet" {
-  name          = "akocloud-subnet-${var.experiment_id}"
+  name          = "akocloud-subnet-${var.environment_id}"
   ip_cidr_range = "10.10.0.0/16"
   region        = var.gcp_region
   network       = google_compute_network.vpc.id
@@ -44,7 +44,7 @@ resource "google_compute_subnetwork" "subnet" {
 
 # ── Firewall: allow Akoflow API from allowed CIDRs ───────────────────────────
 resource "google_compute_firewall" "akoflow_api" {
-  name    = "akocloud-akoflow-api-${var.experiment_id}"
+  name    = "akocloud-akoflow-api-${var.environment_id}"
   network = google_compute_network.vpc.name
 
   allow {
@@ -58,7 +58,7 @@ resource "google_compute_firewall" "akoflow_api" {
 
 resource "google_compute_firewall" "akoflow_https" {
   count   = var.akoflow_enable_https ? 1 : 0
-  name    = "akocloud-akoflow-https-${var.experiment_id}"
+  name    = "akocloud-akoflow-https-${var.environment_id}"
   network = google_compute_network.vpc.name
 
   allow {
@@ -92,7 +92,7 @@ resource "google_container_cluster" "primary" {
 }
 
 resource "google_container_node_pool" "gke_compute" {
-  name       = "gke-compute-${var.experiment_id}"
+  name       = "gke-compute-${var.environment_id}"
   cluster    = google_container_cluster.primary.name
   location   = var.gcp_region
   node_count = var.gke_enable_autoscaling ? null : var.gke_node_count
@@ -116,7 +116,7 @@ resource "google_container_node_pool" "gke_compute" {
 
     labels = {
       managed-by    = "akocloud"
-      experiment-id = var.experiment_id
+      environment-id = var.environment_id
     }
 
     metadata = {
@@ -162,7 +162,7 @@ resource "google_compute_instance" "akoflow" {
 
   labels = {
     managed-by     = "akocloud"
-    experiment-id  = var.experiment_id
+    environment-id  = var.environment_id
     akoflow-version = replace(var.akoflow_version, ".", "-")
   }
 }

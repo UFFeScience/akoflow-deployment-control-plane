@@ -7,15 +7,15 @@ class NvflareFederatedDefinition
     public static function get(): array
     {
         return [
-            'experiment_configuration' => [
-                'label'       => 'Experiment Configuration',
+            'environment_configuration' => [
+                'label'       => 'Environment Configuration',
                 'description' => 'High-level settings shared across all NVIDIA FLARE nodes',
-                'type'        => 'experiment',
+                'type'        => 'environment',
                 'sections'    => [
                     [
                         'name'        => 'nvflare_general',
                         'label'       => 'NVIDIA FLARE General',
-                        'description' => 'Global FL experiment parameters',
+                        'description' => 'Global FL environment parameters',
                         'fields'      => [
                             [
                                 'name'        => 'nvflare_version',

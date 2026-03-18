@@ -10,7 +10,7 @@ class TerraformRunResource extends JsonResource
     {
         return [
             'id'             => $this->id,
-            'experiment_id'  => $this->experiment_id,
+            'environment_id'  => $this->environment_id,
             'action'         => $this->action,
             'status'         => $this->status,
             'provider_type'  => $this->provider_type,

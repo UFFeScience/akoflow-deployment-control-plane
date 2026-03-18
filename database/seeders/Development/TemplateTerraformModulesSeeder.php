@@ -2,7 +2,7 @@
 
 namespace Database\Seeders\Development;
 
-use App\Models\ExperimentTemplateTerraformModule;
+use App\Models\EnvironmentTemplateTerraformModule;
 use Illuminate\Database\Seeder;
 
 class TemplateTerraformModulesSeeder extends Seeder
@@ -12,7 +12,7 @@ class TemplateTerraformModulesSeeder extends Seeder
         $modules = $this->modules();
 
         foreach ($modules as $module) {
-            ExperimentTemplateTerraformModule::query()->updateOrCreate(
+            EnvironmentTemplateTerraformModule::query()->updateOrCreate(
                 [
                     'template_version_id' => $module['template_version_id'],
                     'provider_type' => $module['provider_type'],
@@ -93,7 +93,7 @@ class TemplateTerraformModulesSeeder extends Seeder
             'variables_tf' => $this->readTerraformFile('hello_aws/variables.tf'),
             'outputs_tf' => $this->readTerraformFile('hello_aws/outputs.tf'),
             'tfvars_mapping_json' => [
-                'experiment_configuration' => [
+                'environment_configuration' => [
                     'provider' => 'provider',
                     'region' => 'region',
                     'zone' => 'zone',
@@ -122,7 +122,7 @@ class TemplateTerraformModulesSeeder extends Seeder
             'variables_tf' => $this->readTerraformFile('hello_gcp/variables.tf'),
             'outputs_tf' => $this->readTerraformFile('hello_gcp/outputs.tf'),
             'tfvars_mapping_json' => [
-                'experiment_configuration' => [
+                'environment_configuration' => [
                     'provider' => 'provider',
                     'region' => 'region',
                     'zone' => 'zone',

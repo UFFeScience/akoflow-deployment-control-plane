@@ -2,18 +2,18 @@
 
 namespace App\Services;
 
-use App\Models\ExperimentTemplateTerraformModule;
-use App\Repositories\ExperimentTemplateTerraformModuleRepository;
-use App\Repositories\ExperimentTemplateVersionRepository;
+use App\Models\EnvironmentTemplateTerraformModule;
+use App\Repositories\EnvironmentTemplateTerraformModuleRepository;
+use App\Repositories\EnvironmentTemplateVersionRepository;
 
 class UpsertTemplateTerraformModuleService
 {
     public function __construct(
-        private ExperimentTemplateTerraformModuleRepository $moduleRepository,
-        private ExperimentTemplateVersionRepository         $versionRepository,
+        private EnvironmentTemplateTerraformModuleRepository $moduleRepository,
+        private EnvironmentTemplateVersionRepository         $versionRepository,
     ) {}
 
-    public function handle(string $versionId, string $providerType, array $data): ExperimentTemplateTerraformModule
+    public function handle(string $versionId, string $providerType, array $data): EnvironmentTemplateTerraformModule
     {
         // provider_type is always the one from the route — ignore any body value
         unset($data['provider_type']);

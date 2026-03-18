@@ -20,10 +20,10 @@ class CreateClusterService
     {
     }
 
-    public function handle(string $experimentId, array $data): Cluster
+    public function handle(string $environmentId, array $data): Cluster
     {
-        return DB::transaction(function () use ($experimentId, $data) {
-            $data['experiment_id'] = $experimentId;
+        return DB::transaction(function () use ($environmentId, $data) {
+            $data['environment_id'] = $environmentId;
 
             // Default cluster template if not provided — only set if one actually exists
             if (empty($data['cluster_template_id'])) {
