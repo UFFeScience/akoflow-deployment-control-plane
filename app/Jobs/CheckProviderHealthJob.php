@@ -20,11 +20,12 @@ class CheckProviderHealthJob implements ShouldQueue
     public int $tries = 1;
 
     public function __construct(
-        public readonly string $providerId,
+        public readonly string $payload,
     ) {}
 
     public function handle(CheckProviderHealthService $service): void
     {
-        $service->handle($this->providerId);
+        $data = json_decode($this->payload, true);
+        $service->handle((string) $data['provider_id']);
     }
 }

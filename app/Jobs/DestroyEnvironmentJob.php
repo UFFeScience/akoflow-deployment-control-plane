@@ -17,11 +17,12 @@ class DestroyEnvironmentJob implements ShouldQueue
     public int $tries   = 1;
 
     public function __construct(
-        public readonly int $environmentId,
+        public readonly string $payload,
     ) {}
 
     public function handle(DestroyEnvironmentService $service): void
     {
-        $service->handle($this->environmentId);
+        $data = json_decode($this->payload, true);
+        $service->handle((int) $data['environment_id']);
     }
 }
