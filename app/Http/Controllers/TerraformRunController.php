@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Messages;
 use App\Exceptions\EnvironmentNotFoundException;
 use App\Http\Resources\TerraformRunResource;
-use App\Jobs\DestroyEnvironmentJob;
-use App\Jobs\ProvisionEnvironmentJob;
+use App\Messaging\Contracts\MessageDispatcherInterface;
 use App\Models\TerraformRun;
 use App\Repositories\TerraformRunRepository;
 use App\Services\EnvironmentAuthorizationService;
@@ -17,10 +17,11 @@ use Illuminate\Http\JsonResponse;
 class TerraformRunController extends Controller
 {
     public function __construct(
-        private TerraformRunRepository       $runRepository,
-        private GetEnvironmentService         $getEnvironment,
-        private ProjectAuthorizationService  $projectAuth,
+        private TerraformRunRepository          $runRepository,
+        private GetEnvironmentService           $getEnvironment,
+        private ProjectAuthorizationService     $projectAuth,
         private EnvironmentAuthorizationService $environmentAuth,
+        private MessageDispatcherInterface      $dispatcher,
     ) {}
 
     /**
@@ -82,7 +83,9 @@ class TerraformRunController extends Controller
             throw new EnvironmentNotFoundException();
         }
 
-        ProvisionEnvironmentJob::dispatch((int) $environmentId);
+        $this->dispatcher->dispatch(Messages::PROVISION_ENVIRONMENT, [
+            'environment_id' => (int) $environmentId,
+        ]);
 
         return response()->json(['message' => 'Provisioning job queued.'], 202);
     }
@@ -101,7 +104,9 @@ class TerraformRunController extends Controller
             throw new EnvironmentNotFoundException();
         }
 
-        DestroyEnvironmentJob::dispatch((int) $environmentId);
+        $this->dispatcher->dispatch(Messages::DESTROY_ENVIRONMENT, [
+            'environment_id' => (int) $environmentId,
+        ]);
 
         return response()->json(['message' => 'Destroy job queued.'], 202);
     }

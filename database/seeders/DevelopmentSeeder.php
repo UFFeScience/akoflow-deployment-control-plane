@@ -8,6 +8,7 @@ use Database\Seeders\Development\OrganizationsSeeder;
 use Database\Seeders\Development\ProjectsSeeder;
 use Database\Seeders\Development\ProvidersSeeder;
 use Database\Seeders\Development\ProviderSchemasSeeder;
+use Database\Seeders\Development\ProviderCredentialsSeeder;
 use Database\Seeders\Development\InstanceTypesSeeder;
 use Database\Seeders\Development\TemplatesSeeder;
 use Database\Seeders\Development\TemplateTerraformModulesSeeder;
@@ -23,6 +24,7 @@ class DevelopmentSeeder extends Seeder
             ProjectsSeeder::class,
             ProvidersSeeder::class,
             ProviderSchemasSeeder::class,
+            ProviderCredentialsSeeder::class,
             InstanceTypesSeeder::class,
             TemplatesSeeder::class,
             TemplateTerraformModulesSeeder::class,

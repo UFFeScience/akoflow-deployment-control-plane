@@ -1,0 +1,10 @@
+<?php
+
+namespace App\Enums;
+
+enum Messages: string
+{
+    case PROVISION_ENVIRONMENT  = 'PROVISION_ENVIRONMENT';
+    case DESTROY_ENVIRONMENT    = 'DESTROY_ENVIRONMENT';
+    case CHECK_PROVIDER_HEALTH  = 'CHECK_PROVIDER_HEALTH';
+}

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Jobs\ProvisionEnvironmentJob;
 use App\Repositories\EnvironmentRepository;
 use App\Repositories\EnvironmentTemplateVersionRepository;
 use App\Models\Environment;
@@ -41,11 +40,6 @@ class CreateEnvironmentService
         }
 
         $environment = $this->environments->create($data);
-
-        // Dispatch Terraform provisioning job asynchronously.
-        // The job will generate the workspace, run terraform apply, and
-        // update the environment status to RUNNING (or FAILED).
-        ProvisionEnvironmentJob::dispatch($environment->id);
 
         return $environment;
     }

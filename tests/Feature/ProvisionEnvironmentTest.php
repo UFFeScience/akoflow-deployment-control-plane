@@ -57,15 +57,28 @@ class ProvisionEnvironmentTest extends TestCase
     // Happy path — environment only (no cluster)
     // ──────────────────────────────────────────────────────────────────────────
 
-    public function test_provision_creates_environment_without_cluster(): void
+    public function test_provision_creates_environment_with_cluster(): void
     {
-        $user    = User::factory()->create();
-        $project = $this->projectBelongingToUser($user);
+        $user         = User::factory()->create();
+        $project      = $this->projectBelongingToUser($user);
+        $provider     = $this->createProvider();
+        $instanceType = $this->createInstanceType($provider);
 
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name'           => 'Provision Env Only',
                 'execution_mode' => 'manual',
+                'cluster' => [
+                    'provider_id' => $provider->id,
+                    'region'      => 'us-east-1',
+                    'instance_groups' => [
+                        [
+                            'instance_type_id' => $instanceType->id,
+                            'role'             => 'worker',
+                            'quantity'         => 1,
+                        ],
+                    ],
+                ],
             ]);
 
         $response->assertStatus(201)
@@ -77,8 +90,7 @@ class ProvisionEnvironmentTest extends TestCase
             'name'       => 'Provision Env Only',
         ]);
 
-        // No cluster should have been created
-        $this->assertDatabaseCount('clusters', 0);
+        $this->assertDatabaseCount('clusters', 1);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -217,12 +229,26 @@ class ProvisionEnvironmentTest extends TestCase
             ],
         ]);
 
+        $provider     = $this->createProvider();
+        $instanceType = $this->createInstanceType($provider);
+
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name'                           => 'Templated Env',
                 'environment_template_version_id' => $templateVersion->id,
                 'configuration_json' => [
                     'environment_configuration' => ['project' => 'my-gcp-project'],
+                ],
+                'cluster' => [
+                    'provider_id' => $provider->id,
+                    'region'      => 'us-central1',
+                    'instance_groups' => [
+                        [
+                            'instance_type_id' => $instanceType->id,
+                            'role'             => 'worker',
+                            'quantity'         => 1,
+                        ],
+                    ],
                 ],
             ]);
 
