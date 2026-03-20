@@ -15,6 +15,7 @@ class CreateProviderCredentialRequest extends FormRequest
     {
         return [
             'name'        => 'required|string|max:255',
+            'slug'        => 'nullable|string|max:100|regex:/^[a-z0-9_-]+$/',
             'description' => 'nullable|string',
             'is_active'   => 'nullable|boolean',
             'values'      => 'required|array',

@@ -12,10 +12,10 @@ class ProviderVariableSchemaRepository extends BaseRepository
         parent::__construct($model);
     }
 
-    public function allBySlug(string $slug): Collection
+    public function allByProviderSlug(string $providerSlug): Collection
     {
         return $this->model
-            ->where('provider_slug', $slug)
+            ->where('provider_slug', $providerSlug)
             ->orderBy('section')
             ->orderBy('position')
             ->get();
@@ -28,5 +28,12 @@ class ProviderVariableSchemaRepository extends BaseRepository
             ->orderBy('section')
             ->orderBy('position')
             ->get();
+    }
+
+    public function createForProvider(string $providerSlug, array $data): ProviderVariableSchema
+    {
+        /** @var ProviderVariableSchema $schema */
+        $schema = $this->model->create(array_merge($data, ['provider_slug' => $providerSlug]));
+        return $schema;
     }
 }

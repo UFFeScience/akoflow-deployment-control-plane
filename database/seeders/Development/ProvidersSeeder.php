@@ -20,14 +20,14 @@ class ProvidersSeeder extends Seeder
                 'name'                => 'AWS',
                 'slug'                => 'aws',
                 'default_module_slug' => 'aws_nvflare',
-                'type'                => 'CLOUD',
+                'type'                => 'AWS',
                 'description'         => 'Amazon Web Services — public cloud provider.',
             ],
             [
                 'name'                => 'GCP',
                 'slug'                => 'gcp',
                 'default_module_slug' => 'gcp_gke',
-                'type'                => 'CLOUD',
+                'type'                => 'GCP',
                 'description'         => 'Google Cloud Platform — public cloud provider.',
             ],
             [
@@ -40,7 +40,7 @@ class ProvidersSeeder extends Seeder
         ];
 
         foreach ($providers as $provider) {
-            Provider::firstOrCreate(
+            Provider::updateOrCreate(
                 ['organization_id' => $organization->id, 'name' => $provider['name']],
                 [
                     'organization_id'     => $organization->id,

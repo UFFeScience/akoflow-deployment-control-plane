@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('provider_variable_schemas', function (Blueprint $table) {
             $table->id();
-            $table->string('provider_slug');
+            $table->string('provider_slug'); // e.g. "gcp", "aws" — not a FK, global type catalog
             $table->string('section')->default('general');
             $table->string('name'); // field key, e.g. "gcp_project_id"
             $table->string('label');
@@ -32,4 +32,5 @@ return new class extends Migration
     {
         Schema::dropIfExists('provider_variable_schemas');
     }
+
 };

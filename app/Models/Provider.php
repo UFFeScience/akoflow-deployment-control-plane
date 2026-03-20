@@ -11,7 +11,7 @@ class Provider extends Model
 	protected $table = 'providers';
 	protected $fillable = ['organization_id', 'name', 'slug', 'default_module_slug', 'description', 'type', 'status', 'health_status', 'health_message', 'last_health_check_at'];
 
-	public const TYPES = ['CLOUD', 'ON_PREM', 'HPC'];
+	public const TYPES = ['AWS', 'GCP', 'AZURE', 'ON_PREM', 'HPC', 'CUSTOM'];
 	public const STATUSES = ['ACTIVE', 'DEGRADED', 'DOWN', 'MAINTENANCE'];
 	public const HEALTH_STATUSES = ['HEALTHY', 'UNHEALTHY'];
 

@@ -47,6 +47,7 @@ class ProviderCredentialTest extends TestCase
         $cred = ProviderCredential::create([
             'provider_id' => $provider->id,
             'name'        => 'Prod Key',
+            'slug'        => 'prod-key',
             'is_active'   => true,
         ]);
 
@@ -85,6 +86,7 @@ class ProviderCredentialTest extends TestCase
         ProviderCredential::create([
             'provider_id' => $provB->id,
             'name'        => 'AWS Cred',
+            'slug'        => 'aws-cred',
             'is_active'   => true,
         ]);
 
@@ -188,6 +190,7 @@ class ProviderCredentialTest extends TestCase
         $cred     = ProviderCredential::create([
             'provider_id' => $provider->id,
             'name'        => 'Old Key',
+            'slug'        => 'old-key',
             'is_active'   => true,
         ]);
 
@@ -210,6 +213,7 @@ class ProviderCredentialTest extends TestCase
         $credB = ProviderCredential::create([
             'provider_id' => $provB->id,
             'name'        => 'AWS Key',
+            'slug'        => 'aws-key',
             'is_active'   => true,
         ]);
 

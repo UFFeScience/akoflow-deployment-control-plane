@@ -11,9 +11,9 @@ class ListProviderVariableSchemasService
     {
     }
 
-    public function handle(string $slug): Collection
+    public function handle(string $providerSlug): Collection
     {
-        return $this->schemas->allBySlug($slug);
+        return $this->schemas->allByProviderSlug($providerSlug);
     }
 
     public function handleAll(): Collection

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ProviderCredential;
 use App\Repositories\ProviderCredentialRepository;
 use App\Repositories\ProviderRepository;
+use Illuminate\Support\Str;
 
 class CreateProviderCredentialService
 {
@@ -18,10 +19,13 @@ class CreateProviderCredentialService
     {
         $provider = $this->providers->findOrFailById($providerId);
 
+        $slug = $data['slug'] ?? Str::slug($data['name']);
+
         return $this->credentials->createWithValues(
             [
                 'provider_id' => $provider->id,
                 'name'        => $data['name'],
+                'slug'        => $slug,
                 'description' => $data['description'] ?? null,
                 'is_active'   => $data['is_active'] ?? true,
             ],

@@ -13,6 +13,7 @@ class ProviderCredential extends Model
     protected $fillable = [
         'provider_id',
         'name',
+        'slug',
         'description',
         'is_active',
     ];

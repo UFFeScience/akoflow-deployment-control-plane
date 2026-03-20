@@ -71,9 +71,13 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::post('/organizations/{organizationId}/providers/{providerId}/credentials', [ProviderCredentialController::class, 'store']);
     Route::delete('/organizations/{organizationId}/providers/{providerId}/credentials/{credentialId}', [ProviderCredentialController::class, 'destroy']);
 
-    // Provider variable schemas
-    Route::get('/provider-type-schemas', [ProviderVariableSchemaController::class, 'index']);
-    Route::get('/provider-type-schemas/{slug}', [ProviderVariableSchemaController::class, 'show']);
+    // Provider variable schemas (per-provider)
+    Route::get('/organizations/{organizationId}/providers/{providerId}/schemas', [ProviderVariableSchemaController::class, 'index']);
+    Route::post('/organizations/{organizationId}/providers/{providerId}/schemas', [ProviderVariableSchemaController::class, 'store']);
+
+    // Global provider-type schema catalog (query by provider slug)
+    Route::get('/provider-type-schemas', [ProviderVariableSchemaController::class, 'indexAll']);
+    Route::get('/provider-type-schemas/{slug}', [ProviderVariableSchemaController::class, 'indexBySlug']);
 
     Route::get('/instance-types', [InstanceTypeController::class, 'index']);
     Route::post('/instance-types', [InstanceTypeController::class, 'store']);

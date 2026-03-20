@@ -10,11 +10,15 @@ return new class extends Migration
     {
         Schema::create('provider_credentials', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('provider_id')->constrained('providers')->onDelete('cascade');
+            $table->foreignId('provider_id')->constrained('providers')->cascadeOnDelete();
             $table->string('name');
+            $table->string('slug'); // unique per provider — auto-generated from name when not supplied
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
             $table->timestamps();
+
+            $table->index('provider_id');
+            $table->unique(['provider_id', 'slug']);
         });
 
         Schema::create('provider_credential_values', function (Blueprint $table) {

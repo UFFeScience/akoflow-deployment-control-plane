@@ -16,6 +16,7 @@ class ProviderCredentialsSeeder extends Seeder
             [
                 'provider_slug' => 'aws',
                 'name'          => 'AWS Demo Credentials',
+                'slug'          => 'aws-demo',
                 'description'   => 'Dummy AWS credentials for development/demo purposes.',
                 'is_active'     => true,
                 'values'        => [
@@ -30,6 +31,7 @@ class ProviderCredentialsSeeder extends Seeder
             [
                 'provider_slug' => 'gcp',
                 'name'          => 'GCP Demo Credentials',
+                'slug'          => 'gcp-demo',
                 'description'   => 'Dummy GCP credentials for development/demo purposes.',
                 'is_active'     => true,
                 'values'        => [
@@ -54,6 +56,7 @@ class ProviderCredentialsSeeder extends Seeder
             [
                 'provider_slug' => 'slurm',
                 'name'          => 'HPC Demo Credentials',
+                'slug'          => 'hpc-demo',
                 'description'   => 'Dummy Slurm/HPC credentials for development/demo purposes.',
                 'is_active'     => true,
                 'values'        => [
@@ -78,9 +81,10 @@ class ProviderCredentialsSeeder extends Seeder
             $credential = ProviderCredential::firstOrCreate(
                 [
                     'provider_id' => $provider->id,
-                    'name'        => $credentialData['name'],
+                    'slug'        => $credentialData['slug'],
                 ],
                 [
+                    'name'        => $credentialData['name'],
                     'description' => $credentialData['description'],
                     'is_active'   => $credentialData['is_active'],
                 ]

@@ -17,7 +17,7 @@ class CreateClusterRequest extends FormRequest
         return [
             'cluster_template_id' => 'nullable|integer|exists:cluster_templates,id',
             'provider_id' => 'required|integer|exists:providers,id',
-            'provider_credential_id' => 'required|integer|exists:provider_credentials,id',
+            'provider_credential_id' => 'nullable|integer|exists:provider_credentials,id',
             'region' => 'nullable|string',
             'environment_type' => ['nullable','string', function($attr, $value, $fail) {
                 if ($value === null) return;

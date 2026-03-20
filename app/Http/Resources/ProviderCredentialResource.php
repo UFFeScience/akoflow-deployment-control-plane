@@ -12,6 +12,7 @@ class ProviderCredentialResource extends JsonResource
             'id'          => $this->id,
             'provider_id' => $this->provider_id,
             'name'        => $this->name,
+            'slug'        => $this->slug ?? null,
             'description' => $this->description,
             'is_active'   => $this->is_active,
             'values'      => ProviderCredentialValueResource::collection($this->whenLoaded('values')),
