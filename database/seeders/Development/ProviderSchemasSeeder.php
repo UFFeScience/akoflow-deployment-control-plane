@@ -3,7 +3,6 @@
 namespace Database\Seeders\Development;
 
 use App\Models\Organization;
-use App\Models\Provider;
 use App\Models\ProviderVariableSchema;
 use Illuminate\Database\Seeder;
 
@@ -209,18 +208,10 @@ class ProviderSchemasSeeder extends Seeder
         ];
 
         foreach ($schemasBySlug as $slug => $schemas) {
-            $provider = Provider::where('organization_id', $organization->id)
-                ->where('slug', $slug)
-                ->first();
-
-            if (! $provider) {
-                continue;
-            }
-
             foreach ($schemas as $schema) {
                 ProviderVariableSchema::updateOrCreate(
-                    ['provider_id' => $provider->id, 'name' => $schema['name']],
-                    array_merge($schema, ['provider_id' => $provider->id])
+                    ['provider_slug' => $slug, 'name' => $schema['name']],
+                    array_merge($schema, ['provider_slug' => $slug])
                 );
             }
         }
