@@ -14,6 +14,7 @@ class ClusterResource extends JsonResource
             'environment_id' => $this->environment_id,
             'cluster_template_id' => $this->cluster_template_id,
             'provider_id' => $this->provider_id,
+            'provider_credential_id' => $this->provider_credential_id,
             'region' => $this->region,
             'environment_type' => $this->environment_type,
             'name' => $this->name,

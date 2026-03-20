@@ -6,11 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\InstanceGroup;
+use App\Models\ProviderCredential;
 
 class Cluster extends Model
 {
 	protected $table = 'clusters';
-	protected $fillable = ['environment_id','cluster_template_id','provider_id','region','environment_type','name','status'];
+	protected $fillable = ['environment_id','cluster_template_id','provider_id','provider_credential_id','region','environment_type','name','status'];
 
 	public const STATUSES = ['PROVISIONING', 'RUNNING', 'STOPPED', 'ERROR'];
 	public const ENVIRONMENT_TYPES = ['CLOUD', 'ON_PREM', 'HPC'];
@@ -28,6 +29,11 @@ class Cluster extends Model
 	public function provider(): BelongsTo
 	{
 		return $this->belongsTo(Provider::class, 'provider_id');
+	}
+
+	public function credential(): BelongsTo
+	{
+		return $this->belongsTo(ProviderCredential::class, 'provider_credential_id');
 	}
 
 	public function instances(): HasMany

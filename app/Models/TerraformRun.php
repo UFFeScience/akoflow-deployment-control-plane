@@ -49,6 +49,7 @@ class TerraformRun extends Model
     public function appendLog(string $line): void
     {
         $this->logs = ($this->logs ?? '') . $line . "\n";
+        error_log($line); // Also log to server error log for real-time monitoring
         $this->save();
     }
 }

@@ -34,18 +34,14 @@ use RuntimeException;
  *   }
  * }
  *
- * ── credential_env_keys (optional DB field) ───────────────────────────────────
- *
- * An array of environment-variable names the worker must expose to the
- * Terraform container. Read from EnvironmentTemplateTerraformModule::credential_env_keys.
- * Example: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]
- *
  * ── Directory layout (storage/app/terraform/{environment_id}/) ─────────────────
  *   main.tf                – from DB main_tf
  *   variables.tf           – from DB variables_tf (optional)
  *   outputs.tf             – from DB outputs_tf (optional)
  *   terraform.tfvars.json  – produced by applying tfvars_mapping_json
- *   .env                   – credential env vars listed in credential_env_keys
+ *
+ * Provider credentials are NOT stored here — they are injected directly into
+ * the Terraform process environment by TerraformProcessRunnerService.
  */
 class TerraformWorkspaceService
 {
@@ -89,9 +85,6 @@ class TerraformWorkspaceService
             $workspacePath . '/terraform.tfvars.json',
             json_encode($tfvars, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
         );
-
-        // 4. Write .env with credentials declared in the template module
-        file_put_contents($workspacePath . '/.env', $this->buildEnvFile($tfModule));
 
         return [
             'workspace_path' => $workspacePath,
@@ -252,31 +245,5 @@ class TerraformWorkspaceService
             'json'   => is_string($value) ? json_decode($value, true) : $value,
             default  => $value,
         };
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // .env credential file — keys declared in the DB module record
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Writes a .env file containing the credentials the Terraform container
-     * needs. The list of environment variable names comes from the DB field
-     * `credential_env_keys` (JSON array of strings).
-     *
-     * Example DB value: ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
-     *
-     * Each key is resolved from the application's own environment at job
-     * dispatch time. Unknown keys produce empty values (safe default).
-     */
-    private function buildEnvFile(EnvironmentTemplateTerraformModule $module): string
-    {
-        $keys  = $module->credential_env_keys ?? [];
-        $lines = [];
-
-        foreach ($keys as $key) {
-            $lines[] = $key . '=' . env($key, '');
-        }
-
-        return implode("\n", $lines) . "\n";
     }
 }

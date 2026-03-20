@@ -94,12 +94,12 @@ class TemplateTerraformModulesSeeder extends Seeder
             'outputs_tf' => $this->readTerraformFile('hello_aws/outputs.tf'),
             'tfvars_mapping_json' => [
                 'environment_configuration' => [
-                    'provider' => 'provider',
-                    'region' => 'region',
-                    'zone' => 'zone',
-                    'instance_type' => 'instance_type',
-                    'ami_id' => 'ami_id',
-                    'startup_script' => 'startup_script',
+                    'cloud_provider'  => 'cloud_provider',
+                    'region'          => 'region',
+                    'zone'            => 'zone',
+                    'instance_type'   => 'instance_type',
+                    'ami_id'          => 'ami_id',
+                    'startup_script'  => 'startup_script',
                 ],
                 'instance_configurations' => [
                     'single-vm' => [],

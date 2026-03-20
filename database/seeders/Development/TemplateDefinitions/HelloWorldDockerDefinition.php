@@ -18,7 +18,7 @@ class HelloWorldDockerDefinition
                         'description' => 'Configurações do provedor.',
                         'fields'      => [
                             [
-                                'name'        => 'provider',
+                                'name'        => 'cloud_provider',
                                 'label'       => 'Provider',
                                 'type'        => 'select',
                                 'required'    => true,

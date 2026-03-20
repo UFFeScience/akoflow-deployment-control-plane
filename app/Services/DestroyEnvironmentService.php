@@ -11,8 +11,11 @@ use Illuminate\Support\Facades\Log;
 class DestroyEnvironmentService
 {
     public function __construct(
-        private EnvironmentRepository   $environmentRepository,
-        private TerraformRunRepository $runRepository,
+        private EnvironmentRepository             $environmentRepository,
+        private TerraformRunRepository            $runRepository,
+        private EnvironmentClusterProviderService $providerResolver,
+        private ProviderCredentialResolverService $credentialResolver,
+        private TerraformProcessRunnerService     $processRunner,
     ) {}
 
     public function handle(int $environmentId): ?TerraformRun
@@ -24,7 +27,7 @@ class DestroyEnvironmentService
             throw new \RuntimeException("Environment {$environmentId} not found.");
         }
 
-        // Reuse the workspace path from the latest successful apply run
+        // Reuse the workspace path from the latest successful apply run (contains tfstate)
         $applyRun = $this->runRepository->latestForEnvironment((string) $environmentId);
 
         if (!$applyRun || empty($applyRun->workspace_path)) {
@@ -37,29 +40,30 @@ class DestroyEnvironmentService
         /** @var TerraformRun $run */
         $run = $this->runRepository->create([
             'environment_id'  => $environment->id,
-            'action'         => TerraformRun::ACTION_DESTROY,
-            'status'         => TerraformRun::STATUS_DESTROYING,
-            'provider_type'  => $applyRun->provider_type,
-            'workspace_path' => $applyRun->workspace_path,
-            'started_at'     => now(),
+            'action'          => TerraformRun::ACTION_DESTROY,
+            'status'          => TerraformRun::STATUS_DESTROYING,
+            'provider_type'   => $applyRun->provider_type,
+            'workspace_path'  => $applyRun->workspace_path,
+            'started_at'      => now(),
         ]);
 
         try {
-            $scriptPath    = base_path('infra/terraform/scripts/run.sh');
-            $workspacePath = $applyRun->workspace_path;
+            // Resolve fresh credentials from the DB
+            $provider    = $this->providerResolver->resolve($environment);
+            $credentials = $this->credentialResolver->resolve($provider);
 
-            $command = sprintf(
-                'bash %s destroy %s 2>&1',
-                escapeshellarg($scriptPath),
-                escapeshellarg($workspacePath),
+            $run->appendLog("[akocloud] Destroying workspace: {$applyRun->workspace_path}");
+            $run->appendLog("[akocloud] Provider: {$provider->name} (slug: {$provider->slug})");
+
+            $exitCode = $this->processRunner->run(
+                $applyRun->workspace_path,
+                TerraformRun::ACTION_DESTROY,
+                $credentials,
+                $run,
             );
 
-            $run->appendLog("[akocloud] Destroying: {$command}");
-
-            $returnCode = $this->streamProcess($command, $run);
-
-            if ($returnCode !== 0) {
-                throw new \RuntimeException("Terraform destroy exited with code {$returnCode}.");
+            if ($exitCode !== 0) {
+                throw new \RuntimeException("Terraform destroy exited with code {$exitCode}.");
             }
 
             $run->update([
@@ -80,29 +84,11 @@ class DestroyEnvironmentService
 
             Log::error('DestroyEnvironmentService failed', [
                 'environment_id' => $environmentId,
-                'run_id'        => $run->id,
-                'error'         => $e->getMessage(),
+                'run_id'         => $run->id,
+                'error'          => $e->getMessage(),
             ]);
         }
 
         return $run->fresh();
-    }
-
-    private function streamProcess(string $command, TerraformRun $run): int
-    {
-        $proc = popen($command, 'r');
-
-        if ($proc === false) {
-            throw new \RuntimeException('Failed to open Terraform destroy process.');
-        }
-
-        while (!feof($proc)) {
-            $line = fgets($proc, 4096);
-            if ($line !== false) {
-                $run->appendLog(rtrim($line));
-            }
-        }
-
-        return pclose($proc);
     }
 }

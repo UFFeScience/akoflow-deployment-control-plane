@@ -13,9 +13,12 @@ use Throwable;
 class ProvisionEnvironmentService
 {
     public function __construct(
-        private EnvironmentRepository      $environmentRepository,
-        private TerraformRunRepository    $runRepository,
-        private TerraformWorkspaceService $workspaceService,
+        private EnvironmentRepository              $environmentRepository,
+        private TerraformRunRepository             $runRepository,
+        private TerraformWorkspaceService          $workspaceService,
+        private EnvironmentClusterProviderService  $providerResolver,
+        private ProviderCredentialResolverService  $credentialResolver,
+        private TerraformProcessRunnerService      $processRunner,
     ) {}
 
     public function handle(int $environmentId): TerraformRun
@@ -30,14 +33,20 @@ class ProvisionEnvironmentService
         /** @var TerraformRun $run */
         $run = $this->runRepository->create([
             'environment_id' => $environment->id,
-            'action'        => TerraformRun::ACTION_APPLY,
-            'status'        => TerraformRun::STATUS_INITIALIZING,
-            'started_at'    => now(),
+            'action'         => TerraformRun::ACTION_APPLY,
+            'status'         => TerraformRun::STATUS_INITIALIZING,
+            'started_at'     => now(),
         ]);
 
         try {
-            // 1. Generate workspace files (main.tf + tfvars + .env)
-            $workspace = $this->workspaceService->build($environment);
+            // 1. Resolve the provider and its credentials from the DB
+            $provider    = $this->providerResolver->resolve($environment);
+            $credentials = $this->credentialResolver->resolve($provider);
+
+            $run->appendLog("[akocloud] Provider: {$provider->name} (slug: {$provider->slug})");
+
+            // 2. Build workspace files (main.tf, variables.tf, outputs.tf, tfvars.json)
+            $workspace = $this->workspaceService->build($environment, $provider->slug);
 
             $run->update([
                 'provider_type'  => $workspace['provider_type'],
@@ -47,32 +56,25 @@ class ProvisionEnvironmentService
             ]);
 
             $run->appendLog("[akocloud] Workspace built at: {$workspace['workspace_path']}");
-            $run->appendLog("[akocloud] Provider: {$workspace['provider_type']}");
 
-            // 2. Execute Terraform apply
+            // 3. Run terraform init + apply, injecting credentials as process env vars
             $run->update(['status' => TerraformRun::STATUS_APPLYING]);
 
-            $scriptPath    = base_path('infra/terraform/scripts/run.sh');
-            $workspacePath = $workspace['workspace_path'];
-
-            $command = sprintf(
-                'bash %s apply %s 2>&1',
-                escapeshellarg($scriptPath),
-                escapeshellarg($workspacePath),
+            $exitCode = $this->processRunner->run(
+                $workspace['workspace_path'],
+                TerraformRun::ACTION_APPLY,
+                $credentials,
+                $run,
             );
 
-            $run->appendLog("[akocloud] Running: {$command}");
+            // 4. Capture outputs
+            $outputJson = $this->readOutputJson($workspace['workspace_path']);
 
-            $returnCode = $this->streamProcess($command, $run);
-
-            // 3. Parse outputs file
-            $outputJson = $this->readOutputJson($workspacePath);
-
-            if ($returnCode !== 0) {
-                throw new RuntimeException("Terraform exited with code {$returnCode}.");
+            if ($exitCode !== 0) {
+                throw new RuntimeException("Terraform exited with code {$exitCode}.");
             }
 
-            // 4. Mark success
+            // 5. Mark success
             $run->update([
                 'status'      => TerraformRun::STATUS_APPLIED,
                 'output_json' => $outputJson,
@@ -94,34 +96,12 @@ class ProvisionEnvironmentService
 
             Log::error('ProvisionEnvironmentService failed', [
                 'environment_id' => $environmentId,
-                'run_id'        => $run->id,
-                'error'         => $e->getMessage(),
+                'run_id'         => $run->id,
+                'error'          => $e->getMessage(),
             ]);
         }
 
         return $run->fresh();
-    }
-
-    /**
-     * Opens a process, streams its output line by line into the run log,
-     * and returns the exit code.
-     */
-    private function streamProcess(string $command, TerraformRun $run): int
-    {
-        $proc = popen($command, 'r');
-
-        if ($proc === false) {
-            throw new RuntimeException('Failed to open Terraform process.');
-        }
-
-        while (!feof($proc)) {
-            $line = fgets($proc, 4096);
-            if ($line !== false) {
-                $run->appendLog(rtrim($line));
-            }
-        }
-
-        return pclose($proc);
     }
 
     private function readOutputJson(string $workspacePath): ?array

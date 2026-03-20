@@ -1,4 +1,4 @@
-variable "provider" {
+variable "cloud_provider" {
   description = "Cloud provider identifier"
   type        = string
   default     = "aws"
