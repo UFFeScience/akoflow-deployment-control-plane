@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\EnvironmentNotFoundException;
 use App\Http\Requests\CreateEnvironmentRequest;
+use App\Http\Requests\ProvisionEnvironmentRequest;
+use App\Http\Resources\ClusterResource;
 use App\Http\Resources\EnvironmentResource;
 use App\Services\CreateEnvironmentService;
+use App\Services\CreateEnvironmentWithClusterService;
 use App\Services\GetEnvironmentService;
 use App\Services\ListEnvironmentsService;
 use App\Services\ListEnvironmentsByOrganizationService;
@@ -19,6 +22,7 @@ class EnvironmentController extends Controller
         protected ListEnvironmentsService $listService,
         protected ListEnvironmentsByOrganizationService $listByOrgService,
         protected CreateEnvironmentService $createService,
+        protected CreateEnvironmentWithClusterService $provisionService,
         protected GetEnvironmentService $getService,
         protected ProjectAuthorizationService $projectAuthorizationService,
         protected OrganizationAuthorizationService $organizationAuthorizationService,
@@ -45,6 +49,22 @@ class EnvironmentController extends Controller
         $exp = $this->createService->handle($projectId, $request->validated());
 
         return new EnvironmentResource($exp);
+    }
+
+    public function provision(string $projectId, ProvisionEnvironmentRequest $request)
+    {
+        $this->projectAuthorizationService->assertUserCanAccessProjectById(auth()->user(), (int) $projectId);
+
+        ['environment' => $environment, 'cluster' => $cluster] =
+            $this->provisionService->handle($projectId, $request->validated());
+
+        $data = (new EnvironmentResource($environment))->toArray($request);
+
+        if ($cluster) {
+            $data['cluster'] = (new ClusterResource($cluster->load('instanceGroups')))->toArray($request);
+        }
+
+        return response()->json(['data' => $data], 201);
     }
 
     public function show(string $projectId, string $environmentId)

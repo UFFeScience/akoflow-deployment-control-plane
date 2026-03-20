@@ -112,6 +112,7 @@ Route::middleware([AuthMiddleware::class])->group(function () {
 
     Route::get('/projects/{projectId}/environments', [EnvironmentController::class, 'index']);
     Route::post('/projects/{projectId}/environments', [EnvironmentController::class, 'store']);
+    Route::post('/projects/{projectId}/environments/provision', [EnvironmentController::class, 'provision']);
     Route::get('/projects/{projectId}/environments/{id}', [EnvironmentController::class, 'show']);
     Route::get('/organizations/{organizationId}/environments', [EnvironmentController::class, 'indexByOrganization']);
 
