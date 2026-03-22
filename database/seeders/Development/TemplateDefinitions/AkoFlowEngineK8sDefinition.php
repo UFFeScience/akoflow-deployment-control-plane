@@ -92,7 +92,7 @@ class AkoFlowEngineK8sDefinition
                                 'label'       => 'Kubernetes Version (AWS EKS)',
                                 'type'        => 'string',
                                 'required'    => false,
-                                'default'     => '1.32',
+                                'default'     => '1.34',
                                 'description' => 'Kubernetes version for the AWS EKS cluster.',
                             ],
                             [
@@ -100,7 +100,7 @@ class AkoFlowEngineK8sDefinition
                                 'label'       => 'Kubernetes Version (GCP GKE)',
                                 'type'        => 'string',
                                 'required'    => false,
-                                'default'     => '1.32',
+                                'default'     => '1.34',
                                 'description' => 'Minimum master version for the GCP GKE cluster.',
                             ],
                             [

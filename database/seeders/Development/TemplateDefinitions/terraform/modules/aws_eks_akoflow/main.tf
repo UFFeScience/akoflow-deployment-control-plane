@@ -3,7 +3,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = ">= 5.0"
     }
   }
 }
@@ -164,6 +164,27 @@ resource "aws_iam_role_policy_attachment" "engine_eks_describe" {
 resource "aws_iam_instance_profile" "engine" {
   name = "${local.engine_name}-profile"
   role = aws_iam_role.engine.name
+}
+
+resource "aws_iam_role_policy" "engine_eks_api_access" {
+  name = "${local.engine_name}-eks-api-access"
+  role = aws_iam_role.engine.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:AccessKubernetesApi",
+          "eks:MutateViaKubernetesApi",
+          "eks:DescribeCluster",
+          "eks:ListClusters"
+        ]
+        Resource = aws_eks_cluster.main.arn
+      }
+    ]
+  })
 }
 
 # ── EKS Access: grant engine role cluster-admin via access entries ─────────────

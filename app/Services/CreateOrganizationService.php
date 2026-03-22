@@ -10,6 +10,7 @@ class CreateOrganizationService
     public function __construct(
         private OrganizationRepository $organizationRepository,
         private OrganizationUserRepository $organizationUserRepository,
+        private SeedOrganizationDefaultProvidersService $seedDefaultProviders,
     ) {}
 
     public function execute($user, array $data)
@@ -26,6 +27,9 @@ class CreateOrganizationService
             'organization_id' => $organization->id,
             'role' => 'owner',
         ]);
+
+        // Seed default cloud providers (AWS, GCP)
+        $this->seedDefaultProviders->execute($organization);
 
         return $organization;
     }

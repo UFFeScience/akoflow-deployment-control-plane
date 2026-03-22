@@ -24,7 +24,7 @@ variable "region" {
 variable "gke_version" {
   description = "Minimum Kubernetes master version for the GKE cluster"
   type        = string
-  default     = "1.32"
+  default     = "1.34"
 }
 
 variable "node_machine_type" {
