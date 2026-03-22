@@ -10,6 +10,7 @@ use Database\Seeders\Development\ProvidersSeeder;
 use Database\Seeders\Development\ProviderSchemasSeeder;
 use Database\Seeders\Development\ProviderCredentialsSeeder;
 use Database\Seeders\Development\InstanceTypesSeeder;
+use Database\Seeders\Development\ProvisionedResourceKindsAndTypesSeeder;
 use Database\Seeders\Development\TemplatesSeeder;
 use Database\Seeders\Development\TemplateTerraformModulesSeeder;
 use Database\Seeders\Development\EnvironmentsSeeder;
@@ -26,6 +27,7 @@ class DevelopmentSeeder extends Seeder
             ProviderSchemasSeeder::class,
             ProviderCredentialsSeeder::class,
             InstanceTypesSeeder::class,
+            ProvisionedResourceKindsAndTypesSeeder::class,
             TemplatesSeeder::class,
             TemplateTerraformModulesSeeder::class,
             EnvironmentsSeeder::class,

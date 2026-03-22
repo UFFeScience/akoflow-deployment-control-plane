@@ -115,16 +115,20 @@ class CreateProvisionedResourcesService
             ? ProvisionedResourceType::where('provider_resource_identifier', $terraformType)->first()
             : null;
 
-        $this->resources->create([
-            'deployment_id'                => $deployment->id,
-            'provisioned_resource_type_id' => $resourceType?->id,
-            'provider_resource_id'         => $providerResourceId,
-            'name'                         => $name,
-            'status'                       => ProvisionedResource::STATUS_RUNNING,
-            'public_ip'                    => $publicIp,
-            'private_ip'                   => $privateIp,
-            'metadata_json'                => !empty($metadata) ? $metadata : null,
-        ]);
+        $this->resources->updateOrCreateByDeploymentAndName(
+            $deployment->id,
+            $name,
+            [
+                'deployment_id'                => $deployment->id,
+                'provisioned_resource_type_id' => $resourceType?->id,
+                'provider_resource_id'         => $providerResourceId,
+                'name'                         => $name,
+                'status'                       => ProvisionedResource::STATUS_RUNNING,
+                'public_ip'                    => $publicIp,
+                'private_ip'                   => $privateIp,
+                'metadata_json'                => !empty($metadata) ? $metadata : null,
+            ],
+        );
     }
 
     /**

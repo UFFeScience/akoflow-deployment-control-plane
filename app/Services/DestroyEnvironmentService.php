@@ -7,6 +7,7 @@ use App\Models\Environment;
 use App\Models\TerraformRun;
 use App\Repositories\DeploymentRepository;
 use App\Repositories\EnvironmentRepository;
+use App\Repositories\ProvisionedResourceRepository;
 use App\Repositories\TerraformRunRepository;
 use Illuminate\Support\Facades\Log;
 
@@ -19,6 +20,7 @@ class DestroyEnvironmentService
         private EnvironmentDeploymentProviderService $providerResolver,
         private ProviderCredentialResolverService    $credentialResolver,
         private TerraformProcessRunnerService        $processRunner,
+        private ProvisionedResourceRepository        $provisionedResources,
     ) {}
 
     public function handle(int $environmentId, ?int $deploymentId = null): ?TerraformRun
@@ -85,6 +87,10 @@ class DestroyEnvironmentService
             ]);
 
             $run->appendLog('[akocloud] Infrastructure destroyed successfully.');
+
+            // Mark every provisioned resource for this deployment as DESTROYED
+            $this->provisionedResources->markAllDestroyedForDeployment($deployment->id);
+            $run->appendLog('[akocloud] Provisioned resources marked as DESTROYED.');
 
             $this->environmentRepository->update((string) $environment->id, ['status' => 'STOPPED']);
 
