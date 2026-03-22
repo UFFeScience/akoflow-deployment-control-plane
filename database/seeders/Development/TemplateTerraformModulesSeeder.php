@@ -60,8 +60,6 @@ class TemplateTerraformModulesSeeder extends Seeder
                 ],
             ],
             'credential_env_keys' => [
-                'AKO_AWS_ACCESS_KEY_ID',
-                'AKO_AWS_SECRET_ACCESS_KEY',
             ],
             'outputs_mapping_json' => [
                 'resources' => [
