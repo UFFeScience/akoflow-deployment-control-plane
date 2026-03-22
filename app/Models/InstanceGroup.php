@@ -21,9 +21,9 @@ class InstanceGroup extends Model
         'metadata_json' => 'array',
     ];
 
-    public function cluster(): BelongsTo
+    public function deployment(): BelongsTo
     {
-        return $this->belongsTo(Cluster::class, 'cluster_id');
+        return $this->belongsTo(Deployment::class, 'cluster_id');
     }
 
     public function instanceType(): BelongsTo

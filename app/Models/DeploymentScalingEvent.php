@@ -14,8 +14,8 @@ class ClusterScalingEvent extends Model
     public const ACTIONS = ['SCALE_UP', 'SCALE_DOWN'];
     public const TRIGGERED_BY = ['USER', 'SYSTEM', 'AKOFLOW'];
 
-    public function cluster(): BelongsTo
+    public function deployment(): BelongsTo
     {
-        return $this->belongsTo(Cluster::class, 'cluster_id');
+        return $this->belongsTo(Deployment::class, 'cluster_id');
     }
 }

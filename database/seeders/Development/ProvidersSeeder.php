@@ -35,7 +35,7 @@ class ProvidersSeeder extends Seeder
                 'slug'                => 'slurm',
                 'default_module_slug' => null,
                 'type'                => 'HPC',
-                'description'         => 'On-premises HPC cluster managed via Slurm workload manager.',
+                'description'         => 'On-premises HPC deployment managed via Slurm workload manager.',
             ],
         ];
 

@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('clusters', function (Blueprint $table) {
+        Schema::table('deployments', function (Blueprint $table) {
             $table->foreignId('provider_credential_id')
                 ->nullable()
                 ->after('provider_id')
@@ -19,7 +19,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('clusters', function (Blueprint $table) {
+        Schema::table('deployments', function (Blueprint $table) {
             $table->dropForeign(['provider_credential_id']);
             $table->dropColumn('provider_credential_id');
         });

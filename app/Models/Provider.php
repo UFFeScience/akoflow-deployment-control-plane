@@ -29,9 +29,9 @@ class Provider extends Model
 		return $this->hasMany(InstanceType::class, 'provider_id');
 	}
 
-	public function clusters(): HasMany
+	public function deployments(): HasMany
 	{
-		return $this->hasMany(Cluster::class, 'provider_id');
+		return $this->hasMany(Deployment::class, 'provider_id');
 	}
 
 	public function credentials(): HasMany

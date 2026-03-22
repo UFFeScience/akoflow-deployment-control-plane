@@ -55,13 +55,13 @@ class EnvironmentController extends Controller
     {
         $this->projectAuthorizationService->assertUserCanAccessProjectById(auth()->user(), (int) $projectId);
 
-        ['environment' => $environment, 'cluster' => $cluster] =
+        ['environment' => $environment, 'deployment' => $deployment] =
             $this->provisionService->handle($projectId, $request->validated());
 
         $data = (new EnvironmentResource($environment))->toArray($request);
 
-        if ($cluster) {
-            $data['cluster'] = (new ClusterResource($cluster->load('instanceGroups')))->toArray($request);
+        if ($deployment) {
+            $data['deployment'] = (new ClusterResource($deployment->load('instanceGroups')))->toArray($request);
         }
 
         return response()->json(['data' => $data], 201);

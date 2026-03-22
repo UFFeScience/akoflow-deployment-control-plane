@@ -9,7 +9,7 @@ class AkoflowGkeDefinition
         return [
             'environment_configuration' => [
                 'label'       => 'Environment Configuration',
-                'description' => 'High-level environment settings that apply to the entire cluster',
+                'description' => 'High-level environment settings that apply to the entire deployment',
                 'type'        => 'environment',
                 'sections'    => [
                     [
@@ -51,7 +51,7 @@ class AkoflowGkeDefinition
                     [
                         'name'        => 'akoflow_basics',
                         'label'       => 'AkoFlow Runtime Basics',
-                        'description' => 'Baseline configuration shared by AkoFlow and cluster nodes',
+                        'description' => 'Baseline configuration shared by AkoFlow and deployment nodes',
                         'fields'      => [
                             [
                                 'name'        => 'akoflow_bootstrap_command',
@@ -76,9 +76,9 @@ class AkoflowGkeDefinition
 
             'instance_configurations' => [
                 'gke-compute' => [
-                    'label'       => 'GKE Cluster Configuration',
-                    'description' => 'Configuration for GKE cluster and node pools – manages Kubernetes infrastructure',
-                    'type'        => 'cluster',
+                    'label'       => 'GKE Deployment Configuration',
+                    'description' => 'Configuration for GKE deployment and node pools – manages Kubernetes infrastructure',
+                    'type'        => 'deployment',
                     'position'    => 1,
                     'sections'    => [
                         [
@@ -268,12 +268,12 @@ class AkoflowGkeDefinition
             ],
 
             'cluster_topology' => [
-                'description'    => 'AkoFlow on GKE: Complete cluster with GKE nodes and AkoFlow server instance',
+                'description'    => 'AkoFlow on GKE: Complete deployment with GKE nodes and AkoFlow server instance',
                 'instance_groups' => [
                     [
                         'name'                         => 'gke-nodes',
                         'label'                        => 'GKE Compute Nodes',
-                        'description'                  => 'Google Kubernetes Engine cluster node pool',
+                        'description'                  => 'Google Kubernetes Engine deployment node pool',
                         'instance_group_template_slug' => 'gke-compute',
                         'quantity'                     => 5,
                         'default_terraform_variables'  => [

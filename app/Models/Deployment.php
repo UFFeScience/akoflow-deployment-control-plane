@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\InstanceGroup;
 use App\Models\ProviderCredential;
 
-class Cluster extends Model
+class Deployment extends Model
 {
-	protected $table = 'clusters';
+	protected $table = 'deployments';
 	protected $fillable = ['environment_id','cluster_template_id','provider_id','provider_credential_id','region','environment_type','name','status'];
 
 	public const STATUSES = ['PROVISIONING', 'RUNNING', 'STOPPED', 'ERROR'];

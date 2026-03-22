@@ -31,9 +31,9 @@ class ProvisionedInstance extends Model
 	public const STATUSES_PROVISIONING = [self::STATUS_PROVISIONING];
 	public const HEALTH_STATUSES = ['HEALTHY', 'UNHEALTHY'];
 
-	public function cluster(): BelongsTo
+	public function deployment(): BelongsTo
 	{
-		return $this->belongsTo(Cluster::class, 'cluster_id');
+		return $this->belongsTo(Deployment::class, 'cluster_id');
 	}
 
 	public function instanceGroup(): BelongsTo

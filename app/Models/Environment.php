@@ -28,9 +28,9 @@ class Environment extends Model
 		'configuration_json' => 'array',
 	];
 
-	public function clusters(): HasMany
+	public function deployments(): HasMany
 	{
-		return $this->hasMany(Cluster::class, 'environment_id');
+		return $this->hasMany(Deployment::class, 'environment_id');
 	}
 
 	public function project(): BelongsTo

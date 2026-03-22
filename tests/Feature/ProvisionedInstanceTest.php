@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Cluster;
+use App\Models\Deployment;
 use App\Models\ClusterTemplate;
 use App\Models\Environment;
 use App\Models\EnvironmentTemplate;
@@ -64,14 +64,14 @@ class ProvisionedInstanceTest extends TestCase
             'status'     => Environment::STATUSES[0],
         ]);
 
-        $cluster = Cluster::create([
+        $deployment = Deployment::create([
             'environment_id'    => $environment->id,
             'cluster_template_id' => $clusterTemplate->id,
             'provider_id'      => $provider->id,
             'region'           => 'us-central1',
-            'environment_type' => Cluster::ENVIRONMENT_TYPES[0],
-            'name'             => 'Cluster for instances',
-            'status'           => Cluster::STATUSES[1],
+            'environment_type' => Deployment::ENVIRONMENT_TYPES[0],
+            'name'             => 'Deployment for instances',
+            'status'           => Deployment::STATUSES[1],
         ]);
 
         $instanceType = InstanceType::create([
@@ -84,22 +84,22 @@ class ProvisionedInstanceTest extends TestCase
         ]);
 
         $group = InstanceGroup::create([
-            'cluster_id'       => $cluster->id,
+            'cluster_id'       => $deployment->id,
             'instance_type_id' => $instanceType->id,
             'role'             => 'master',
             'quantity'         => 2,
         ]);
 
-        return compact('cluster', 'instanceType', 'group');
+        return compact('deployment', 'instanceType', 'group');
     }
 
     public function test_user_can_list_instances_by_cluster(): void
     {
         $user = User::factory()->create();
-        ['cluster' => $cluster, 'instanceType' => $instanceType, 'group' => $group] = $this->createClusterAndInstanceType($user);
+        ['deployment' => $deployment, 'instanceType' => $instanceType, 'group' => $group] = $this->createClusterAndInstanceType($user);
 
         ProvisionedInstance::create([
-            'cluster_id' => $cluster->id,
+            'cluster_id' => $deployment->id,
             'instance_type_id' => $instanceType->id,
             'provider_instance_id' => 'i-123',
             'role' => ProvisionedInstance::ROLES[0],
@@ -108,7 +108,7 @@ class ProvisionedInstanceTest extends TestCase
             'instance_group_id' => $group->id,
         ]);
         ProvisionedInstance::create([
-            'cluster_id' => $cluster->id,
+            'cluster_id' => $deployment->id,
             'instance_type_id' => $instanceType->id,
             'provider_instance_id' => 'i-456',
             'role' => ProvisionedInstance::ROLES[1],
@@ -118,7 +118,7 @@ class ProvisionedInstanceTest extends TestCase
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/clusters/{$cluster->id}/instances");
+            ->getJson("/api/deployments/{$deployment->id}/instances");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data');
@@ -127,10 +127,10 @@ class ProvisionedInstanceTest extends TestCase
     public function test_user_can_get_instance_details(): void
     {
         $user = User::factory()->create();
-        ['cluster' => $cluster, 'instanceType' => $instanceType] = $this->createClusterAndInstanceType($user);
+        ['deployment' => $deployment, 'instanceType' => $instanceType] = $this->createClusterAndInstanceType($user);
 
         $instance = ProvisionedInstance::create([
-            'cluster_id' => $cluster->id,
+            'cluster_id' => $deployment->id,
             'instance_type_id' => $instanceType->id,
             'provider_instance_id' => 'i-789',
             'role' => ProvisionedInstance::ROLES[2],
@@ -143,16 +143,16 @@ class ProvisionedInstanceTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('data.id', $instance->id)
-            ->assertJsonPath('data.cluster_id', $cluster->id);
+            ->assertJsonPath('data.cluster_id', $deployment->id);
     }
 
     public function test_user_can_list_instance_logs(): void
     {
         $user = User::factory()->create();
-        ['cluster' => $cluster, 'instanceType' => $instanceType] = $this->createClusterAndInstanceType($user);
+        ['deployment' => $deployment, 'instanceType' => $instanceType] = $this->createClusterAndInstanceType($user);
 
         $instance = ProvisionedInstance::create([
-            'cluster_id' => $cluster->id,
+            'cluster_id' => $deployment->id,
             'instance_type_id' => $instanceType->id,
             'provider_instance_id' => 'i-1011',
             'role' => ProvisionedInstance::ROLES[0],

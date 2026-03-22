@@ -3,7 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\Models\Cluster;
+use App\Models\Deployment;
 
 class CreateClusterRequest extends FormRequest
 {
@@ -21,7 +21,7 @@ class CreateClusterRequest extends FormRequest
             'region' => 'nullable|string',
             'environment_type' => ['nullable','string', function($attr, $value, $fail) {
                 if ($value === null) return;
-                if (!in_array($value, Cluster::ENVIRONMENT_TYPES, true)) {
+                if (!in_array($value, Deployment::ENVIRONMENT_TYPES, true)) {
                     $fail('Invalid environment type');
                 }
             }],

@@ -70,7 +70,7 @@ resource "google_compute_firewall" "akoflow_https" {
   target_tags   = ["akoflow"]
 }
 
-# ── GKE Cluster ───────────────────────────────────────────────────────────────
+# ── GKE Deployment ───────────────────────────────────────────────────────────────
 resource "google_container_cluster" "primary" {
   name               = local.cluster_name
   location           = var.gcp_region
@@ -93,7 +93,7 @@ resource "google_container_cluster" "primary" {
 
 resource "google_container_node_pool" "gke_compute" {
   name       = "gke-compute-${var.environment_id}"
-  cluster    = google_container_cluster.primary.name
+  deployment    = google_container_cluster.primary.name
   location   = var.gcp_region
   node_count = var.gke_enable_autoscaling ? null : var.gke_node_count
 

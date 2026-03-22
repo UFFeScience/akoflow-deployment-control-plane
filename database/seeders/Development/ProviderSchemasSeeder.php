@@ -148,7 +148,7 @@ class ProviderSchemasSeeder extends Seeder
                     'section'       => 'connection',
                     'name'          => 'slurm_ssh_private_key',
                     'label'         => 'SSH Private Key',
-                    'description'   => 'PEM/RSA private key used for SSH authentication to the cluster.',
+                    'description'   => 'PEM/RSA private key used for SSH authentication to the deployment.',
                     'type'          => 'textarea',
                     'required'      => true,
                     'is_sensitive'  => true,

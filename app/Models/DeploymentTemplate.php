@@ -19,8 +19,8 @@ class ClusterTemplate extends Model
         return $this->belongsTo(EnvironmentTemplateVersion::class, 'template_version_id');
     }
 
-    public function clusters(): HasMany
+    public function deployments(): HasMany
     {
-        return $this->hasMany(Cluster::class, 'cluster_template_id');
+        return $this->hasMany(Deployment::class, 'cluster_template_id');
     }
 }

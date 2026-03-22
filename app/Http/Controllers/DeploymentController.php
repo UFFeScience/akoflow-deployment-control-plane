@@ -36,17 +36,17 @@ class ClusterController extends Controller
     {
         $this->environmentAuthorizationService->assertUserCanAccessEnvironment(auth()->user(), $environmentId);
 
-        $cluster = $this->createService->handle($environmentId, $request->validated());
+        $deployment = $this->createService->handle($environmentId, $request->validated());
 
-        return new ClusterResource($cluster->load('instanceGroups'));
+        return new ClusterResource($deployment->load('instanceGroups'));
     }
 
     public function scale(string $id, ScaleClusterRequest $request)
     {
         $data    = $request->validated();
-        $cluster = $this->scaleService->handle($id, $data['action'], $data['old_value'], $data['new_value'], $data['triggered_by']);
+        $deployment = $this->scaleService->handle($id, $data['action'], $data['old_value'], $data['new_value'], $data['triggered_by']);
 
-        if (!$cluster) {
+        if (!$deployment) {
             throw new ClusterNotFoundException();
         }
 
@@ -66,12 +66,12 @@ class ClusterController extends Controller
 
     public function updateNodes(string $id, UpdateClusterNodesRequest $request)
     {
-        $cluster = $this->updateNodesService->handle($id, $request->validated()['instance_groups']);
+        $deployment = $this->updateNodesService->handle($id, $request->validated()['instance_groups']);
 
-        if (!$cluster) {
+        if (!$deployment) {
             throw new ClusterNotFoundException();
         }
 
-        return new ClusterResource($cluster->load('instanceGroups'));
+        return new ClusterResource($deployment->load('instanceGroups'));
     }
 }

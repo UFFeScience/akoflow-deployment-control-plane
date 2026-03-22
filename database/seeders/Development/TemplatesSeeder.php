@@ -21,7 +21,7 @@ class TemplatesSeeder extends Seeder
             [
                 'slug'                  => 'akoflow-gke',
                 'name'                  => 'Workflow Orchestration on Google Kubernetes Engine',
-                'description'           => 'AkoFlow orchestrator running on top of a Google Kubernetes Engine cluster. '
+                'description'           => 'AkoFlow orchestrator running on top of a Google Kubernetes Engine deployment. '
                     . 'Includes one GKE node-pool and one AkoFlow compute instance.',
                 'is_public'             => true,
                 'owner_organization_id' => $organizationId,
@@ -31,7 +31,7 @@ class TemplatesSeeder extends Seeder
             [
                 'slug'                  => 'nvflare-federated',
                 'name'                  => 'NVIDIA FLARE – Federated Learning',
-                'description'           => 'NVIDIA FLARE federated learning cluster. '
+                'description'           => 'NVIDIA FLARE federated learning deployment. '
                     . 'Includes one FL Server, one Overseer, one DF-Analyse node, '
                     . 'and ten federated client sites – all running as Docker containers on EC2.',
                 'is_public'             => true,

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Cluster;
+use App\Models\Deployment;
 use App\Models\ClusterTemplate;
 use App\Models\Environment;
 use App\Models\EnvironmentTemplate;
@@ -31,15 +31,15 @@ class ClusterTest extends TestCase
     private function createDependencies(User $user): array
     {
         $provider = Provider::create([
-            'name'   => 'Provider for Cluster',
+            'name'   => 'Provider for Deployment',
             'type'   => Provider::TYPES[0],
             'status' => Provider::STATUSES[0],
         ]);
 
         $template = EnvironmentTemplate::create([
-            'name'         => 'Cluster Template',
-            'slug'         => 'cluster-template-' . uniqid(),
-            'description'  => 'Cluster template description',
+            'name'         => 'Deployment Template',
+            'slug'         => 'deployment-template-' . uniqid(),
+            'description'  => 'Deployment template description',
             'is_public'    => true,
         ]);
 
@@ -68,7 +68,7 @@ class ClusterTest extends TestCase
         $project    = Project::factory()->create(['organization_id' => $org->id]);
         $environment = Environment::create([
             'project_id' => $project->id,
-            'name'       => 'Environment for cluster',
+            'name'       => 'Environment for deployment',
             'status'     => Environment::STATUSES[0],
         ]);
 
@@ -80,18 +80,18 @@ class ClusterTest extends TestCase
         $user = User::factory()->create();
         ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment] = $this->createDependencies($user);
 
-        Cluster::create([
+        Deployment::create([
             'environment_id' => $environment->id,
             'cluster_template_id' => $clusterTemplate->id,
             'provider_id' => $provider->id,
             'region' => 'us-east-1',
-            'environment_type' => Cluster::ENVIRONMENT_TYPES[0],
-            'name' => 'Primary Cluster',
-            'status' => Cluster::STATUSES[1],
+            'environment_type' => Deployment::ENVIRONMENT_TYPES[0],
+            'name' => 'Primary Deployment',
+            'status' => Deployment::STATUSES[1],
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/environments/{$environment->id}/clusters");
+            ->getJson("/api/environments/{$environment->id}/deployments");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data');
@@ -103,21 +103,21 @@ class ClusterTest extends TestCase
         ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment] = $this->createDependencies($user);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/environments/{$environment->id}/clusters", [
+            ->postJson("/api/environments/{$environment->id}/deployments", [
                 'cluster_template_id' => $clusterTemplate->id,
                 'provider_id' => $provider->id,
                 'region' => 'us-west-2',
-                'environment_type' => Cluster::ENVIRONMENT_TYPES[0],
-                'name' => 'Created Cluster',
+                'environment_type' => Deployment::ENVIRONMENT_TYPES[0],
+                'name' => 'Created Deployment',
             ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('data.name', 'Created Cluster')
+            ->assertJsonPath('data.name', 'Created Deployment')
             ->assertJsonPath('data.environment_id', (string) $environment->id);
 
-        $this->assertDatabaseHas('clusters', [
+        $this->assertDatabaseHas('deployments', [
             'environment_id' => $environment->id,
-            'name' => 'Created Cluster',
+            'name' => 'Created Deployment',
         ]);
     }
 
@@ -127,12 +127,12 @@ class ClusterTest extends TestCase
         ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment, 'instanceType' => $instanceType] = $this->createDependencies($user);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/environments/{$environment->id}/clusters", [
+            ->postJson("/api/environments/{$environment->id}/deployments", [
                 'cluster_template_id' => $clusterTemplate->id,
                 'provider_id' => $provider->id,
                 'region' => 'us-east-1',
-                'environment_type' => Cluster::ENVIRONMENT_TYPES[0],
-                'name' => 'Cluster with groups',
+                'environment_type' => Deployment::ENVIRONMENT_TYPES[0],
+                'name' => 'Deployment with groups',
                 'instance_groups' => [
                     [
                         'instance_type_id' => $instanceType->id,
@@ -153,13 +153,13 @@ class ClusterTest extends TestCase
             ->assertJsonCount(2, 'data.instance_groups');
 
         $clusterId = $response->json('data.id');
-        $cluster = Cluster::with('instanceGroups')->find($clusterId);
+        $deployment = Deployment::with('instanceGroups')->find($clusterId);
 
-        $this->assertNotNull($cluster);
-        $this->assertCount(2, $cluster->instanceGroups);
+        $this->assertNotNull($deployment);
+        $this->assertCount(2, $deployment->instanceGroups);
 
-        $master = $cluster->instanceGroups->firstWhere('role', 'master');
-        $worker = $cluster->instanceGroups->firstWhere('role', 'worker');
+        $master = $deployment->instanceGroups->firstWhere('role', 'master');
+        $worker = $deployment->instanceGroups->firstWhere('role', 'worker');
 
         $this->assertEquals(['tier' => 'control'], $master->metadata_json);
         $this->assertEquals(['tier' => 'compute'], $worker->metadata_json);
@@ -193,45 +193,45 @@ class ClusterTest extends TestCase
         $user = User::factory()->create();
         ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment, 'instanceType' => $instanceType] = $this->createDependencies($user);
 
-        $cluster = Cluster::create([
+        $deployment = Deployment::create([
             'environment_id' => $environment->id,
             'cluster_template_id' => $clusterTemplate->id,
             'provider_id' => $provider->id,
             'region' => 'us-east-1',
-            'environment_type' => Cluster::ENVIRONMENT_TYPES[0],
-            'name' => 'Scalable Cluster',
-            'status' => Cluster::STATUSES[1],
+            'environment_type' => Deployment::ENVIRONMENT_TYPES[0],
+            'name' => 'Scalable Deployment',
+            'status' => Deployment::STATUSES[1],
         ]);
 
         $masterGroup = InstanceGroup::create([
-            'cluster_id' => $cluster->id,
+            'cluster_id' => $deployment->id,
             'instance_type_id' => $instanceType->id,
             'role' => 'master',
             'quantity' => 2,
         ]);
         $workerGroup = InstanceGroup::create([
-            'cluster_id' => $cluster->id,
+            'cluster_id' => $deployment->id,
             'instance_type_id' => $instanceType->id,
             'role' => 'worker',
             'quantity' => 1,
         ]);
 
         ProvisionedInstance::create([
-            'cluster_id' => $cluster->id,
+            'cluster_id' => $deployment->id,
             'instance_group_id' => $masterGroup->id,
             'instance_type_id' => $instanceType->id,
             'role' => 'master',
             'status' => ProvisionedInstance::STATUS_RUNNING,
         ]);
         ProvisionedInstance::create([
-            'cluster_id' => $cluster->id,
+            'cluster_id' => $deployment->id,
             'instance_group_id' => $masterGroup->id,
             'instance_type_id' => $instanceType->id,
             'role' => 'master',
             'status' => ProvisionedInstance::STATUS_RUNNING,
         ]);
         ProvisionedInstance::create([
-            'cluster_id' => $cluster->id,
+            'cluster_id' => $deployment->id,
             'instance_group_id' => $workerGroup->id,
             'instance_type_id' => $instanceType->id,
             'role' => 'worker',
@@ -239,7 +239,7 @@ class ClusterTest extends TestCase
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->patchJson("/api/clusters/{$cluster->id}/nodes", [
+            ->patchJson("/api/deployments/{$deployment->id}/nodes", [
                 'instance_groups' => [
                     ['id' => $masterGroup->id, 'quantity' => 1],
                     ['id' => $workerGroup->id, 'quantity' => 2],
@@ -271,18 +271,18 @@ class ClusterTest extends TestCase
         $user = User::factory()->create();
         ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment] = $this->createDependencies($user);
 
-        $cluster = Cluster::create([
+        $deployment = Deployment::create([
             'environment_id' => $environment->id,
             'cluster_template_id' => $clusterTemplate->id,
             'provider_id' => $provider->id,
             'region' => 'eu-west-1',
-            'environment_type' => Cluster::ENVIRONMENT_TYPES[1],
-            'name' => 'Scale Cluster',
-            'status' => Cluster::STATUSES[0],
+            'environment_type' => Deployment::ENVIRONMENT_TYPES[1],
+            'name' => 'Scale Deployment',
+            'status' => Deployment::STATUSES[0],
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/clusters/{$cluster->id}/scale", [
+            ->postJson("/api/deployments/{$deployment->id}/scale", [
                 'action' => 'SCALE_UP',
                 'old_value' => 2,
                 'new_value' => 4,
@@ -293,7 +293,7 @@ class ClusterTest extends TestCase
             ->assertJson(['message' => 'Scale event recorded']);
 
         $this->assertDatabaseHas('cluster_scaling_events', [
-            'cluster_id' => $cluster->id,
+            'cluster_id' => $deployment->id,
             'action' => 'SCALE_UP',
             'old_value' => 2,
             'new_value' => 4,
@@ -306,23 +306,23 @@ class ClusterTest extends TestCase
         $user = User::factory()->create();
         ['provider' => $provider, 'clusterTemplate' => $clusterTemplate, 'environment' => $environment] = $this->createDependencies($user);
 
-        $cluster = Cluster::create([
+        $deployment = Deployment::create([
             'environment_id' => $environment->id,
             'cluster_template_id' => $clusterTemplate->id,
             'provider_id' => $provider->id,
             'region' => 'ap-southeast-1',
-            'environment_type' => Cluster::ENVIRONMENT_TYPES[2],
-            'name' => 'Disposable Cluster',
-            'status' => Cluster::STATUSES[2],
+            'environment_type' => Deployment::ENVIRONMENT_TYPES[2],
+            'name' => 'Disposable Deployment',
+            'status' => Deployment::STATUSES[2],
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->deleteJson("/api/clusters/{$cluster->id}");
+            ->deleteJson("/api/deployments/{$deployment->id}");
 
         $response->assertStatus(204);
 
-        $this->assertDatabaseMissing('clusters', [
-            'id' => $cluster->id,
+        $this->assertDatabaseMissing('deployments', [
+            'id' => $deployment->id,
         ]);
     }
 }

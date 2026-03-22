@@ -2,11 +2,11 @@
 
 namespace App\Repositories;
 
-use App\Models\Cluster;
+use App\Models\Deployment;
 
 class ClusterRepository extends BaseRepository
 {
-    public function __construct(Cluster $model)
+    public function __construct(Deployment $model)
     {
         parent::__construct($model);
     }

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\Cluster;
+use App\Models\Deployment;
 use App\Models\Environment;
 use App\Models\EnvironmentTemplate;
 use App\Models\EnvironmentTemplateVersion;
@@ -54,7 +54,7 @@ class ProvisionEnvironmentTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Happy path — environment only (no cluster)
+    // Happy path — environment only (no deployment)
     // ──────────────────────────────────────────────────────────────────────────
 
     public function test_provision_creates_environment_with_cluster(): void
@@ -68,7 +68,7 @@ class ProvisionEnvironmentTest extends TestCase
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name'           => 'Provision Env Only',
                 'execution_mode' => 'manual',
-                'cluster' => [
+                'deployment' => [
                     'provider_id' => $provider->id,
                     'region'      => 'us-east-1',
                     'instance_groups' => [
@@ -90,11 +90,11 @@ class ProvisionEnvironmentTest extends TestCase
             'name'       => 'Provision Env Only',
         ]);
 
-        $this->assertDatabaseCount('clusters', 1);
+        $this->assertDatabaseCount('deployments', 1);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Happy path — environment + cluster in a single request
+    // Happy path — environment + deployment in a single request
     // ──────────────────────────────────────────────────────────────────────────
 
     public function test_provision_creates_environment_and_cluster_atomically(): void
@@ -107,9 +107,9 @@ class ProvisionEnvironmentTest extends TestCase
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name'           => 'Full Provision',
-                'description'    => 'Environment with cluster',
+                'description'    => 'Environment with deployment',
                 'execution_mode' => 'manual',
-                'cluster' => [
+                'deployment' => [
                     'provider_id' => $provider->id,
                     'region'      => 'us-east-1',
                     'instance_groups' => [
@@ -129,7 +129,7 @@ class ProvisionEnvironmentTest extends TestCase
                     'id',
                     'name',
                     'project_id',
-                    'cluster' => [
+                    'deployment' => [
                         'id',
                         'environment_id',
                         'provider_id',
@@ -145,7 +145,7 @@ class ProvisionEnvironmentTest extends TestCase
         ]);
 
         $environmentId = $response->json('data.id');
-        $this->assertDatabaseHas('clusters', [
+        $this->assertDatabaseHas('deployments', [
             'environment_id' => $environmentId,
             'provider_id'    => $provider->id,
             'region'         => 'us-east-1',
@@ -153,7 +153,7 @@ class ProvisionEnvironmentTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Cluster with multiple instance groups
+    // Deployment with multiple instance groups
     // ──────────────────────────────────────────────────────────────────────────
 
     public function test_provision_creates_cluster_with_multiple_instance_groups(): void
@@ -166,7 +166,7 @@ class ProvisionEnvironmentTest extends TestCase
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name' => 'Multi-Group Provision',
-                'cluster' => [
+                'deployment' => [
                     'provider_id' => $provider->id,
                     'region'      => 'us-west-2',
                     'instance_groups' => [
@@ -185,7 +185,7 @@ class ProvisionEnvironmentTest extends TestCase
             ]);
 
         $response->assertStatus(201)
-            ->assertJsonCount(2, 'data.cluster.instance_groups');
+            ->assertJsonCount(2, 'data.deployment.instance_groups');
 
         // 1 master + 3 workers = 4 instances
         $this->assertDatabaseCount('provisioned_instances', 4);
@@ -239,7 +239,7 @@ class ProvisionEnvironmentTest extends TestCase
                 'configuration_json' => [
                     'environment_configuration' => ['project' => 'my-gcp-project'],
                 ],
-                'cluster' => [
+                'deployment' => [
                     'provider_id' => $provider->id,
                     'region'      => 'us-central1',
                     'instance_groups' => [
@@ -291,13 +291,13 @@ class ProvisionEnvironmentTest extends TestCase
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name'    => 'Env missing provider',
-                'cluster' => [
+                'deployment' => [
                     'region' => 'us-east-1',
                 ],
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['cluster.provider_id']);
+            ->assertJsonValidationErrors(['deployment.provider_id']);
     }
 
     public function test_provision_rejects_non_existent_provider(): void
@@ -308,14 +308,14 @@ class ProvisionEnvironmentTest extends TestCase
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name' => 'Bad Provider Env',
-                'cluster' => [
+                'deployment' => [
                     'provider_id' => 9999,
                     'region'      => 'us-east-1',
                 ],
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['cluster.provider_id']);
+            ->assertJsonValidationErrors(['deployment.provider_id']);
     }
 
     public function test_provision_rejects_non_existent_instance_type_in_cluster(): void
@@ -327,7 +327,7 @@ class ProvisionEnvironmentTest extends TestCase
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name' => 'Bad Instance Type Env',
-                'cluster' => [
+                'deployment' => [
                     'provider_id'     => $provider->id,
                     'region'          => 'us-east-1',
                     'instance_groups' => [
@@ -341,7 +341,7 @@ class ProvisionEnvironmentTest extends TestCase
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['cluster.instance_groups.0.instance_type_id']);
+            ->assertJsonValidationErrors(['deployment.instance_groups.0.instance_type_id']);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -377,7 +377,7 @@ class ProvisionEnvironmentTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Atomicity — if cluster creation fails, environment must not be persisted
+    // Atomicity — if deployment creation fails, environment must not be persisted
     // ──────────────────────────────────────────────────────────────────────────
 
     public function test_environment_is_not_persisted_when_cluster_data_is_invalid(): void
@@ -385,12 +385,12 @@ class ProvisionEnvironmentTest extends TestCase
         $user    = User::factory()->create();
         $project = $this->projectBelongingToUser($user);
 
-        // Sending a cluster block with a non-existent provider triggers
+        // Sending a deployment block with a non-existent provider triggers
         // a 422 validation error before any DB write happens
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name' => 'Should Not Persist',
-                'cluster' => [
+                'deployment' => [
                     'provider_id' => 99999,
                     'region'      => 'us-east-1',
                 ],
@@ -399,6 +399,6 @@ class ProvisionEnvironmentTest extends TestCase
         $response->assertStatus(422);
 
         $this->assertDatabaseCount('environments', 0);
-        $this->assertDatabaseCount('clusters', 0);
+        $this->assertDatabaseCount('deployments', 0);
     }
 }

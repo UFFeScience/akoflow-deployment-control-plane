@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('instance_groups', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('cluster_id')->constrained('clusters')->cascadeOnDelete();
+            $table->foreignId('cluster_id')->constrained('deployments')->cascadeOnDelete();
             $table->foreignId('instance_type_id')->constrained('instance_types')->cascadeOnDelete();
             $table->string('role')->nullable();
             $table->unsignedInteger('quantity')->default(1);

@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\Cluster;
+use App\Models\Deployment;
 use App\Models\ProvisionedInstance;
 use App\Repositories\ClusterRepository;
 use App\Repositories\InstanceGroupRepository;
@@ -12,23 +12,23 @@ use Illuminate\Support\Facades\DB;
 class UpdateClusterNodesService
 {
     public function __construct(
-        private ClusterRepository $clusters,
+        private ClusterRepository $deployments,
         private InstanceGroupRepository $groups,
         private ProvisionedInstanceRepository $instances,
     ) {
     }
 
-    public function handle(string $clusterId, array $groupsPayload): ?Cluster
+    public function handle(string $clusterId, array $groupsPayload): ?Deployment
     {
-        /** @var Cluster|null $cluster */
-        $cluster = $this->clusters->find($clusterId);
-        if (!$cluster) {
+        /** @var Deployment|null $deployment */
+        $deployment = $this->deployments->find($clusterId);
+        if (!$deployment) {
             return null;
         }
 
-        return DB::transaction(function () use ($cluster, $groupsPayload) {
-            $cluster->load('instanceGroups');
-            $groupMap = $cluster->instanceGroups->keyBy('id');
+        return DB::transaction(function () use ($deployment, $groupsPayload) {
+            $deployment->load('instanceGroups');
+            $groupMap = $deployment->instanceGroups->keyBy('id');
 
             foreach ($groupsPayload as $groupData) {
                 $group = $groupMap->get($groupData['id']);
@@ -46,7 +46,7 @@ class UpdateClusterNodesService
                     $delta = $target - $current;
                     for ($i = 0; $i < $delta; $i++) {
                         $this->instances->create([
-                            'cluster_id' => $cluster->id,
+                            'cluster_id' => $deployment->id,
                             'instance_group_id' => $group->id,
                             'instance_type_id' => $group->instance_type_id,
                             'role' => $group->role,
@@ -70,7 +70,7 @@ class UpdateClusterNodesService
                 $group->save();
             }
 
-            return $cluster->fresh(['instanceGroups']);
+            return $deployment->fresh(['instanceGroups']);
         });
     }
 }

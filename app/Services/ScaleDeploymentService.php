@@ -4,20 +4,20 @@ namespace App\Services;
 
 use App\Repositories\ClusterRepository;
 use App\Repositories\ClusterScalingEventRepository;
-use App\Models\Cluster;
+use App\Models\Deployment;
 
 class ScaleClusterService
 {
     public function __construct(
-        private ClusterRepository $clusters,
+        private ClusterRepository $deployments,
         private ClusterScalingEventRepository $events
     ) {
     }
 
-    public function handle(string $clusterId, string $action, int $oldValue, int $newValue, string $triggeredBy): ?Cluster
+    public function handle(string $clusterId, string $action, int $oldValue, int $newValue, string $triggeredBy): ?Deployment
     {
-        $cluster = $this->clusters->find($clusterId);
-        if (!$cluster) {
+        $deployment = $this->deployments->find($clusterId);
+        if (!$deployment) {
             return null;
         }
 
@@ -29,6 +29,6 @@ class ScaleClusterService
             'triggered_by' => $triggeredBy,
         ]);
 
-        return $cluster;
+        return $deployment;
     }
 }

@@ -126,13 +126,13 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}', [TerraformRunController::class, 'show']);
     Route::post('/projects/{projectId}/environments/{environmentId}/terraform-runs/destroy', [TerraformRunController::class, 'destroy']);
 
-    Route::get('/environments/{id}/clusters', [ClusterController::class, 'index']);
-    Route::post('/environments/{id}/clusters', [ClusterController::class, 'store']);
-    Route::post('/clusters/{id}/scale', [ClusterController::class, 'scale']);
-    Route::patch('/clusters/{id}/nodes', [ClusterController::class, 'updateNodes']);
-    Route::delete('/clusters/{id}', [ClusterController::class, 'destroy']);
+    Route::get('/environments/{id}/deployments', [ClusterController::class, 'index']);
+    Route::post('/environments/{id}/deployments', [ClusterController::class, 'store']);
+    Route::post('/deployments/{id}/scale', [ClusterController::class, 'scale']);
+    Route::patch('/deployments/{id}/nodes', [ClusterController::class, 'updateNodes']);
+    Route::delete('/deployments/{id}', [ClusterController::class, 'destroy']);
 
-    Route::get('/clusters/{id}/instances', [ProvisionedInstanceController::class, 'listByCluster']);
+    Route::get('/deployments/{id}/instances', [ProvisionedInstanceController::class, 'listByCluster']);
     Route::get('/instances/{id}', [ProvisionedInstanceController::class, 'show']);
     Route::get('/instances/{id}/logs', [ProvisionedInstanceController::class, 'logs']);
 

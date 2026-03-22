@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('provisioned_instances', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('cluster_id')->constrained('clusters')->cascadeOnDelete();
+            $table->foreignId('cluster_id')->constrained('deployments')->cascadeOnDelete();
             $table->foreignId('instance_type_id')->constrained('instance_types')->cascadeOnDelete();
             $table->string('provider_instance_id')->nullable();
             $table->string('role')->nullable();
@@ -39,7 +39,7 @@ return new class extends Migration {
 
         Schema::create('cluster_scaling_events', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('cluster_id')->constrained('clusters')->cascadeOnDelete();
+            $table->foreignId('cluster_id')->constrained('deployments')->cascadeOnDelete();
             $table->string('action');
             $table->integer('old_value')->nullable();
             $table->integer('new_value')->nullable();

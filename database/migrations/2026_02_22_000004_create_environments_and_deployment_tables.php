@@ -16,7 +16,7 @@ return new class extends Migration {
             $table->index('template_version_id');
         });
 
-        Schema::create('clusters', function (Blueprint $table) {
+        Schema::create('deployments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('environment_id')->constrained('environments')->cascadeOnDelete();
             $table->foreignId('cluster_template_id')->constrained('cluster_templates')->cascadeOnDelete();
@@ -37,7 +37,7 @@ return new class extends Migration {
 
     public function down(): void
     {
-        Schema::dropIfExists('clusters');
+        Schema::dropIfExists('deployments');
         Schema::dropIfExists('cluster_templates');
     }
 };
