@@ -117,3 +117,11 @@ variable "html_page_body" {
   type        = string
   default     = "Your MicroNGINX instance is running successfully."
 }
+
+# ── SSH Access ────────────────────────────────────────────────────────────────
+
+variable "key_name" {
+  description = "Name of an existing EC2 Key Pair to enable SSH access. Leave empty to disable SSH (port 22 will not be opened)."
+  type        = string
+  default     = ""
+}

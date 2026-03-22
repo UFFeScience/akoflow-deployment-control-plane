@@ -19,7 +19,7 @@ variable "region" {
 variable "eks_cluster_version" {
   description = "Kubernetes version for the EKS cluster"
   type        = string
-  default     = "1.29"
+  default     = "1.32"
 }
 
 variable "node_instance_type" {
@@ -37,7 +37,7 @@ variable "node_disk_size_gb" {
 variable "node_count" {
   description = "Desired number of EKS worker nodes"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "node_min_count" {
@@ -76,4 +76,10 @@ variable "akoflow_allowed_ips" {
   description = "CIDR block allowed to reach the AkoFlow API port"
   type        = string
   default     = "0.0.0.0/0"
+}
+
+variable "akoflow_env" {
+  description = "AkoFlow environment name written to ~/akospace/.env as AKOFLOW_ENV"
+  type        = string
+  default     = "dev"
 }

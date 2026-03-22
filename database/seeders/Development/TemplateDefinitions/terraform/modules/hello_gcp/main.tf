@@ -58,7 +58,7 @@ http {
         index index.html;
 
         location / {
-            try_files $$uri $$uri/ =404;
+            try_files $uri $uri/ =404;
         }
     }
 }
@@ -138,6 +138,21 @@ resource "google_compute_firewall" "nginx" {
   source_ranges = ["0.0.0.0/0"]
 }
 
+resource "google_compute_firewall" "ssh" {
+  count   = var.ssh_public_key != "" ? 1 : 0
+  name    = "${local.resource_name}-ssh-fw"
+  network = var.network_gcp
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  direction     = "INGRESS"
+  priority      = 1000
+  source_ranges = ["0.0.0.0/0"]
+}
+
 resource "google_compute_instance" "nginx" {
   name         = local.resource_name
   machine_type = var.machine_type
@@ -153,6 +168,8 @@ resource "google_compute_instance" "nginx" {
     network = var.network_gcp
     access_config {}
   }
+
+  metadata = var.ssh_public_key != "" ? { "ssh-keys" = var.ssh_public_key } : {}
 
   metadata_startup_script = local.startup_script
 

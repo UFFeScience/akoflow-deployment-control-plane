@@ -103,6 +103,32 @@ class MicroNginxDefinition
                         ],
                     ],
 
+                    // ── SSH Access ─────────────────────────────────────────────
+                    [
+                        'name'        => 'ssh',
+                        'label'       => 'SSH Access',
+                        'description' => 'Optional SSH key to allow direct connection to the instance. Leave blank to disable SSH.',
+                        'group'       => 'deploy',
+                        'fields'      => [
+                            [
+                                'name'        => 'key_name',
+                                'label'       => 'Key Pair Name (AWS only)',
+                                'type'        => 'string',
+                                'required'    => false,
+                                'default'     => '',
+                                'description' => 'Name of an existing EC2 Key Pair. When set, port 22 is opened in the security group. Example: key-0193e669636e675da',
+                            ],
+                            [
+                                'name'        => 'ssh_public_key',
+                                'label'       => 'SSH Public Key (GCP only)',
+                                'type'        => 'string',
+                                'required'    => false,
+                                'default'     => '',
+                                'description' => 'SSH public key in "user:ssh-rsa AAAA..." format added to instance metadata. When set, port 22 is opened in the firewall.',
+                            ],
+                        ],
+                    ],
+
                     // ════════════════════════════════════════════════════════
                     // NGINX CONFIGURATION
                     // ════════════════════════════════════════════════════════

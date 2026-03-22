@@ -25,6 +25,7 @@ class LaravelJobMessageDispatcher implements MessageDispatcherInterface
     private array $map = [
         Messages::PROVISION_ENVIRONMENT->value => ProvisionEnvironmentJob::class,
         Messages::DESTROY_ENVIRONMENT->value   => DestroyEnvironmentJob::class,
+        Messages::DESTROY_DEPLOYMENT->value    => DestroyEnvironmentJob::class,
         Messages::CHECK_PROVIDER_HEALTH->value => CheckProviderHealthJob::class,
     ];
 

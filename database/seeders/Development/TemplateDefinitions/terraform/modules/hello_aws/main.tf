@@ -62,7 +62,7 @@ http {
         index index.html;
 
         location / {
-            try_files $$uri $$uri/ =404;
+            try_files $uri $uri/ =404;
         }
     }
 }
@@ -140,6 +140,17 @@ resource "aws_security_group" "nginx" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  dynamic "ingress" {
+    for_each = var.key_name != "" ? [1] : []
+    content {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+      description = "SSH access"
+    }
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -164,6 +175,7 @@ resource "aws_instance" "nginx" {
   associate_public_ip_address = true
   availability_zone           = local.az
   subnet_id                   = var.subnet_id != "" ? var.subnet_id : null
+  key_name                    = var.key_name != "" ? var.key_name : null
   user_data                   = local.startup_script
 
   tags = {

@@ -211,6 +211,20 @@ resource "google_compute_instance" "engine" {
     kubectl create token akoflow-sa --namespace default --duration=8760h \
       > /etc/akoflow/k8s-token
 
+    # ── Write ~/akospace/.env ─────────────────────────────────────────────────
+    K8S_TOKEN=$(cat /etc/akoflow/k8s-token)
+    mkdir -p /root/akospace
+    {
+      echo "AKOFLOW_ENV=${var.akoflow_env}"
+      echo "AKOFLOW_PORT=${var.akoflow_api_port}"
+      echo ""
+      echo "K8S_API_SERVER_HOST=${google_container_cluster.main.endpoint}"
+      echo "K8S_API_SERVER_TOKEN=$${K8S_TOKEN}"
+      echo ""
+      echo "AKOFLOW_SERVER_SERVICE_SERVICE_HOST=host.docker.internal"
+      echo "AKOFLOW_SERVER_SERVICE_SERVICE_PORT=${var.akoflow_api_port}"
+    } > /root/akospace/.env
+
     echo "AkoFlow Engine ready. Cluster endpoint: ${google_container_cluster.main.endpoint}"
   EOF
 

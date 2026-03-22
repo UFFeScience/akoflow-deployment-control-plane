@@ -25,12 +25,14 @@ class Deployment extends Model
     public const STATUS_RUNNING      = 'RUNNING';
     public const STATUS_STOPPED      = 'STOPPED';
     public const STATUS_ERROR        = 'ERROR';
+    public const STATUS_DESTROYING   = 'DESTROYING';
 
     public const STATUSES = [
         self::STATUS_PROVISIONING,
         self::STATUS_RUNNING,
         self::STATUS_STOPPED,
         self::STATUS_ERROR,
+        self::STATUS_DESTROYING,
     ];
 
     public const ENVIRONMENT_TYPES = ['CLOUD', 'ON_PREM', 'HPC'];

@@ -6,7 +6,7 @@ use App\Exceptions\DeploymentNotFoundException;
 use App\Http\Requests\CreateDeploymentRequest;
 use App\Http\Resources\DeploymentResource;
 use App\Services\CreateDeploymentService;
-use App\Services\DeleteDeploymentService;
+use App\Services\DestroyDeploymentService;
 use App\Services\EnvironmentAuthorizationService;
 use App\Services\ListDeploymentsService;
 
@@ -15,7 +15,7 @@ class DeploymentController extends Controller
     public function __construct(
         protected ListDeploymentsService          $listService,
         protected CreateDeploymentService         $createService,
-        protected DeleteDeploymentService         $deleteService,
+        protected DestroyDeploymentService        $destroyService,
         protected EnvironmentAuthorizationService $environmentAuthorizationService,
     ) {}
 
@@ -37,12 +37,8 @@ class DeploymentController extends Controller
 
     public function destroy(string $id)
     {
-        $deleted = $this->deleteService->handle($id);
+        $deployment = $this->destroyService->handle($id);
 
-        if (!$deleted) {
-            throw new DeploymentNotFoundException();
-        }
-
-        return response()->json(null, 204);
+        return response()->json(['data' => new DeploymentResource($deployment)], 202);
     }
 }

@@ -24,7 +24,7 @@ variable "region" {
 variable "gke_version" {
   description = "Minimum Kubernetes master version for the GKE cluster"
   type        = string
-  default     = "1.29"
+  default     = "1.32"
 }
 
 variable "node_machine_type" {
@@ -42,7 +42,7 @@ variable "node_disk_size_gb" {
 variable "node_count" {
   description = "Number of worker nodes (used when autoscaling is disabled)"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "gke_enable_autoscaling" {
@@ -87,4 +87,10 @@ variable "akoflow_allowed_ips" {
   description = "CIDR block allowed to reach the AkoFlow API port"
   type        = string
   default     = "0.0.0.0/0"
+}
+
+variable "akoflow_env" {
+  description = "AkoFlow environment name written to ~/akospace/.env as AKOFLOW_ENV"
+  type        = string
+  default     = "dev"
 }
