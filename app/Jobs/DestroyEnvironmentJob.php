@@ -23,6 +23,9 @@ class DestroyEnvironmentJob implements ShouldQueue
     public function handle(DestroyEnvironmentService $service): void
     {
         $data = json_decode($this->payload, true);
-        $service->handle((int) $data['environment_id']);
+        $service->handle(
+            (int) $data['environment_id'],
+            isset($data['deployment_id']) ? (int) $data['deployment_id'] : null,
+        );
     }
 }
