@@ -4,18 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\InstanceNotFoundException;
 use App\Http\Resources\ProvisionedResourceResource;
-use App\Http\Resources\ResourceLogResource;
+use App\Http\Resources\RunLogResource;
 use App\Services\DeploymentAuthorizationService;
 use App\Services\GetResourceService;
-use App\Services\ListResourceLogsService;
+use App\Services\ListRunLogsService;
 use App\Services\ListResourcesByDeploymentService;
+use Illuminate\Http\Request;
 
 class ProvisionedResourceController extends Controller
 {
     public function __construct(
         protected ListResourcesByDeploymentService $listByDeploymentService,
         protected GetResourceService               $getResourceService,
-        protected ListResourceLogsService          $logsService,
+        protected ListRunLogsService               $logsService,
         protected DeploymentAuthorizationService   $deploymentAuthorizationService,
     ) {}
 
@@ -37,7 +38,7 @@ class ProvisionedResourceController extends Controller
         return new ProvisionedResourceResource($resource);
     }
 
-    public function logs(string $id)
+    public function logs(string $id, Request $request)
     {
         $resource = $this->getResourceService->handle($id);
 
@@ -45,6 +46,10 @@ class ProvisionedResourceController extends Controller
             throw new InstanceNotFoundException();
         }
 
-        return ResourceLogResource::collection($this->logsService->handle($id));
+        $afterId = $request->integer('after_id', 0) ?: null;
+
+        return RunLogResource::collection(
+            $this->logsService->handleByResource($id, $afterId)
+        );
     }
 }

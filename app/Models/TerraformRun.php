@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Repositories\RunLogRepository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -17,7 +18,6 @@ class TerraformRun extends Model
         'workspace_path',
         'tfvars_json',
         'output_json',
-        'logs',
         'started_at',
         'finished_at',
     ];
@@ -48,8 +48,10 @@ class TerraformRun extends Model
 
     public function appendLog(string $line): void
     {
-        $this->logs = ($this->logs ?? '') . $line . "\n";
-        error_log($line); // Also log to server error log for real-time monitoring
-        $this->save();
+        $level = RunLog::inferLevel($line);
+
+        app(RunLogRepository::class)->createForRun($this, $level, $line);
+
+        error_log($line); // also write to server log for real-time tailing
     }
 }

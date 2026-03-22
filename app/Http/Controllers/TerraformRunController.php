@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Enums\Messages;
 use App\Exceptions\EnvironmentNotFoundException;
+use App\Http\Resources\RunLogResource;
 use App\Http\Resources\TerraformRunResource;
 use App\Messaging\Contracts\MessageDispatcherInterface;
 use App\Models\TerraformRun;
 use App\Repositories\TerraformRunRepository;
 use App\Services\EnvironmentAuthorizationService;
 use App\Services\GetEnvironmentService;
+use App\Services\ListRunLogsService;
 use App\Services\ProjectAuthorizationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -117,5 +119,38 @@ class TerraformRunController extends Controller
         $this->dispatcher->dispatch(Messages::DESTROY_ENVIRONMENT, $payload);
 
         return response()->json(['message' => 'Destroy job queued.'], 202);
+    }
+
+    /**
+     * List log lines for a specific Terraform run (supports incremental polling).
+     *
+     * GET /projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}/logs
+     * Query params:
+     *   after_id (int, optional) — return only rows with id > after_id
+     */
+    public function logs(
+        string $projectId,
+        string $environmentId,
+        string $runId,
+        Request $request,
+        ListRunLogsService $logsService,
+    ): JsonResponse {
+        $this->projectAuth->assertUserCanAccessProjectById(auth()->user(), (int) $projectId);
+
+        $environment = $this->getEnvironment->handle($projectId, $environmentId);
+        if (!$environment) {
+            throw new EnvironmentNotFoundException();
+        }
+
+        $run = $this->runRepository->find($runId);
+        if (!$run || (string) $run->environment_id !== $environmentId) {
+            return response()->json(['message' => 'Terraform run not found.'], 404);
+        }
+
+        $afterId = $request->integer('after_id', 0) ?: null;
+
+        return response()->json(
+            RunLogResource::collection($logsService->handleByRun($runId, $afterId))
+        );
     }
 }
