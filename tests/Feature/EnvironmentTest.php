@@ -107,19 +107,6 @@ class EnvironmentTest extends TestCase
                         ],
                     ],
                 ],
-                'instance_configurations' => [
-                    'worker' => [
-                        'sections' => [
-                            [
-                                'name'   => 'compute',
-                                'fields' => [
-                                    ['name' => 'machine_type', 'type' => 'string', 'required' => true, 'default' => 'n1-standard-4'],
-                                    ['name' => 'disk_size_gb', 'type' => 'number', 'required' => true, 'default' => 100],
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
             ],
         ]);
 
@@ -144,10 +131,6 @@ class EnvironmentTest extends TestCase
         // Defaults from the template definition must also be present
         $this->assertEquals('us-central1', $config['environment_configuration']['region']);
         $this->assertEquals('1.27', $config['environment_configuration']['version']);
-
-        // instance_configurations defaults must be present too
-        $this->assertEquals('n1-standard-4', $config['instance_configurations']['worker']['machine_type']);
-        $this->assertEquals(100, $config['instance_configurations']['worker']['disk_size_gb']);
     }
 
     public function test_user_provided_values_override_template_defaults_in_configuration_json(): void

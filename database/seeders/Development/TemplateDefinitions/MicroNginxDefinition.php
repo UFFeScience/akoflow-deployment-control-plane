@@ -8,16 +8,38 @@ class MicroNginxDefinition
     {
         return [
             'environment_configuration' => [
-                'label'       => 'Deployment Settings',
-                'description' => 'Configure your Docker + NGINX micro instance on AWS or GCP.',
+                'label'       => 'MicroNGINX Settings',
+                'description' => 'Configure your MicroNGINX instance. Settings are split into Deploy Configuration (cloud infrastructure) and NGINX Configuration (server behaviour).',
                 'type'        => 'environment',
-                'sections'    => [
+
+                // ── Group: Deploy Configuration ───────────────────────────────
+                'groups' => [
+                    [
+                        'name'        => 'deploy',
+                        'label'       => 'Deploy Configuration',
+                        'description' => 'Cloud infrastructure settings — provider, region, and machine type.',
+                        'icon'        => 'server',
+                    ],
+                    [
+                        'name'        => 'nginx',
+                        'label'       => 'NGINX Configuration',
+                        'description' => 'NGINX server behaviour — written directly to nginx.conf and index.html inside the container.',
+                        'icon'        => 'settings',
+                    ],
+                ],
+
+                'sections' => [
+
+                    // ════════════════════════════════════════════════════════
+                    // DEPLOY CONFIGURATION
+                    // ════════════════════════════════════════════════════════
 
                     // ── Cloud Provider ────────────────────────────────────────
                     [
                         'name'        => 'cloud',
                         'label'       => 'Cloud Provider',
                         'description' => 'Provider, region and optional zone / project.',
+                        'group'       => 'deploy',
                         'fields'      => [
                             [
                                 'name'     => 'cloud_provider',
@@ -60,6 +82,7 @@ class MicroNginxDefinition
                         'name'        => 'instance',
                         'label'       => 'Instance',
                         'description' => 'Micro-sized machine type for each cloud provider.',
+                        'group'       => 'deploy',
                         'fields'      => [
                             [
                                 'name'        => 'instance_type',
@@ -80,32 +103,108 @@ class MicroNginxDefinition
                         ],
                     ],
 
-                    // ── NGINX ─────────────────────────────────────────────────
+                    // ════════════════════════════════════════════════════════
+                    // NGINX CONFIGURATION
+                    // ════════════════════════════════════════════════════════
+
+                    // ── NGINX Server ──────────────────────────────────────────
                     [
-                        'name'        => 'nginx',
-                        'label'       => 'NGINX',
-                        'description' => 'NGINX container settings.',
+                        'name'        => 'nginx_server',
+                        'label'       => 'NGINX Server',
+                        'description' => 'Core NGINX directives written to nginx.conf.',
+                        'group'       => 'nginx',
                         'fields'      => [
                             [
                                 'name'        => 'nginx_port',
-                                'label'       => 'NGINX Port',
+                                'label'       => 'Listen Port',
                                 'type'        => 'number',
                                 'required'    => true,
                                 'default'     => 80,
-                                'description' => 'Host port NGINX listens on. This port is opened in the cloud security group / firewall rule.',
+                                'description' => 'Host port that NGINX listens on. This port is opened in the cloud security group / firewall rule.',
+                            ],
+                            [
+                                'name'        => 'nginx_server_name',
+                                'label'       => 'Server Name',
+                                'type'        => 'string',
+                                'required'    => false,
+                                'default'     => '_',
+                                'description' => 'Value of the nginx server_name directive. Use _ to catch all hostnames.',
+                            ],
+                            [
+                                'name'        => 'nginx_worker_processes',
+                                'label'       => 'Worker Processes',
+                                'type'        => 'string',
+                                'required'    => false,
+                                'default'     => 'auto',
+                                'description' => 'Number of NGINX worker processes. "auto" sets it to the number of available CPU cores.',
+                            ],
+                            [
+                                'name'        => 'nginx_worker_connections',
+                                'label'       => 'Worker Connections',
+                                'type'        => 'number',
+                                'required'    => false,
+                                'default'     => 1024,
+                                'description' => 'Maximum simultaneous connections each worker process can handle.',
+                            ],
+                            [
+                                'name'        => 'nginx_keepalive_timeout',
+                                'label'       => 'Keepalive Timeout (s)',
+                                'type'        => 'number',
+                                'required'    => false,
+                                'default'     => 65,
+                                'description' => 'Timeout in seconds for keep-alive connections with the client.',
+                            ],
+                            [
+                                'name'        => 'nginx_client_max_body_size',
+                                'label'       => 'Client Max Body Size',
+                                'type'        => 'string',
+                                'required'    => false,
+                                'default'     => '1m',
+                                'description' => 'Maximum allowed size of the client request body (e.g. 1m, 10m, 50m).',
+                            ],
+                            [
+                                'name'        => 'nginx_gzip',
+                                'label'       => 'Enable Gzip Compression',
+                                'type'        => 'select',
+                                'required'    => false,
+                                'default'     => 'on',
+                                'options'     => [
+                                    ['label' => 'On',  'value' => 'on'],
+                                    ['label' => 'Off', 'value' => 'off'],
+                                ],
+                                'description' => 'Enable or disable gzip compression for responses.',
+                            ],
+                        ],
+                    ],
+
+                    // ── HTML Page ─────────────────────────────────────────────
+                    [
+                        'name'        => 'html_page',
+                        'label'       => 'HTML Page',
+                        'description' => 'Content served as the default index.html by NGINX.',
+                        'group'       => 'nginx',
+                        'fields'      => [
+                            [
+                                'name'        => 'html_page_title',
+                                'label'       => 'Page Title',
+                                'type'        => 'string',
+                                'required'    => false,
+                                'default'     => 'Hello from NGINX',
+                                'description' => 'Text that appears in the browser tab and as the main heading on the page.',
+                            ],
+                            [
+                                'name'        => 'html_page_body',
+                                'label'       => 'Page Body',
+                                'type'        => 'string',
+                                'required'    => false,
+                                'default'     => 'Your MicroNGINX instance is running successfully.',
+                                'description' => 'Paragraph text displayed below the heading on the index page.',
                             ],
                         ],
                     ],
                 ],
             ],
 
-            'instance_configurations' => [
-                'single-vm' => [
-                    'label'    => 'Single VM',
-                    'type'     => 'vm',
-                    'sections' => [],
-                ],
-            ],
         ];
     }
 }

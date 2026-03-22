@@ -165,18 +165,6 @@ class AkoFlowEngineK8sDefinition
                 ],
             ],
 
-            'instance_configurations' => [
-                'k8s-cluster' => [
-                    'label'    => 'Kubernetes Cluster (EKS / GKE)',
-                    'type'     => 'kubernetes',
-                    'sections' => [],
-                ],
-                'engine-vm' => [
-                    'label'    => 'AkoFlow Engine VM',
-                    'type'     => 'vm',
-                    'sections' => [],
-                ],
-            ],
         ];
     }
 }

@@ -14,7 +14,7 @@ return new class extends Migration {
                 ->constrained('environment_template_versions')
                 ->nullOnDelete();
 
-            // Stores the filled-in values from the template fields (environment_configuration + instance_configurations)
+            // Stores the filled-in values from the template fields (environment_configuration)
             $table->json('configuration_json')->nullable()->after('environment_template_version_id');
 
             // Additional environment context fields

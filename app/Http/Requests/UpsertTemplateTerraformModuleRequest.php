@@ -31,7 +31,6 @@ class UpsertTemplateTerraformModuleRequest extends FormRequest
             // ── Mapeamento campo → variável Terraform ─────────────────────────
             'tfvars_mapping_json'                              => 'nullable|array',
             'tfvars_mapping_json.environment_configuration'     => 'nullable|array',
-            'tfvars_mapping_json.instance_configurations'      => 'nullable|array',
 
             // ── Mapeamento de outputs Terraform → recurso provisionado ────────
             'outputs_mapping_json'                                     => 'nullable|array',

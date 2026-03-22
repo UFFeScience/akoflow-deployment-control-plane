@@ -62,19 +62,7 @@ class CreateEnvironmentService
             $config['environment_configuration'] = $userConfig['environment_configuration'];
         }
 
-        // 2. instance_configurations – same process per instance key
-        if (!empty($definition['instance_configurations'])) {
-            $config['instance_configurations'] = [];
-            foreach ($definition['instance_configurations'] as $key => $instanceDef) {
-                $defaults = $this->extractDefaultsFromSections($instanceDef['sections'] ?? []);
-                $userInstanceConfig = $userConfig['instance_configurations'][$key] ?? [];
-                $config['instance_configurations'][$key] = array_merge($defaults, $userInstanceConfig);
-            }
-        } elseif (!empty($userConfig['instance_configurations'])) {
-            $config['instance_configurations'] = $userConfig['instance_configurations'];
-        }
-
-        // 3. lifecycle_hooks – pass through as-is
+        // 2. lifecycle_hooks – pass through as-is
         if (!empty($userConfig['lifecycle_hooks'])) {
             $config['lifecycle_hooks'] = $userConfig['lifecycle_hooks'];
         }
