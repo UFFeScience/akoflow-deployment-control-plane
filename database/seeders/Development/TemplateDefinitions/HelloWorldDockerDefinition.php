@@ -68,7 +68,7 @@ class HelloWorldDockerDefinition
                                 'label'       => 'AMI ID (AWS)',
                                 'type'        => 'string',
                                 'required'    => false,
-                                'default'     => 'ami-0c02fb55956c7d316',
+                                'default'     => '',
                             ],
                             [
                                 'name'        => 'image_gcp',

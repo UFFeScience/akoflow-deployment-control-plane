@@ -1,3 +1,9 @@
+variable "environment_id" {
+  description = "AkoCloud environment ID — injected automatically, used to guarantee unique resource names"
+  type        = string
+  default     = ""
+}
+
 variable "provider" {
   description = "Cloud provider identifier"
   type        = string

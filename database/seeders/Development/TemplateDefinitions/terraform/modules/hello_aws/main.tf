@@ -16,7 +16,7 @@ locals {
 }
 
 resource "aws_security_group" "hello" {
-  name        = "${var.instance_name}-sg"
+  name_prefix = "env-${var.environment_id}-${var.instance_name}-"
   description = "Allow HTTP access"
 
   ingress {

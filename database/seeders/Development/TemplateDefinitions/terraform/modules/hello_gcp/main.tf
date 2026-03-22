@@ -14,7 +14,7 @@ provider "google" {
 }
 
 resource "google_compute_firewall" "hello" {
-  name    = "${var.instance_name}-http"
+  name    = "env-${var.environment_id}-${var.instance_name}-http"
   network = "default"
 
   allow {
@@ -28,7 +28,7 @@ resource "google_compute_firewall" "hello" {
 }
 
 resource "google_compute_instance" "hello" {
-  name         = var.instance_name
+  name         = "env-${var.environment_id}-${var.instance_name}"
   machine_type = var.machine_type
 
   boot_disk {
