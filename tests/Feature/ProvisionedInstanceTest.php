@@ -11,7 +11,7 @@ use App\Models\Organization;
 use App\Models\Project;
 use App\Models\Provider;
 use App\Models\ProvisionedResource;
-use App\Models\ResourceLog;
+use App\Models\RunLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -130,19 +130,70 @@ class ProvisionedInstanceTest extends TestCase
             'status'               => ProvisionedResource::STATUS_CREATING,
         ]);
 
-        ResourceLog::create([
+        RunLog::create([
             'provisioned_resource_id' => $resource->id,
-            'level'                   => ResourceLog::LEVEL_INFO,
+            'source'                  => RunLog::SOURCE_RESOURCE,
+            'level'                   => RunLog::LEVEL_INFO,
             'message'                 => 'Resource provisioning started',
         ]);
-        ResourceLog::create([
+        RunLog::create([
             'provisioned_resource_id' => $resource->id,
-            'level'                   => ResourceLog::LEVEL_ERROR,
+            'source'                  => RunLog::SOURCE_RESOURCE,
+            'level'                   => RunLog::LEVEL_ERROR,
             'message'                 => 'Provisioning failed with error',
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
             ->getJson("/api/resources/{$resource->id}/logs");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data');
+    }
+
+    public function test_resource_logs_returns_only_logs_for_that_resource(): void
+    {
+        $user        = User::factory()->create();
+        $deployment  = $this->createDeploymentForUser($user);
+
+        $resource1 = ProvisionedResource::create([
+            'deployment_id'        => $deployment->id,
+            'provider_resource_id' => 'res-A',
+            'status'               => ProvisionedResource::STATUS_RUNNING,
+        ]);
+        $resource2 = ProvisionedResource::create([
+            'deployment_id'        => $deployment->id,
+            'provider_resource_id' => 'res-B',
+            'status'               => ProvisionedResource::STATUS_RUNNING,
+        ]);
+
+        RunLog::create(['provisioned_resource_id' => $resource1->id, 'source' => RunLog::SOURCE_RESOURCE, 'level' => RunLog::LEVEL_INFO, 'message' => 'log for resource 1']);
+        RunLog::create(['provisioned_resource_id' => $resource2->id, 'source' => RunLog::SOURCE_RESOURCE, 'level' => RunLog::LEVEL_INFO, 'message' => 'log for resource 2']);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/resources/{$resource1->id}/logs");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.message', 'log for resource 1');
+    }
+
+    public function test_resource_logs_after_id_returns_only_newer_entries(): void
+    {
+        $user       = User::factory()->create();
+        $deployment = $this->createDeploymentForUser($user);
+
+        $resource = ProvisionedResource::create([
+            'deployment_id'        => $deployment->id,
+            'provider_resource_id' => 'res-incr',
+            'status'               => ProvisionedResource::STATUS_RUNNING,
+        ]);
+
+        $log1 = RunLog::create(['provisioned_resource_id' => $resource->id, 'source' => RunLog::SOURCE_RESOURCE, 'level' => RunLog::LEVEL_INFO, 'message' => 'first']);
+        RunLog::create(['provisioned_resource_id' => $resource->id, 'source' => RunLog::SOURCE_RESOURCE, 'level' => RunLog::LEVEL_INFO, 'message' => 'second']);
+        RunLog::create(['provisioned_resource_id' => $resource->id, 'source' => RunLog::SOURCE_RESOURCE, 'level' => RunLog::LEVEL_INFO, 'message' => 'third']);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/resources/{$resource->id}/logs?after_id={$log1->id}");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data');

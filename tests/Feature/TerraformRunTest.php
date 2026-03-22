@@ -7,6 +7,7 @@ use App\Jobs\ProvisionEnvironmentJob;
 use App\Models\Environment;
 use App\Models\Organization;
 use App\Models\Project;
+use App\Models\RunLog;
 use App\Models\TerraformRun;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -243,5 +244,156 @@ class TerraformRunTest extends TestCase
         $response->assertStatus(404);
 
         Queue::assertNotPushed(DestroyEnvironmentJob::class);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // logs
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function test_user_can_list_logs_for_terraform_run(): void
+    {
+        $user        = User::factory()->create();
+        $project     = $this->projectBelongingToUser($user);
+        $environment = $this->environmentInProject($project);
+        $run         = $this->terraformRunForEnvironment($environment);
+
+        RunLog::create([
+            'terraform_run_id' => $run->id,
+            'environment_id'   => $environment->id,
+            'source'           => RunLog::SOURCE_TERRAFORM,
+            'level'            => RunLog::LEVEL_INFO,
+            'message'          => '[akocloud] Running: terraform init',
+        ]);
+        RunLog::create([
+            'terraform_run_id' => $run->id,
+            'environment_id'   => $environment->id,
+            'source'           => RunLog::SOURCE_TERRAFORM,
+            'level'            => RunLog::LEVEL_ERROR,
+            'message'          => '[error] Something failed',
+        ]);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/{$run->id}/logs");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.source', RunLog::SOURCE_TERRAFORM)
+            ->assertJsonPath('data.0.level', RunLog::LEVEL_INFO)
+            ->assertJsonPath('data.0.terraform_run_id', $run->id);
+    }
+
+    public function test_logs_endpoint_returns_entries_ordered_by_id_ascending(): void
+    {
+        $user        = User::factory()->create();
+        $project     = $this->projectBelongingToUser($user);
+        $environment = $this->environmentInProject($project);
+        $run         = $this->terraformRunForEnvironment($environment);
+
+        RunLog::create(['terraform_run_id' => $run->id, 'environment_id' => $environment->id, 'source' => RunLog::SOURCE_TERRAFORM, 'level' => RunLog::LEVEL_INFO, 'message' => 'first']);
+        RunLog::create(['terraform_run_id' => $run->id, 'environment_id' => $environment->id, 'source' => RunLog::SOURCE_TERRAFORM, 'level' => RunLog::LEVEL_INFO, 'message' => 'second']);
+        RunLog::create(['terraform_run_id' => $run->id, 'environment_id' => $environment->id, 'source' => RunLog::SOURCE_TERRAFORM, 'level' => RunLog::LEVEL_INFO, 'message' => 'third']);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/{$run->id}/logs");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.message', 'first')
+            ->assertJsonPath('data.2.message', 'third');
+    }
+
+    public function test_logs_after_id_returns_only_newer_entries(): void
+    {
+        $user        = User::factory()->create();
+        $project     = $this->projectBelongingToUser($user);
+        $environment = $this->environmentInProject($project);
+        $run         = $this->terraformRunForEnvironment($environment);
+
+        $log1 = RunLog::create(['terraform_run_id' => $run->id, 'environment_id' => $environment->id, 'source' => RunLog::SOURCE_TERRAFORM, 'level' => RunLog::LEVEL_INFO, 'message' => 'first']);
+        RunLog::create(['terraform_run_id' => $run->id, 'environment_id' => $environment->id, 'source' => RunLog::SOURCE_TERRAFORM, 'level' => RunLog::LEVEL_INFO, 'message' => 'second']);
+        RunLog::create(['terraform_run_id' => $run->id, 'environment_id' => $environment->id, 'source' => RunLog::SOURCE_TERRAFORM, 'level' => RunLog::LEVEL_INFO, 'message' => 'third']);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/{$run->id}/logs?after_id={$log1->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.message', 'second')
+            ->assertJsonPath('data.1.message', 'third');
+    }
+
+    public function test_logs_after_id_zero_returns_all_entries(): void
+    {
+        $user        = User::factory()->create();
+        $project     = $this->projectBelongingToUser($user);
+        $environment = $this->environmentInProject($project);
+        $run         = $this->terraformRunForEnvironment($environment);
+
+        RunLog::create(['terraform_run_id' => $run->id, 'environment_id' => $environment->id, 'source' => RunLog::SOURCE_TERRAFORM, 'level' => RunLog::LEVEL_INFO, 'message' => 'only entry']);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/{$run->id}/logs?after_id=0");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data');
+    }
+
+    public function test_logs_returns_empty_when_no_logs_exist(): void
+    {
+        $user        = User::factory()->create();
+        $project     = $this->projectBelongingToUser($user);
+        $environment = $this->environmentInProject($project);
+        $run         = $this->terraformRunForEnvironment($environment);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/{$run->id}/logs");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_logs_returns_404_when_run_not_found(): void
+    {
+        $user        = User::factory()->create();
+        $project     = $this->projectBelongingToUser($user);
+        $environment = $this->environmentInProject($project);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/99999/logs");
+
+        $response->assertStatus(404);
+    }
+
+    public function test_logs_returns_403_when_user_cannot_access_project(): void
+    {
+        $userA       = User::factory()->create();
+        $userB       = User::factory()->create();
+        $project     = $this->projectBelongingToUser($userB);
+        $environment = $this->environmentInProject($project);
+        $run         = $this->terraformRunForEnvironment($environment);
+
+        $response = $this->withHeaders($this->authHeader($userA))
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/{$run->id}/logs");
+
+        $response->assertStatus(403);
+    }
+
+    public function test_logs_does_not_return_logs_from_other_runs(): void
+    {
+        $user        = User::factory()->create();
+        $project     = $this->projectBelongingToUser($user);
+        $environment = $this->environmentInProject($project);
+        $runA        = $this->terraformRunForEnvironment($environment);
+        $runB        = $this->terraformRunForEnvironment($environment);
+
+        RunLog::create(['terraform_run_id' => $runA->id, 'environment_id' => $environment->id, 'source' => RunLog::SOURCE_TERRAFORM, 'level' => RunLog::LEVEL_INFO, 'message' => 'log for run A']);
+        RunLog::create(['terraform_run_id' => $runB->id, 'environment_id' => $environment->id, 'source' => RunLog::SOURCE_TERRAFORM, 'level' => RunLog::LEVEL_INFO, 'message' => 'log for run B']);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->getJson("/api/projects/{$project->id}/environments/{$environment->id}/terraform-runs/{$runA->id}/logs");
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.message', 'log for run A');
     }
 }

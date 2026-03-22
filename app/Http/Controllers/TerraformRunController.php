@@ -134,7 +134,7 @@ class TerraformRunController extends Controller
         string $runId,
         Request $request,
         ListRunLogsService $logsService,
-    ): JsonResponse {
+    ) {
         $this->projectAuth->assertUserCanAccessProjectById(auth()->user(), (int) $projectId);
 
         $environment = $this->getEnvironment->handle($projectId, $environmentId);
@@ -149,8 +149,6 @@ class TerraformRunController extends Controller
 
         $afterId = $request->integer('after_id', 0) ?: null;
 
-        return response()->json(
-            RunLogResource::collection($logsService->handleByRun($runId, $afterId))
-        );
+        return RunLogResource::collection($logsService->handleByRun($runId, $afterId));
     }
 }
