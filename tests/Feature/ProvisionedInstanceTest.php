@@ -7,13 +7,11 @@ use App\Models\DeploymentTemplate;
 use App\Models\Environment;
 use App\Models\EnvironmentTemplate;
 use App\Models\EnvironmentTemplateVersion;
-use App\Models\InstanceLog;
-use App\Models\InstanceType;
 use App\Models\Organization;
 use App\Models\Project;
 use App\Models\Provider;
-use App\Models\ProvisionedInstance;
-use App\Models\InstanceGroup;
+use App\Models\ProvisionedResource;
+use App\Models\ResourceLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -29,18 +27,18 @@ class ProvisionedInstanceTest extends TestCase
         return ['Authorization' => "Bearer $token"];
     }
 
-    private function createDeploymentAndInstanceType(User $user): array
+    private function createDeploymentForUser(User $user): Deployment
     {
         $provider = Provider::create([
-            'name'   => 'Instance Provider',
+            'name'   => 'Resource Provider',
             'type'   => Provider::TYPES[0],
             'status' => Provider::STATUSES[0],
         ]);
 
         $template = EnvironmentTemplate::create([
-            'name'         => 'Instance Template',
-            'slug'         => 'instance-template-' . uniqid(),
-            'description'  => 'Template for instances',
+            'name'         => 'Resource Template',
+            'slug'         => 'resource-template-' . uniqid(),
+            'description'  => 'Template for resources',
             'is_public'    => true,
         ]);
 
@@ -56,123 +54,95 @@ class ProvisionedInstanceTest extends TestCase
             'custom_parameters_json' => ['nodes' => 2],
         ]);
 
-        $org        = Organization::factory()->create(['user_id' => $user->id]);
-        $project    = Project::factory()->create(['organization_id' => $org->id]);
+        $org         = Organization::factory()->create(['user_id' => $user->id]);
+        $project     = Project::factory()->create(['organization_id' => $org->id]);
         $environment = Environment::create([
             'project_id' => $project->id,
-            'name'       => 'Instance Environment',
+            'name'       => 'Resource Environment',
             'status'     => Environment::STATUSES[0],
         ]);
 
-        $deployment = Deployment::create([
-            'environment_id'    => $environment->id,
+        return Deployment::create([
+            'environment_id'         => $environment->id,
             'deployment_template_id' => $deploymentTemplate->id,
-            'provider_id'      => $provider->id,
-            'region'           => 'us-central1',
-            'environment_type' => Deployment::ENVIRONMENT_TYPES[0],
-            'name'             => 'Deployment for instances',
-            'status'           => Deployment::STATUSES[1],
+            'provider_id'            => $provider->id,
+            'region'                 => 'us-central1',
+            'environment_type'       => Deployment::ENVIRONMENT_TYPES[0],
+            'name'                   => 'Deployment for resources',
+            'status'                 => Deployment::STATUSES[1],
         ]);
-
-        $instanceType = InstanceType::create([
-            'provider_id' => $provider->id,
-            'name'        => 'n2-standard-4',
-            'vcpus'       => 4,
-            'memory_mb'   => 16384,
-            'status'      => InstanceType::STATUSES[0],
-            'is_active'   => true,
-        ]);
-
-        $group = InstanceGroup::create([
-            'deployment_id'       => $deployment->id,
-            'instance_type_id' => $instanceType->id,
-            'role'             => 'master',
-            'quantity'         => 2,
-        ]);
-
-        return compact('deployment', 'instanceType', 'group');
     }
 
-    public function test_user_can_list_instances_by_deployment(): void
+    public function test_user_can_list_resources_by_deployment(): void
     {
-        $user = User::factory()->create();
-        ['deployment' => $deployment, 'instanceType' => $instanceType, 'group' => $group] = $this->createDeploymentAndInstanceType($user);
+        $user       = User::factory()->create();
+        $deployment = $this->createDeploymentForUser($user);
 
-        ProvisionedInstance::create([
-            'deployment_id' => $deployment->id,
-            'instance_type_id' => $instanceType->id,
-            'provider_instance_id' => 'i-123',
-            'role' => ProvisionedInstance::ROLES[0],
-            'status' => ProvisionedInstance::STATUSES[1],
-            'health_status' => ProvisionedInstance::HEALTH_STATUSES[0],
-            'instance_group_id' => $group->id,
+        ProvisionedResource::create([
+            'deployment_id'        => $deployment->id,
+            'provider_resource_id' => 'res-abc-1',
+            'name'                 => 'compute-node-1',
+            'status'               => ProvisionedResource::STATUS_RUNNING,
         ]);
-        ProvisionedInstance::create([
-            'deployment_id' => $deployment->id,
-            'instance_type_id' => $instanceType->id,
-            'provider_instance_id' => 'i-456',
-            'role' => ProvisionedInstance::ROLES[1],
-            'status' => ProvisionedInstance::STATUSES[1],
-            'health_status' => ProvisionedInstance::HEALTH_STATUSES[0],
-            'instance_group_id' => $group->id,
+        ProvisionedResource::create([
+            'deployment_id'        => $deployment->id,
+            'provider_resource_id' => 'res-abc-2',
+            'name'                 => 'compute-node-2',
+            'status'               => ProvisionedResource::STATUS_RUNNING,
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/deployments/{$deployment->id}/instances");
+            ->getJson("/api/deployments/{$deployment->id}/resources");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data');
     }
 
-    public function test_user_can_get_instance_details(): void
+    public function test_user_can_get_resource_details(): void
     {
-        $user = User::factory()->create();
-        ['deployment' => $deployment, 'instanceType' => $instanceType] = $this->createDeploymentAndInstanceType($user);
+        $user       = User::factory()->create();
+        $deployment = $this->createDeploymentForUser($user);
 
-        $instance = ProvisionedInstance::create([
-            'deployment_id' => $deployment->id,
-            'instance_type_id' => $instanceType->id,
-            'provider_instance_id' => 'i-789',
-            'role' => ProvisionedInstance::ROLES[2],
-            'status' => ProvisionedInstance::STATUSES[1],
-            'health_status' => ProvisionedInstance::HEALTH_STATUSES[0],
+        $resource = ProvisionedResource::create([
+            'deployment_id'        => $deployment->id,
+            'provider_resource_id' => 'res-xyz-789',
+            'name'                 => 'storage-node',
+            'status'               => ProvisionedResource::STATUS_RUNNING,
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/instances/{$instance->id}");
+            ->getJson("/api/resources/{$resource->id}");
 
         $response->assertStatus(200)
-            ->assertJsonPath('data.id', $instance->id)
+            ->assertJsonPath('data.id', $resource->id)
             ->assertJsonPath('data.deployment_id', $deployment->id);
     }
 
-    public function test_user_can_list_instance_logs(): void
+    public function test_user_can_list_resource_logs(): void
     {
-        $user = User::factory()->create();
-        ['deployment' => $deployment, 'instanceType' => $instanceType] = $this->createDeploymentAndInstanceType($user);
+        $user       = User::factory()->create();
+        $deployment = $this->createDeploymentForUser($user);
 
-        $instance = ProvisionedInstance::create([
-            'deployment_id' => $deployment->id,
-            'instance_type_id' => $instanceType->id,
-            'provider_instance_id' => 'i-1011',
-            'role' => ProvisionedInstance::ROLES[0],
-            'status' => ProvisionedInstance::STATUSES[1],
-            'health_status' => ProvisionedInstance::HEALTH_STATUSES[0],
+        $resource = ProvisionedResource::create([
+            'deployment_id'        => $deployment->id,
+            'provider_resource_id' => 'res-log-1011',
+            'name'                 => 'log-node',
+            'status'               => ProvisionedResource::STATUS_CREATING,
         ]);
 
-        InstanceLog::create([
-            'provisioned_instance_id' => $instance->id,
-            'level' => InstanceLog::LEVELS[0],
-            'message' => 'Instance started',
+        ResourceLog::create([
+            'provisioned_resource_id' => $resource->id,
+            'level'                   => ResourceLog::LEVEL_INFO,
+            'message'                 => 'Resource provisioning started',
         ]);
-        InstanceLog::create([
-            'provisioned_instance_id' => $instance->id,
-            'level' => InstanceLog::LEVELS[2],
-            'message' => 'Error detected',
+        ResourceLog::create([
+            'provisioned_resource_id' => $resource->id,
+            'level'                   => ResourceLog::LEVEL_ERROR,
+            'message'                 => 'Provisioning failed with error',
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
-            ->getJson("/api/instances/{$instance->id}/logs");
+            ->getJson("/api/resources/{$resource->id}/logs");
 
         $response->assertStatus(200)
             ->assertJsonCount(2, 'data');

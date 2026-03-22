@@ -134,7 +134,6 @@ class ProvisionEnvironmentTest extends TestCase
                         'environment_id',
                         'provider_id',
                         'region',
-                        'instance_groups',
                     ],
                 ],
             ]);
@@ -184,14 +183,11 @@ class ProvisionEnvironmentTest extends TestCase
                 ],
             ]);
 
-        $response->assertStatus(201)
-            ->assertJsonCount(2, 'data.deployment.instance_groups');
+        $response->assertStatus(201);
 
-        // 1 master + 3 workers = 4 instances
-        $this->assertDatabaseCount('provisioned_instances', 4);
-
-        $this->assertDatabaseHas('instance_groups', ['role' => 'master', 'quantity' => 1]);
-        $this->assertDatabaseHas('instance_groups', ['role' => 'worker', 'quantity' => 3]);
+        $environmentId = $response->json('data.id');
+        $this->assertDatabaseHas('environments', ['id' => $environmentId, 'name' => 'Multi-Group Provision']);
+        $this->assertDatabaseCount('deployments', 1);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -316,32 +312,6 @@ class ProvisionEnvironmentTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['deployment.provider_id']);
-    }
-
-    public function test_provision_rejects_non_existent_instance_type_in_deployment(): void
-    {
-        $user     = User::factory()->create();
-        $project  = $this->projectBelongingToUser($user);
-        $provider = $this->createProvider();
-
-        $response = $this->withHeaders($this->authHeader($user))
-            ->postJson("/api/projects/{$project->id}/environments/provision", [
-                'name' => 'Bad Instance Type Env',
-                'deployment' => [
-                    'provider_id'     => $provider->id,
-                    'region'          => 'us-east-1',
-                    'instance_groups' => [
-                        [
-                            'instance_type_id' => 9999,
-                            'role'             => 'worker',
-                            'quantity'         => 1,
-                        ],
-                    ],
-                ],
-            ]);
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors(['deployment.instance_groups.0.instance_type_id']);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
