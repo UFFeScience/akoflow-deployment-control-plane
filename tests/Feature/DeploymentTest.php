@@ -137,10 +137,11 @@ class DeploymentTest extends TestCase
         $response = $this->withHeaders($this->authHeader($user))
             ->deleteJson("/api/deployments/{$deployment->id}");
 
-        $response->assertStatus(204);
+        $response->assertStatus(202);
 
-        $this->assertDatabaseMissing('deployments', [
-            'id' => $deployment->id,
+        $this->assertDatabaseHas('deployments', [
+            'id'     => $deployment->id,
+            'status' => \App\Models\Deployment::STATUS_DESTROYING,
         ]);
     }
 }

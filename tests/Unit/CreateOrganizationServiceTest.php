@@ -4,9 +4,12 @@ namespace Tests\Unit;
 
 use App\Models\Organization;
 use App\Models\User;
+use App\Models\Provider;
 use App\Repositories\OrganizationRepository;
 use App\Repositories\OrganizationUserRepository;
+use App\Repositories\ProviderRepository;
 use App\Services\CreateOrganizationService;
+use App\Services\SeedOrganizationDefaultProvidersService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,7 +22,8 @@ class CreateOrganizationServiceTest extends TestCase
         $user = User::factory()->create();
         $service = new CreateOrganizationService(
             new OrganizationRepository(),
-            new OrganizationUserRepository()
+            new OrganizationUserRepository(),
+            new SeedOrganizationDefaultProvidersService(new ProviderRepository(new Provider()))
         );
 
         $organization = $service->execute($user, [
@@ -37,7 +41,8 @@ class CreateOrganizationServiceTest extends TestCase
         $user = User::factory()->create();
         $service = new CreateOrganizationService(
             new OrganizationRepository(),
-            new OrganizationUserRepository()
+            new OrganizationUserRepository(),
+            new SeedOrganizationDefaultProvidersService(new ProviderRepository(new Provider()))
         );
 
         $organization = $service->execute($user, [

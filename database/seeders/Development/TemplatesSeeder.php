@@ -27,19 +27,7 @@ class TemplatesSeeder extends Seeder
                 'owner_organization_id' => $organizationId,
                 'version'               => '1.0.0',
                 'definition'            => MicroNginxDefinition::get(),
-            ],
-            [
-                'slug'                  => 'akoflow-engine-k8s',
-                'name'                  => 'AkoFlow Engine + Kubernetes Cluster (EKS / GKE)',
-                'description'           => 'Provisions an EKS (AWS) or GKE (GCP) Kubernetes cluster and a dedicated VM '
-                    . 'running the AkoFlow engine. Docker is installed automatically, the engine is bootstrapped via '
-                    . '`curl -fsSL https://akoflow.com/run | bash`, kubectl is installed, and the VM connects to the '
-                    . 'cluster using a generated service-account token.',
-                'is_public'             => true,
-                'owner_organization_id' => $organizationId,
-                'version'               => '1.0.0',
-                'definition'            => AkoFlowEngineK8sDefinition::get(),
-            ],
+            ]
         ];
     }
 

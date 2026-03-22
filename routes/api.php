@@ -123,6 +123,7 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     // Terraform provisioning runs
     Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs', [TerraformRunController::class, 'index']);
     Route::post('/projects/{projectId}/environments/{environmentId}/terraform-runs', [TerraformRunController::class, 'store']);
+    Route::post('/projects/{projectId}/environments/{environmentId}/terraform-runs/destroy', [TerraformRunController::class, 'destroy']);
     Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}', [TerraformRunController::class, 'show']);
     Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}/logs', [TerraformRunController::class, 'logs']);
 
