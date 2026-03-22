@@ -4,7 +4,7 @@ namespace App\Exceptions;
 
 use Exception;
 
-class ClusterNotFoundException extends Exception
+class DeploymentNotFoundException extends Exception
 {
     public function __construct($message = 'Deployment not found', $code = 404)
     {

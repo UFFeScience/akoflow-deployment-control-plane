@@ -9,11 +9,11 @@ use App\Models\Environment;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
-class CreateEnvironmentWithClusterService
+class CreateEnvironmentWithDeploymentService
 {
     public function __construct(
         private CreateEnvironmentService    $createEnvironment,
-        private CreateClusterService        $createCluster,
+        private CreateDeploymentService        $createDeployment,
         private MessageDispatcherInterface  $dispatcher,
     ) {}
 
@@ -34,12 +34,12 @@ class CreateEnvironmentWithClusterService
         }
 
         return DB::transaction(function () use ($projectId, $data) {
-            $clusterData = $data['deployment'];
+            $deploymentData = $data['deployment'];
             unset($data['deployment']);
 
             $environment = $this->createEnvironment->handle($projectId, $data);
 
-            $deployment = $this->createCluster->handle((string) $environment->id, $clusterData);
+            $deployment = $this->createDeployment->handle((string) $environment->id, $deploymentData);
 
             $this->dispatcher->dispatch(Messages::PROVISION_ENVIRONMENT, [
                 'environment_id' => $environment->id,

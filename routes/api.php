@@ -12,8 +12,8 @@ use App\Http\Controllers\ProviderVariableSchemaController;
 use App\Http\Controllers\InstanceTypeController;
 use App\Http\Controllers\EnvironmentTemplateController;
 use App\Http\Controllers\EnvironmentController;
-use App\Http\Controllers\ClusterController;
-use App\Http\Controllers\ProvisionedInstanceController;
+use App\Http\Controllers\DeploymentController;
+use App\Http\Controllers\ProvisionedResourceController;
 use App\Http\Controllers\TerraformRunController;
 use App\Http\Controllers\EnvironmentTemplateTerraformModuleController;
 use App\Http\Middleware\AuthMiddleware;
@@ -126,14 +126,12 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}', [TerraformRunController::class, 'show']);
     Route::post('/projects/{projectId}/environments/{environmentId}/terraform-runs/destroy', [TerraformRunController::class, 'destroy']);
 
-    Route::get('/environments/{id}/deployments', [ClusterController::class, 'index']);
-    Route::post('/environments/{id}/deployments', [ClusterController::class, 'store']);
-    Route::post('/deployments/{id}/scale', [ClusterController::class, 'scale']);
-    Route::patch('/deployments/{id}/nodes', [ClusterController::class, 'updateNodes']);
-    Route::delete('/deployments/{id}', [ClusterController::class, 'destroy']);
+    Route::get('/environments/{id}/deployments', [DeploymentController::class, 'index']);
+    Route::post('/environments/{id}/deployments', [DeploymentController::class, 'store']);
+    Route::delete('/deployments/{id}', [DeploymentController::class, 'destroy']);
 
-    Route::get('/deployments/{id}/instances', [ProvisionedInstanceController::class, 'listByCluster']);
-    Route::get('/instances/{id}', [ProvisionedInstanceController::class, 'show']);
-    Route::get('/instances/{id}/logs', [ProvisionedInstanceController::class, 'logs']);
+    Route::get('/deployments/{id}/resources', [ProvisionedResourceController::class, 'listByDeployment']);
+    Route::get('/resources/{id}', [ProvisionedResourceController::class, 'show']);
+    Route::get('/resources/{id}/logs', [ProvisionedResourceController::class, 'logs']);
 
     });

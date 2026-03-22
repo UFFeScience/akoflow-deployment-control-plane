@@ -5,10 +5,10 @@ namespace App\Http\Controllers;
 use App\Exceptions\EnvironmentNotFoundException;
 use App\Http\Requests\CreateEnvironmentRequest;
 use App\Http\Requests\ProvisionEnvironmentRequest;
-use App\Http\Resources\ClusterResource;
+use App\Http\Resources\DeploymentResource;
 use App\Http\Resources\EnvironmentResource;
 use App\Services\CreateEnvironmentService;
-use App\Services\CreateEnvironmentWithClusterService;
+use App\Services\CreateEnvironmentWithDeploymentService;
 use App\Services\GetEnvironmentService;
 use App\Services\ListEnvironmentsService;
 use App\Services\ListEnvironmentsByOrganizationService;
@@ -22,7 +22,7 @@ class EnvironmentController extends Controller
         protected ListEnvironmentsService $listService,
         protected ListEnvironmentsByOrganizationService $listByOrgService,
         protected CreateEnvironmentService $createService,
-        protected CreateEnvironmentWithClusterService $provisionService,
+        protected CreateEnvironmentWithDeploymentService $provisionService,
         protected GetEnvironmentService $getService,
         protected ProjectAuthorizationService $projectAuthorizationService,
         protected OrganizationAuthorizationService $organizationAuthorizationService,
@@ -61,7 +61,7 @@ class EnvironmentController extends Controller
         $data = (new EnvironmentResource($environment))->toArray($request);
 
         if ($deployment) {
-            $data['deployment'] = (new ClusterResource($deployment->load('instanceGroups')))->toArray($request);
+            $data['deployment'] = (new DeploymentResource($deployment))->toArray($request);
         }
 
         return response()->json(['data' => $data], 201);

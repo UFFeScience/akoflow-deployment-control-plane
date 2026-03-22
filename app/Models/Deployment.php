@@ -5,49 +5,58 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\InstanceGroup;
-use App\Models\ProviderCredential;
 
 class Deployment extends Model
 {
-	protected $table = 'deployments';
-	protected $fillable = ['environment_id','cluster_template_id','provider_id','provider_credential_id','region','environment_type','name','status'];
+    protected $table = 'deployments';
 
-	public const STATUSES = ['PROVISIONING', 'RUNNING', 'STOPPED', 'ERROR'];
-	public const ENVIRONMENT_TYPES = ['CLOUD', 'ON_PREM', 'HPC'];
+    protected $fillable = [
+        'environment_id',
+        'deployment_template_id',
+        'provider_id',
+        'provider_credential_id',
+        'region',
+        'environment_type',
+        'name',
+        'status',
+    ];
 
-	public function environment(): BelongsTo
-	{
-		return $this->belongsTo(Environment::class, 'environment_id');
-	}
+    public const STATUS_PROVISIONING = 'PROVISIONING';
+    public const STATUS_RUNNING      = 'RUNNING';
+    public const STATUS_STOPPED      = 'STOPPED';
+    public const STATUS_ERROR        = 'ERROR';
 
-	public function template(): BelongsTo
-	{
-		return $this->belongsTo(ClusterTemplate::class, 'cluster_template_id');
-	}
+    public const STATUSES = [
+        self::STATUS_PROVISIONING,
+        self::STATUS_RUNNING,
+        self::STATUS_STOPPED,
+        self::STATUS_ERROR,
+    ];
 
-	public function provider(): BelongsTo
-	{
-		return $this->belongsTo(Provider::class, 'provider_id');
-	}
+    public const ENVIRONMENT_TYPES = ['CLOUD', 'ON_PREM', 'HPC'];
 
-	public function credential(): BelongsTo
-	{
-		return $this->belongsTo(ProviderCredential::class, 'provider_credential_id');
-	}
+    public function environment(): BelongsTo
+    {
+        return $this->belongsTo(Environment::class, 'environment_id');
+    }
 
-	public function instances(): HasMany
-	{
-		return $this->hasMany(ProvisionedInstance::class, 'cluster_id');
-	}
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(DeploymentTemplate::class, 'deployment_template_id');
+    }
 
-	public function instanceGroups(): HasMany
-	{
-		return $this->hasMany(InstanceGroup::class, 'cluster_id');
-	}
+    public function provider(): BelongsTo
+    {
+        return $this->belongsTo(Provider::class, 'provider_id');
+    }
 
-	public function scalingEvents(): HasMany
-	{
-		return $this->hasMany(ClusterScalingEvent::class, 'cluster_id');
-	}
+    public function credential(): BelongsTo
+    {
+        return $this->belongsTo(ProviderCredential::class, 'provider_credential_id');
+    }
+
+    public function resources(): HasMany
+    {
+        return $this->hasMany(ProvisionedResource::class, 'deployment_id');
+    }
 }

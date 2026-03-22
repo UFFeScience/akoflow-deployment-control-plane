@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Models\Deployment;
 
-class CreateClusterRequest extends FormRequest
+class CreateDeploymentRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,7 +15,7 @@ class CreateClusterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'cluster_template_id' => 'nullable|integer|exists:cluster_templates,id',
+            'deployment_template_id' => 'nullable|integer|exists:deployment_templates,id',
             'provider_id' => 'required|integer|exists:providers,id',
             'provider_credential_id' => 'nullable|integer|exists:provider_credentials,id',
             'region' => 'nullable|string',
@@ -26,17 +26,6 @@ class CreateClusterRequest extends FormRequest
                 }
             }],
             'name' => 'nullable|string|max:255',
-            'instance_groups' => 'nullable|array|min:1',
-            'instance_groups.*.instance_type_id' => 'required_with:instance_groups|integer|exists:instance_types,id',
-            'instance_groups.*.role' => 'nullable|string|max:100',
-            'instance_groups.*.quantity' => 'required_with:instance_groups|integer|min:1',
-            'instance_groups.*.metadata' => 'nullable|array',
-            // backwards compatibility
-            'instances' => 'nullable|array|min:1',
-            'instances.*.instance_type_id' => 'required_with:instances|integer|exists:instance_types,id',
-            'instances.*.role' => 'nullable|string|max:100',
-            'instances.*.quantity' => 'required_with:instances|integer|min:1',
-            'node_count' => 'nullable|integer|min:1',
         ];
     }
 }

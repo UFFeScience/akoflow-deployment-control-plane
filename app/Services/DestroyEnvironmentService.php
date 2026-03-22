@@ -13,7 +13,7 @@ class DestroyEnvironmentService
     public function __construct(
         private EnvironmentRepository             $environmentRepository,
         private TerraformRunRepository            $runRepository,
-        private EnvironmentClusterProviderService $providerResolver,
+        private EnvironmentDeploymentProviderService $providerResolver,
         private ProviderCredentialResolverService $credentialResolver,
         private TerraformProcessRunnerService     $processRunner,
     ) {}

@@ -4,58 +4,67 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Provisioned Resource taxonomy.
+ *
+ * provisioned_resource_kinds  — high-level categories
+ *   e.g. compute | storage | serverless | database | network | container
+ *
+ * provisioned_resource_types  — specific cloud-provider implementations
+ *   e.g. aws_ec2 (compute/AWS) | gcp_compute_engine (compute/GCP)
+ *        aws_lambda (serverless/AWS) | aws_s3 (storage/AWS)
+ *        aws_rds (database/AWS) | gcp_cloud_sql (database/GCP)
+ */
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('provisioned_instances', function (Blueprint $table) {
+        // ── 1. Kinds ─────────────────────────────────────────────────────────
+        Schema::create('provisioned_resource_kinds', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('cluster_id')->constrained('deployments')->cascadeOnDelete();
-            $table->foreignId('instance_type_id')->constrained('instance_types')->cascadeOnDelete();
-            $table->string('provider_instance_id')->nullable();
-            $table->string('role')->nullable();
-            $table->string('status')->default('PROVISIONING');
-            $table->string('health_status')->nullable();
-            $table->timestamp('last_health_check_at')->nullable();
-            $table->string('public_ip')->nullable();
-            $table->string('private_ip')->nullable();
+            $table->string('slug')->unique();   // compute | storage | serverless …
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+
+        // ── 2. Types ──────────────────────────────────────────────────────────
+        Schema::create('provisioned_resource_types', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('provisioned_resource_kind_id')
+                ->constrained('provisioned_resource_kinds')
+                ->cascadeOnDelete();
+
+            // null == cloud-agnostic / not tied to a specific provider
+            $table->foreignId('provider_id')
+                ->nullable()
+                ->constrained('providers')
+                ->nullOnDelete();
+
+            // unique slug, e.g. "aws_ec2", "gcp_compute_engine", "aws_lambda"
+            $table->string('slug')->unique();
+            $table->string('name');
+            $table->text('description')->nullable();
+
+            // Terraform resource type identifier, e.g. "aws_instance"
+            $table->string('provider_resource_identifier')->nullable();
+
+            // JSON Schema describing the expected attributes for this type
+            $table->json('attributes_schema_json')->nullable();
+
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->index('cluster_id');
-            $table->index('instance_type_id');
-            $table->index('status');
-            $table->index('health_status');
-        });
-
-        Schema::create('instance_logs', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('provisioned_instance_id')->constrained('provisioned_instances')->cascadeOnDelete();
-            $table->string('level');
-            $table->text('message');
-            $table->timestamp('created_at')->useCurrent();
-
-            $table->index('provisioned_instance_id');
-            $table->index('level');
-        });
-
-        Schema::create('cluster_scaling_events', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('cluster_id')->constrained('deployments')->cascadeOnDelete();
-            $table->string('action');
-            $table->integer('old_value')->nullable();
-            $table->integer('new_value')->nullable();
-            $table->string('triggered_by')->nullable();
-            $table->timestamp('created_at')->useCurrent();
-
-            $table->index('cluster_id');
-            $table->index('action');
-            $table->index('triggered_by');
+            $table->index('provisioned_resource_kind_id');
+            $table->index('provider_id');
+            $table->index('is_active');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('cluster_scaling_events');
-        Schema::dropIfExists('instance_logs');
-        Schema::dropIfExists('provisioned_instances');
+        Schema::dropIfExists('provisioned_resource_types');
+        Schema::dropIfExists('provisioned_resource_kinds');
     }
 };

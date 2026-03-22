@@ -5,10 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ClusterScalingEvent extends Model
+class DeploymentScalingEvent extends Model
 {
-    protected $table = 'cluster_scaling_events';
-    protected $fillable = ['cluster_id','action','old_value','new_value','triggered_by'];
+    protected $table = 'deployment_scaling_events';
+    protected $fillable = ['deployment_id','action','old_value','new_value','triggered_by'];
     public $timestamps = false;
 
     public const ACTIONS = ['SCALE_UP', 'SCALE_DOWN'];
@@ -16,6 +16,6 @@ class ClusterScalingEvent extends Model
 
     public function deployment(): BelongsTo
     {
-        return $this->belongsTo(Deployment::class, 'cluster_id');
+        return $this->belongsTo(Deployment::class, 'deployment_id');
     }
 }

@@ -2,19 +2,17 @@
 
 namespace App\Services;
 
-use App\Repositories\ClusterRepository;
+use App\Repositories\DeploymentRepository;
 use Illuminate\Support\Collection;
 
-class ListClustersService
+class ListDeploymentsService
 {
-    public function __construct(private ClusterRepository $deployments)
+    public function __construct(private DeploymentRepository $deployments)
     {
     }
 
     public function handle(string $environmentId): Collection
     {
-        return $this->deployments
-            ->listByEnvironment($environmentId)
-            ->load(['instanceGroups.instanceType']);
+        return $this->deployments->listByEnvironment($environmentId);
     }
 }

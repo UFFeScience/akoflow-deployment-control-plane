@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Repositories\ClusterRepository;
+use App\Repositories\DeploymentRepository;
 
-class DeleteClusterService
+class DeleteDeploymentService
 {
-    public function __construct(private ClusterRepository $deployments)
+    public function __construct(private DeploymentRepository $deployments)
     {
     }
 

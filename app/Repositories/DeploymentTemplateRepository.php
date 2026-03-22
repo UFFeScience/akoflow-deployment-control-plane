@@ -2,11 +2,11 @@
 
 namespace App\Repositories;
 
-use App\Models\ClusterTemplate;
+use App\Models\DeploymentTemplate;
 
-class ClusterTemplateRepository extends BaseRepository
+class DeploymentTemplateRepository extends BaseRepository
 {
-    public function __construct(ClusterTemplate $model)
+    public function __construct(DeploymentTemplate $model)
     {
         parent::__construct($model);
     }

@@ -4,13 +4,13 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ClusterScalingEventResource extends JsonResource
+class DeploymentScalingEventResource extends JsonResource
 {
     public function toArray($request): array
     {
         return [
             'id' => $this->id,
-            'cluster_id' => $this->cluster_id,
+            'deployment_id' => $this->deployment_id,
             'action' => $this->action,
             'old_value' => $this->old_value,
             'new_value' => $this->new_value,

@@ -376,7 +376,7 @@ class NvflareFederatedDefinition
                 ],
             ],
 
-            'cluster_topology' => [
+            'deployment_topology' => [
                 'description'    => 'NVIDIA FLARE: 1 FL Server · 1 Overseer · 1 DF-Analyse · 10 federated client sites, all on EC2 within a shared Security Group',
                 'instance_groups' => [
                     [

@@ -10,7 +10,7 @@ class InstanceGroupResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'cluster_id' => $this->cluster_id,
+            'deployment_id' => $this->deployment_id,
             'instance_type_id' => $this->instance_type_id,
             'instance_type_name' => $this->instanceType->name ?? null,
             'role' => $this->role,

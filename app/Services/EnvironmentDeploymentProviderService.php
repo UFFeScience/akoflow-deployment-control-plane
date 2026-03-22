@@ -10,7 +10,7 @@ use RuntimeException;
  * Resolves the cloud Provider that is responsible for an Environment,
  * following the Environment → Deployment → Provider chain.
  */
-class EnvironmentClusterProviderService
+class EnvironmentDeploymentProviderService
 {
     /**
      * @throws RuntimeException when the environment has no deployment or the deployment has no provider.

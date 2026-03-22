@@ -4,7 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ClusterTemplateResource extends JsonResource
+class DeploymentTemplateResource extends JsonResource
 {
     public function toArray($request): array
     {

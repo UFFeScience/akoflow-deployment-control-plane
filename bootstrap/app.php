@@ -1,6 +1,6 @@
 <?php
 
-use App\Exceptions\ClusterNotFoundException;
+use App\Exceptions\DeploymentNotFoundException;
 use App\Exceptions\EnvironmentNotFoundException;
 use App\Exceptions\InstanceNotFoundException;
 use App\Exceptions\InvalidPasswordException;
@@ -43,7 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->json(['error' => $e->getMessage()], 404);
         });
 
-        $exceptions->render(function (ClusterNotFoundException $e, Request $request) {
+        $exceptions->render(function (DeploymentNotFoundException $e, Request $request) {
             return response()->json(['error' => $e->getMessage()], 404);
         });
 

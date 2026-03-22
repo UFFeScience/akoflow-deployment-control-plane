@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Deployment;
 use App\Models\Environment;
 use App\Models\TerraformRun;
+use App\Repositories\DeploymentRepository;
 use App\Repositories\EnvironmentRepository;
 use App\Repositories\TerraformRunRepository;
 use Illuminate\Support\Facades\Log;
@@ -13,12 +15,14 @@ use Throwable;
 class ProvisionEnvironmentService
 {
     public function __construct(
-        private EnvironmentRepository              $environmentRepository,
-        private TerraformRunRepository             $runRepository,
-        private TerraformWorkspaceService          $workspaceService,
-        private EnvironmentClusterProviderService  $providerResolver,
-        private ProviderCredentialResolverService  $credentialResolver,
-        private TerraformProcessRunnerService      $processRunner,
+        private EnvironmentRepository                $environmentRepository,
+        private TerraformRunRepository               $runRepository,
+        private DeploymentRepository                 $deploymentRepository,
+        private TerraformWorkspaceService            $workspaceService,
+        private EnvironmentDeploymentProviderService $providerResolver,
+        private ProviderCredentialResolverService    $credentialResolver,
+        private TerraformProcessRunnerService        $processRunner,
+        private CreateProvisionedResourcesService    $createResources,
     ) {}
 
     public function handle(int $environmentId): TerraformRun
@@ -82,6 +86,19 @@ class ProvisionEnvironmentService
             ]);
 
             $run->appendLog('[akocloud] Provisioning completed successfully.');
+
+            // 6. Create ProvisionedResource records from terraform outputs
+            /** @var Deployment|null $deployment */
+            $deployment = $this->deploymentRepository->latestByEnvironment((string) $environment->id);
+
+            if ($deployment) {
+                $this->createResources->handle($deployment, $run->fresh());
+                $run->appendLog('[akocloud] Provisioned resources created from output_json.');
+
+                $this->deploymentRepository->update((string) $deployment->id, [
+                    'status' => Deployment::STATUS_RUNNING,
+                ]);
+            }
 
             $this->environmentRepository->update((string) $environment->id, ['status' => 'RUNNING']);
 

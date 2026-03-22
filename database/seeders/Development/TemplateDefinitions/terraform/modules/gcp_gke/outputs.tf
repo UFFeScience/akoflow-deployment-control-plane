@@ -1,11 +1,11 @@
-output "gke_cluster_name" {
+output "gke_deployment_name" {
   description = "GKE deployment name"
-  value       = google_container_cluster.primary.name
+  value       = google_container_deployment.primary.name
 }
 
 output "gke_endpoint" {
   description = "GKE deployment endpoint"
-  value       = google_container_cluster.primary.endpoint
+  value       = google_container_deployment.primary.endpoint
   sensitive   = true
 }
 

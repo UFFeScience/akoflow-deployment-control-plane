@@ -10,7 +10,7 @@ class ProvisionedInstanceResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'cluster_id' => $this->cluster_id,
+            'deployment_id' => $this->deployment_id,
             'instance_group_id' => $this->instance_group_id,
             'instance_type_id' => $this->instance_type_id,
             'provider_instance_id' => $this->provider_instance_id,

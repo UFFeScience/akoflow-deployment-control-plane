@@ -49,7 +49,7 @@ class TemplateTerraformModulesSeeder extends Seeder
             'variables_tf' => $this->readTerraformFile('aws_nvflare/variables.tf'),
             'outputs_tf' => $this->readTerraformFile('aws_nvflare/outputs.tf'),
             'tfvars_mapping_json' => [
-                'cluster_name' => 'cluster_name',
+                'deployment_name' => 'deployment_name',
                 'region' => 'region',
                 'node_count' => 'node_count',
                 'node_size' => 'node_size',
@@ -73,7 +73,7 @@ class TemplateTerraformModulesSeeder extends Seeder
             'tfvars_mapping_json' => [
                 'project_id' => 'project_id',
                 'region' => 'region',
-                'cluster_name' => 'cluster_name',
+                'deployment_name' => 'deployment_name',
                 'node_count' => 'node_count',
                 'node_size' => 'node_size',
             ],

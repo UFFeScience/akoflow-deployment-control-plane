@@ -57,7 +57,7 @@ class ProvisionEnvironmentTest extends TestCase
     // Happy path — environment only (no deployment)
     // ──────────────────────────────────────────────────────────────────────────
 
-    public function test_provision_creates_environment_with_cluster(): void
+    public function test_provision_creates_environment_with_deployment(): void
     {
         $user         = User::factory()->create();
         $project      = $this->projectBelongingToUser($user);
@@ -97,7 +97,7 @@ class ProvisionEnvironmentTest extends TestCase
     // Happy path — environment + deployment in a single request
     // ──────────────────────────────────────────────────────────────────────────
 
-    public function test_provision_creates_environment_and_cluster_atomically(): void
+    public function test_provision_creates_environment_and_deployment_atomically(): void
     {
         $user         = User::factory()->create();
         $project      = $this->projectBelongingToUser($user);
@@ -156,7 +156,7 @@ class ProvisionEnvironmentTest extends TestCase
     // Deployment with multiple instance groups
     // ──────────────────────────────────────────────────────────────────────────
 
-    public function test_provision_creates_cluster_with_multiple_instance_groups(): void
+    public function test_provision_creates_deployment_with_multiple_instance_groups(): void
     {
         $user         = User::factory()->create();
         $project      = $this->projectBelongingToUser($user);
@@ -283,7 +283,7 @@ class ProvisionEnvironmentTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
-    public function test_provision_requires_provider_id_when_cluster_key_is_present(): void
+    public function test_provision_requires_provider_id_when_deployment_key_is_present(): void
     {
         $user    = User::factory()->create();
         $project = $this->projectBelongingToUser($user);
@@ -318,7 +318,7 @@ class ProvisionEnvironmentTest extends TestCase
             ->assertJsonValidationErrors(['deployment.provider_id']);
     }
 
-    public function test_provision_rejects_non_existent_instance_type_in_cluster(): void
+    public function test_provision_rejects_non_existent_instance_type_in_deployment(): void
     {
         $user     = User::factory()->create();
         $project  = $this->projectBelongingToUser($user);
@@ -380,7 +380,7 @@ class ProvisionEnvironmentTest extends TestCase
     // Atomicity — if deployment creation fails, environment must not be persisted
     // ──────────────────────────────────────────────────────────────────────────
 
-    public function test_environment_is_not_persisted_when_cluster_data_is_invalid(): void
+    public function test_environment_is_not_persisted_when_deployment_data_is_invalid(): void
     {
         $user    = User::factory()->create();
         $project = $this->projectBelongingToUser($user);

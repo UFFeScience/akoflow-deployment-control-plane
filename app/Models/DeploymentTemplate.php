@@ -6,9 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class ClusterTemplate extends Model
+class DeploymentTemplate extends Model
 {
-    protected $table = 'cluster_templates';
+    protected $table = 'deployment_templates';
     protected $fillable = ['template_version_id','custom_parameters_json'];
     public $timestamps = false;
 
@@ -21,6 +21,6 @@ class ClusterTemplate extends Model
 
     public function deployments(): HasMany
     {
-        return $this->hasMany(Deployment::class, 'cluster_template_id');
+        return $this->hasMany(Deployment::class, 'deployment_template_id');
     }
 }

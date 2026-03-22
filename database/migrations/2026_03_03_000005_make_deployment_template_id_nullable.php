@@ -9,14 +9,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('deployments', function (Blueprint $table) {
-            $table->unsignedBigInteger('cluster_template_id')->nullable()->change();
+            $table->unsignedBigInteger('deployment_template_id')->nullable()->change();
         });
     }
 
     public function down(): void
     {
         Schema::table('deployments', function (Blueprint $table) {
-            $table->unsignedBigInteger('cluster_template_id')->nullable(false)->change();
+            $table->unsignedBigInteger('deployment_template_id')->nullable(false)->change();
         });
     }
 };

@@ -2,7 +2,7 @@
 
 namespace App\Enums;
 
-enum ClusterStatus: string
+enum DeploymentStatus: string
 {
     case PROVISIONING = 'PROVISIONING';
     case RUNNING = 'RUNNING';

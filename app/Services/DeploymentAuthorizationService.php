@@ -2,15 +2,15 @@
 
 namespace App\Services;
 
-use App\Exceptions\ClusterNotFoundException;
+use App\Exceptions\DeploymentNotFoundException;
 use App\Models\Deployment;
 use App\Models\User;
-use App\Repositories\ClusterRepository;
+use App\Repositories\DeploymentRepository;
 
-class ClusterAuthorizationService
+class DeploymentAuthorizationService
 {
     public function __construct(
-        private ClusterRepository $clusterRepository,
+        private DeploymentRepository $deploymentRepository,
         private EnvironmentAuthorizationService $environmentAuthorizationService,
     ) {}
 
@@ -18,18 +18,18 @@ class ClusterAuthorizationService
      * Fetch a deployment by id and assert the user has access to its
      * environment's project's organization.
      *
-     * @throws ClusterNotFoundException
+     * @throws DeploymentNotFoundException
      * @throws \App\Exceptions\EnvironmentNotFoundException
      * @throws \App\Exceptions\OrganizationNotFoundException
      * @throws \App\Exceptions\UnauthorizedOrganizationAccessException
      */
-    public function assertUserCanAccessCluster(User $user, string $clusterId): Deployment
+    public function assertUserCanAccessDeployment(User $user, string $deploymentId): Deployment
     {
         /** @var Deployment|null $deployment */
-        $deployment = $this->clusterRepository->find($clusterId);
+        $deployment = $this->deploymentRepository->find($deploymentId);
 
         if (!$deployment) {
-            throw new ClusterNotFoundException();
+            throw new DeploymentNotFoundException();
         }
 
         $this->environmentAuthorizationService->assertUserCanAccessEnvironment($user, (string) $deployment->environment_id);

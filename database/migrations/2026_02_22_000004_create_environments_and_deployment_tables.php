@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('cluster_templates', function (Blueprint $table) {
+        Schema::create('deployment_templates', function (Blueprint $table) {
             $table->id();
             $table->foreignId('template_version_id')->constrained('environment_template_versions')->cascadeOnDelete();
             $table->json('custom_parameters_json')->nullable();
@@ -19,7 +19,7 @@ return new class extends Migration {
         Schema::create('deployments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('environment_id')->constrained('environments')->cascadeOnDelete();
-            $table->foreignId('cluster_template_id')->constrained('cluster_templates')->cascadeOnDelete();
+            $table->foreignId('deployment_template_id')->constrained('deployment_templates')->cascadeOnDelete();
             $table->foreignId('provider_id')->constrained('providers')->cascadeOnDelete();
             $table->string('region')->nullable();
             $table->string('environment_type');
@@ -29,7 +29,7 @@ return new class extends Migration {
 
             $table->index('environment_id');
             $table->index('provider_id');
-            $table->index('cluster_template_id');
+            $table->index('deployment_template_id');
             $table->index('status');
             $table->index('environment_type');
         });
@@ -38,6 +38,6 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::dropIfExists('deployments');
-        Schema::dropIfExists('cluster_templates');
+        Schema::dropIfExists('deployment_templates');
     }
 };

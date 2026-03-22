@@ -31,6 +31,7 @@ class ProvisionEnvironmentRequest extends FormRequest
             // ── Deployment fields ─────────────────────────────────────────────
             'deployment'                          => 'nullable|array',
             'deployment.provider_id'              => 'required_with:deployment|integer|exists:providers,id',
+            'deployment.provider_credential_id'    => 'nullable|integer|exists:provider_credentials,id',
             'deployment.region'                   => 'nullable|string',
             'deployment.environment_type'         => ['nullable', 'string', function ($attr, $value, $fail) {
                 if ($value === null) return;
@@ -38,17 +39,8 @@ class ProvisionEnvironmentRequest extends FormRequest
                     $fail('Invalid deployment environment type');
                 }
             }],
-            'deployment.name'                     => 'nullable|string|max:255',
-            'deployment.cluster_template_id'      => 'nullable|integer|exists:cluster_templates,id',
-            'deployment.node_count'               => 'nullable|integer|min:1',
-            'deployment.instance_groups'          => 'nullable|array|min:1',
-            'deployment.instance_groups.*.instance_type_id'        => 'required_with:deployment.instance_groups|integer|exists:instance_types,id',
-            'deployment.instance_groups.*.instance_group_template_id' => 'nullable|integer|exists:instance_group_templates,id',
-            'deployment.instance_groups.*.role'                    => 'nullable|string|max:100',
-            'deployment.instance_groups.*.quantity'                => 'required_with:deployment.instance_groups|integer|min:1',
-            'deployment.instance_groups.*.metadata'                => 'nullable|array',
-            'deployment.instance_groups.*.terraform_variables'     => 'nullable|array',
-            'deployment.instance_groups.*.lifecycle_hooks'         => 'nullable|array',
+            'deployment.name'                        => 'nullable|string|max:255',
+            'deployment.deployment_template_id'      => 'nullable|integer|exists:deployment_templates,id',
         ];
     }
 }

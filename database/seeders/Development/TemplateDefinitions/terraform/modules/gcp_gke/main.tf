@@ -14,7 +14,7 @@ provider "google" {
 }
 
 locals {
-  cluster_name  = "akocloud-gke-${var.environment_id}"
+  deployment_name  = "akocloud-gke-${var.environment_id}"
   akoflow_name  = "akoflow-${var.environment_id}"
   allowed_cidrs = [for cidr in split(",", var.akoflow_allowed_ips) : trimspace(cidr)]
 }
@@ -71,8 +71,8 @@ resource "google_compute_firewall" "akoflow_https" {
 }
 
 # ── GKE Deployment ───────────────────────────────────────────────────────────────
-resource "google_container_cluster" "primary" {
-  name               = local.cluster_name
+resource "google_container_deployment" "primary" {
+  name               = local.deployment_name
   location           = var.gcp_region
   min_master_version = var.gke_version
   network            = google_compute_network.vpc.name
@@ -83,7 +83,7 @@ resource "google_container_cluster" "primary" {
   initial_node_count       = 1
 
   ip_allocation_policy {
-    cluster_secondary_range_name  = "pods"
+    deployment_secondary_range_name  = "pods"
     services_secondary_range_name = "services"
   }
 
@@ -93,7 +93,7 @@ resource "google_container_cluster" "primary" {
 
 resource "google_container_node_pool" "gke_compute" {
   name       = "gke-compute-${var.environment_id}"
-  deployment    = google_container_cluster.primary.name
+  deployment    = google_container_deployment.primary.name
   location   = var.gcp_region
   node_count = var.gke_enable_autoscaling ? null : var.gke_node_count
 

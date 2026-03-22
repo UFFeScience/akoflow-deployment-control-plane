@@ -267,7 +267,7 @@ class AkoflowGkeDefinition
                 ],
             ],
 
-            'cluster_topology' => [
+            'deployment_topology' => [
                 'description'    => 'AkoFlow on GKE: Complete deployment with GKE nodes and AkoFlow server instance',
                 'instance_groups' => [
                     [

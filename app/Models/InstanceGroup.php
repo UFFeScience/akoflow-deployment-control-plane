@@ -10,7 +10,7 @@ class InstanceGroup extends Model
     protected $table = 'instance_groups';
 
     protected $fillable = [
-        'cluster_id',
+        'deployment_id',
         'instance_type_id',
         'role',
         'quantity',
@@ -23,7 +23,7 @@ class InstanceGroup extends Model
 
     public function deployment(): BelongsTo
     {
-        return $this->belongsTo(Deployment::class, 'cluster_id');
+        return $this->belongsTo(Deployment::class, 'deployment_id');
     }
 
     public function instanceType(): BelongsTo
