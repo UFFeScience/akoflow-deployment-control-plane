@@ -1,62 +1,101 @@
+# ── Meta ──────────────────────────────────────────────────────────────────────
+
 variable "environment_id" {
-  description = "AkoCloud environment ID — injected automatically, used to guarantee unique resource names"
+  description = "AkoCloud environment ID — injected automatically to guarantee unique resource names"
   type        = string
   default     = ""
 }
 
-variable "provider" {
-  description = "Cloud provider identifier"
-  type        = string
-  default     = "gcp"
-}
+# ── Cloud / Region ────────────────────────────────────────────────────────────
 
 variable "project_id" {
   description = "GCP project ID"
   type        = string
+  default     = ""
 }
 
 variable "region" {
   description = "GCP region"
   type        = string
+  default     = "us-central1"
 }
 
 variable "zone" {
-  description = "GCP zone"
+  description = "GCP zone (e.g. us-central1-a)"
   type        = string
+  default     = "us-central1-a"
 }
 
+# ── Instance ──────────────────────────────────────────────────────────────────
+
 variable "instance_name" {
-  description = "Compute instance name"
+  description = "Base name for the compute instance"
   type        = string
   default     = "hello-docker"
 }
 
 variable "machine_type" {
-  description = "Compute machine type"
+  description = "GCP machine type (e.g. e2-micro, n1-standard-1)"
   type        = string
   default     = "e2-micro"
 }
 
-variable "image" {
-  description = "Boot disk image self_link (override)"
+variable "image_gcp" {
+  description = "Boot disk image self_link — if empty the data source (image_family_gcp/image_project_gcp) is used"
   type        = string
   default     = ""
 }
 
-variable "startup_script" {
-  description = "Custom startup script to run after Docker install"
+variable "image_family_gcp" {
+  description = "Image family used by the data source when image_gcp is empty"
   type        = string
-  default     = ""
+  default     = "ubuntu-2204-lts"
 }
 
-variable "docker_image" {
-  description = "Docker image to run"
+variable "image_project_gcp" {
+  description = "Image project used by the data source when image_gcp is empty"
   type        = string
-  default     = "nginx:latest"
+  default     = "ubuntu-os-cloud"
 }
 
-variable "docker_args" {
-  description = "Additional arguments passed to docker run"
+# ── Network ───────────────────────────────────────────────────────────────────
+
+variable "network_gcp" {
+  description = "VPC network name or self_link"
+  type        = string
+  default     = "default"
+}
+
+# ── Security Group / Firewall ─────────────────────────────────────────────────
+
+variable "ingress_from_port" {
+  description = "Start of the ingress port range"
+  type        = number
+  default     = 80
+}
+
+variable "ingress_to_port" {
+  description = "End of the ingress port range"
+  type        = number
+  default     = 80
+}
+
+variable "ingress_protocol" {
+  description = "IP protocol for the ingress rule (tcp, udp, icmp)"
+  type        = string
+  default     = "tcp"
+}
+
+variable "ingress_cidr" {
+  description = "Source CIDR block allowed for inbound traffic"
+  type        = string
+  default     = "0.0.0.0/0"
+}
+
+# ── Application ───────────────────────────────────────────────────────────────
+
+variable "user_data" {
+  description = "Full bash startup script executed on instance boot (metadata_startup_script)"
   type        = string
   default     = ""
 }

@@ -12,55 +12,62 @@ provider "aws" {
 }
 
 locals {
-  az = var.zone != "" ? var.zone : "${var.region}a"
+  az            = var.zone != "" ? var.zone : "${var.region}a"
+  resource_name = var.environment_id != "" ? "env-${var.environment_id}-${var.instance_name}" : var.instance_name
+  resolved_ami  = var.ami_id != "" ? var.ami_id : data.aws_ami.default.id
 }
 
 resource "aws_security_group" "hello" {
-  name_prefix = "env-${var.environment_id}-${var.instance_name}-"
-  description = "Allow HTTP access"
+  name_prefix = "${local.resource_name}-"
+  description = "Ingress ${var.ingress_from_port}-${var.ingress_to_port}/${var.ingress_protocol} from ${var.ingress_cidr}"
+  vpc_id      = var.vpc_id != "" ? var.vpc_id : null
 
   ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    from_port   = var.ingress_from_port
+    to_port     = var.ingress_to_port
+    protocol    = var.ingress_protocol
+    cidr_blocks = [var.ingress_cidr]
   }
 
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.egress_cidr]
+  }
+
+  tags = {
+    Name        = "${local.resource_name}-sg"
+    Environment = var.environment_id
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
 resource "aws_instance" "hello" {
-  ami                         = var.ami_id != "" ? var.ami_id : data.aws_ami.amazon_linux.id
+  ami                         = local.resolved_ami
   instance_type               = var.instance_type
   vpc_security_group_ids      = [aws_security_group.hello.id]
-  associate_public_ip_address = true
+  associate_public_ip_address = var.associate_public_ip
   availability_zone           = local.az
-  tags = {
-    Name = var.instance_name
-  }
+  subnet_id                   = var.subnet_id != "" ? var.subnet_id : null
+  user_data                   = var.user_data != "" ? var.user_data : null
 
-  user_data = <<-EOF
-              #!/bin/bash
-              yum update -y
-              amazon-linux-extras install docker -y || yum install docker -y
-              systemctl enable docker
-              systemctl start docker
-              ${var.startup_script != "" ? var.startup_script : "docker run -d --name hello --restart always -p 80:80 ${var.docker_image} ${var.docker_args}"}
-              EOF
+  tags = {
+    Name        = local.resource_name
+    Environment = var.environment_id
+  }
 }
 
-data "aws_ami" "amazon_linux" {
+data "aws_ami" "default" {
   most_recent = true
 
   filter {
     name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+    values = [var.ami_filter]
   }
 
-  owners = ["amazon"]
+  owners = [var.ami_owners]
 }
