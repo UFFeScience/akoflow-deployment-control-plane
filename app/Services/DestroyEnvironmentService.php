@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Deployment;
 use App\Models\Environment;
 use App\Models\TerraformRun;
+use App\Repositories\DeploymentRepository;
 use App\Repositories\EnvironmentRepository;
 use App\Repositories\TerraformRunRepository;
 use Illuminate\Support\Facades\Log;
@@ -11,14 +13,15 @@ use Illuminate\Support\Facades\Log;
 class DestroyEnvironmentService
 {
     public function __construct(
-        private EnvironmentRepository             $environmentRepository,
-        private TerraformRunRepository            $runRepository,
+        private EnvironmentRepository                $environmentRepository,
+        private TerraformRunRepository               $runRepository,
+        private DeploymentRepository                 $deploymentRepository,
         private EnvironmentDeploymentProviderService $providerResolver,
-        private ProviderCredentialResolverService $credentialResolver,
-        private TerraformProcessRunnerService     $processRunner,
+        private ProviderCredentialResolverService    $credentialResolver,
+        private TerraformProcessRunnerService        $processRunner,
     ) {}
 
-    public function handle(int $environmentId): ?TerraformRun
+    public function handle(int $environmentId, ?int $deploymentId = null): ?TerraformRun
     {
         /** @var Environment $environment */
         $environment = $this->environmentRepository->find((string) $environmentId);
@@ -48,9 +51,21 @@ class DestroyEnvironmentService
         ]);
 
         try {
-            // Resolve fresh credentials from the DB
-            $provider    = $this->providerResolver->resolve($environment);
-            $credentials = $this->credentialResolver->resolve($provider);
+            // Resolve fresh credentials from the deployment's configured credential
+            $provider   = $this->providerResolver->resolve($environment);
+
+            /** @var Deployment|null $deployment */
+            $deployment = $deploymentId
+                ? $this->deploymentRepository->find((string) $deploymentId)
+                : $environment->deployments()->first();
+
+            if (!$deployment) {
+                throw new \RuntimeException(
+                    "Environment [{$environment->id}] has no deployment associated."
+                );
+            }
+
+            $credentials = $this->credentialResolver->resolve($deployment);
 
             $run->appendLog("[akocloud] Destroying workspace: {$applyRun->workspace_path}");
             $run->appendLog("[akocloud] Provider: {$provider->name} (slug: {$provider->slug})");

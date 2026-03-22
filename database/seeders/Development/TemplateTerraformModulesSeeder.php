@@ -18,12 +18,13 @@ class TemplateTerraformModulesSeeder extends Seeder
                     'provider_type' => $module['provider_type'],
                 ],
                 [
-                    'module_slug' => $module['module_slug'],
-                    'main_tf' => $module['main_tf'],
-                    'variables_tf' => $module['variables_tf'],
-                    'outputs_tf' => $module['outputs_tf'],
-                    'tfvars_mapping_json' => $module['tfvars_mapping_json'],
-                    'credential_env_keys' => $module['credential_env_keys'],
+                    'module_slug'          => $module['module_slug'],
+                    'main_tf'              => $module['main_tf'],
+                    'variables_tf'         => $module['variables_tf'],
+                    'outputs_tf'           => $module['outputs_tf'],
+                    'tfvars_mapping_json'  => $module['tfvars_mapping_json'],
+                    'outputs_mapping_json' => $module['outputs_mapping_json'],
+                    'credential_env_keys'  => $module['credential_env_keys'],
                 ],
             );
         }
@@ -32,74 +33,26 @@ class TemplateTerraformModulesSeeder extends Seeder
     private function modules(): array
     {
         return [
-            $this->awsNvflare(),
-            $this->gcpGke(),
-            $this->awsHelloDocker(),
-            $this->gcpHelloDocker(),
+            $this->awsMicroNginx(),
+            $this->gcpMicroNginx(),
         ];
     }
 
-    private function awsNvflare(): array
+    private function awsMicroNginx(): array
     {
         return [
             'template_version_id' => 1,
             'provider_type' => 'aws',
-            'module_slug' => 'nvflare-aws',
-            'main_tf' => $this->readTerraformFile('aws_nvflare/main.tf'),
-            'variables_tf' => $this->readTerraformFile('aws_nvflare/variables.tf'),
-            'outputs_tf' => $this->readTerraformFile('aws_nvflare/outputs.tf'),
-            'tfvars_mapping_json' => [
-                'deployment_name' => 'deployment_name',
-                'region' => 'region',
-                'node_count' => 'node_count',
-                'node_size' => 'node_size',
-            ],
-            'credential_env_keys' => [
-                'AKO_AWS_ACCESS_KEY_ID',
-                'AKO_AWS_SECRET_ACCESS_KEY',
-            ],
-        ];
-    }
-
-    private function gcpGke(): array
-    {
-        return [
-            'template_version_id' => 2,
-            'provider_type' => 'gcp',
-            'module_slug' => 'gke-basic',
-            'main_tf' => $this->readTerraformFile('gcp_gke/main.tf'),
-            'variables_tf' => $this->readTerraformFile('gcp_gke/variables.tf'),
-            'outputs_tf' => $this->readTerraformFile('gcp_gke/outputs.tf'),
-            'tfvars_mapping_json' => [
-                'project_id' => 'project_id',
-                'region' => 'region',
-                'deployment_name' => 'deployment_name',
-                'node_count' => 'node_count',
-                'node_size' => 'node_size',
-            ],
-            'credential_env_keys' => [
-                'AKO_GCP_SERVICE_ACCOUNT_KEY',
-            ],
-        ];
-    }
-
-    private function awsHelloDocker(): array
-    {
-        return [
-            'template_version_id' => 3,
-            'provider_type' => 'aws',
-            'module_slug' => 'hello-docker-aws',
+            'module_slug' => 'micro-nginx-aws',
             'main_tf' => $this->readTerraformFile('hello_aws/main.tf'),
             'variables_tf' => $this->readTerraformFile('hello_aws/variables.tf'),
             'outputs_tf' => $this->readTerraformFile('hello_aws/outputs.tf'),
             'tfvars_mapping_json' => [
                 'environment_configuration' => [
-                    'cloud_provider'  => 'cloud_provider',
-                    'region'          => 'region',
-                    'zone'            => 'zone',
-                    'instance_type'   => 'instance_type',
-                    'ami_id'          => 'ami_id',
-                    'startup_script'  => 'startup_script',
+                    'region'        => 'region',
+                    'zone'          => 'zone',
+                    'instance_type' => 'instance_type',
+                    'nginx_port'    => 'nginx_port',
                 ],
                 'instance_configurations' => [
                     'single-vm' => [],
@@ -109,26 +62,44 @@ class TemplateTerraformModulesSeeder extends Seeder
                 'AKO_AWS_ACCESS_KEY_ID',
                 'AKO_AWS_SECRET_ACCESS_KEY',
             ],
+            'outputs_mapping_json' => [
+                'resources' => [
+                    [
+                        'name'          => 'nginx-vm',
+                        'terraform_type'=> 'aws_instance',
+                        'outputs'       => [
+                            'provider_resource_id' => 'instance_id',
+                            'public_ip'            => 'public_ip',
+                            'private_ip'           => 'private_ip',
+                            'iframe_url'           => 'akoflow_iframe_url',
+                            'metadata'             => [
+                                'nginx_url'         => 'nginx_url',
+                                'security_group_id' => 'security_group_id',
+                                'resolved_ami'      => 'resolved_ami',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 
-    private function gcpHelloDocker(): array
+    private function gcpMicroNginx(): array
     {
         return [
-            'template_version_id' => 3,
+            'template_version_id' => 1,
             'provider_type' => 'gcp',
-            'module_slug' => 'hello-docker-gcp',
+            'module_slug' => 'micro-nginx-gcp',
             'main_tf' => $this->readTerraformFile('hello_gcp/main.tf'),
             'variables_tf' => $this->readTerraformFile('hello_gcp/variables.tf'),
             'outputs_tf' => $this->readTerraformFile('hello_gcp/outputs.tf'),
             'tfvars_mapping_json' => [
                 'environment_configuration' => [
-                    'provider' => 'provider',
-                    'region' => 'region',
-                    'zone' => 'zone',
-                    'machine_type_gcp' => 'machine_type',
-                    'image_gcp' => 'image',
-                    'startup_script' => 'startup_script',
+                    'region'       => 'region',
+                    'zone'         => 'zone',
+                    'project_id'   => 'project_id',
+                    'machine_type' => 'machine_type',
+                    'nginx_port'   => 'nginx_port',
                 ],
                 'instance_configurations' => [
                     'single-vm' => [],
@@ -136,6 +107,25 @@ class TemplateTerraformModulesSeeder extends Seeder
             ],
             'credential_env_keys' => [
                 'AKO_GCP_SERVICE_ACCOUNT_KEY',
+            ],
+            'outputs_mapping_json' => [
+                'resources' => [
+                    [
+                        'name'          => 'nginx-vm',
+                        'terraform_type'=> 'google_compute_instance',
+                        'outputs'       => [
+                            'provider_resource_id' => 'instance_id',
+                            'public_ip'            => 'public_ip',
+                            'private_ip'           => 'private_ip',
+                            'iframe_url'           => 'akoflow_iframe_url',
+                            'metadata'             => [
+                                'nginx_url'      => 'nginx_url',
+                                'firewall_name'  => 'firewall_name',
+                                'resolved_image' => 'resolved_image',
+                            ],
+                        ],
+                    ],
+                ],
             ],
         ];
     }

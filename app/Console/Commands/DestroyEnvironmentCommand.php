@@ -8,17 +8,18 @@ use Illuminate\Console\Command;
 
 class DestroyEnvironmentCommand extends Command
 {
-    protected $signature = 'environment:destroy {environment_id : The ID of the environment to destroy}';
+    protected $signature = 'environment:destroy {environment_id : The ID of the environment to destroy} {--deployment_id= : The ID of the specific deployment to destroy}';
 
     protected $description = 'Destroy an environment by running terraform destroy via DestroyEnvironmentService';
 
     public function handle(DestroyEnvironmentService $service): int
     {
         $environmentId = (int) $this->argument('environment_id');
+        $deploymentId  = $this->option('deployment_id') ? (int) $this->option('deployment_id') : null;
 
         $this->info("[akocloud] Destroying environment #{$environmentId}...");
 
-        $run = $service->handle($environmentId);
+        $run = $service->handle($environmentId, $deploymentId);
 
         if (!$run) {
             $this->error("[akocloud] No apply run found for environment #{$environmentId}. Nothing to destroy.");

@@ -26,6 +26,9 @@ class ProvisionEnvironmentJob implements ShouldQueue
     public function handle(ProvisionEnvironmentService $service): void
     {
         $data = json_decode($this->payload, true);
-        $service->handle((int) $data['environment_id']);
+        $service->handle(
+            (int) $data['environment_id'],
+            (int) $data['deployment_id'],
+        );
     }
 }

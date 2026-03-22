@@ -33,6 +33,18 @@ class UpsertTemplateTerraformModuleRequest extends FormRequest
             'tfvars_mapping_json.environment_configuration'     => 'nullable|array',
             'tfvars_mapping_json.instance_configurations'      => 'nullable|array',
 
+            // ── Mapeamento de outputs Terraform → recurso provisionado ────────
+            'outputs_mapping_json'                                     => 'nullable|array',
+            'outputs_mapping_json.resources'                           => 'nullable|array',
+            'outputs_mapping_json.resources.*.name'                    => 'nullable|string',
+            'outputs_mapping_json.resources.*.terraform_type'          => 'nullable|string',
+            'outputs_mapping_json.resources.*.outputs'                 => 'nullable|array',
+            'outputs_mapping_json.resources.*.outputs.provider_resource_id' => 'nullable|string',
+            'outputs_mapping_json.resources.*.outputs.public_ip'       => 'nullable|string',
+            'outputs_mapping_json.resources.*.outputs.private_ip'      => 'nullable|string',
+            'outputs_mapping_json.resources.*.outputs.iframe_url'      => 'nullable|string',
+            'outputs_mapping_json.resources.*.outputs.metadata'        => 'nullable|array',
+
             // Lista de nomes de env vars que o container Terraform precisa ter.
             'credential_env_keys'   => 'nullable|array',
             'credential_env_keys.*' => 'string',

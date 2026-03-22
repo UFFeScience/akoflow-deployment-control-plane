@@ -10,26 +10,30 @@ use App\Repositories\ProvisionedResourceRepository;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Parses terraform output_json after a successful apply and persists
- * ProvisionedResource records for the deployment.
+ * Reads the `outputs_mapping_json` defined on the TerraformModule and maps
+ * the captured `terraform output -json` values to ProvisionedResource records.
  *
- * Expected output_json format (from `terraform output -json`):
+ * ── outputs_mapping_json format ──────────────────────────────────────────────
  * {
- *   "resources": {
- *     "value": [
- *       {
- *         "provider_resource_id": "i-0abc123",
- *         "terraform_type":       "aws_instance",
- *         "name":                 "web-1",
- *         "public_ip":            "1.2.3.4",   // optional
- *         "private_ip":           "10.0.0.5",  // optional
- *         "metadata":             {}            // optional
+ *   "resources": [
+ *     {
+ *       "name":          "nginx-vm",               // static label stored in the DB record
+ *       "terraform_type":"aws_instance",            // optional — used to resolve ProvisionedResourceType
+ *       "outputs": {
+ *         "provider_resource_id": "instance_id",   // Terraform output key → provider resource ID
+ *         "public_ip":            "public_ip",      // Terraform output key → public IP field
+ *         "private_ip":           "private_ip",     // Terraform output key → private IP field
+ *         "metadata": {
+ *           "nginx_url":          "nginx_url",      // arbitrary key → Terraform output key
+ *           "security_group_id":  "security_group_id"
+ *         }
  *       }
- *     ]
- *   }
+ *     }
+ *   ]
  * }
  *
- * If the key "resources" is absent, the service is a no-op (graceful).
+ * Terraform output JSON structure (from `terraform output -json`):
+ * { "output_name": { "value": "actual_value", "type": "string" }, ... }
  */
 class CreateProvisionedResourcesService
 {
@@ -41,35 +45,72 @@ class CreateProvisionedResourcesService
     {
         $outputJson = $run->output_json;
 
-        if (empty($outputJson) || !isset($outputJson['resources']['value'])) {
-            Log::info('[CreateProvisionedResourcesService] No resources key in output_json', [
+        if (empty($outputJson)) {
+            Log::info('[CreateProvisionedResourcesService] No output_json in run', [
                 'deployment_id' => $deployment->id,
                 'run_id'        => $run->id,
             ]);
             return;
         }
 
-        $rawResources = $outputJson['resources']['value'];
+        // Load outputs_mapping_json from the module used for this run
+        $module = $run->environment
+            ->templateVersion()
+            ->with('terraformModules')
+            ->first()
+            ?->terraformModules
+            ->firstWhere('provider_type', $run->provider_type);
 
-        if (!is_array($rawResources) || empty($rawResources)) {
+        $resourceMappings = $module?->outputs_mapping_json['resources'] ?? [];
+
+        if (empty($resourceMappings)) {
+            Log::info('[CreateProvisionedResourcesService] No outputs_mapping_json on module — skipping', [
+                'deployment_id' => $deployment->id,
+                'run_id'        => $run->id,
+                'provider_type' => $run->provider_type,
+            ]);
             return;
         }
 
-        foreach ($rawResources as $raw) {
-            $this->createResource($deployment, $raw);
+        foreach ($resourceMappings as $mapping) {
+            $this->createResource($deployment, $mapping, $outputJson);
         }
     }
 
-    private function createResource(Deployment $deployment, array $raw): void
-    {
-        $terraformType      = $raw['terraform_type'] ?? null;
-        $providerResourceId = $raw['provider_resource_id'] ?? null;
-        $name               = $raw['name'] ?? null;
-        $publicIp           = $raw['public_ip'] ?? null;
-        $privateIp          = $raw['private_ip'] ?? null;
-        $metadata           = $raw['metadata'] ?? null;
+    // ─────────────────────────────────────────────────────────────────────────
 
-        // Resolve the resource type from the terraform identifier
+    private function createResource(Deployment $deployment, array $mapping, array $outputJson): void
+    {
+        $outputs = $mapping['outputs'] ?? [];
+
+        $terraformType      = $mapping['terraform_type'] ?? null;
+        $name               = $mapping['name'] ?? null;
+        $providerResourceId = isset($outputs['provider_resource_id'])
+            ? $this->resolveOutput($outputJson, $outputs['provider_resource_id'])
+            : null;
+        $publicIp           = isset($outputs['public_ip'])
+            ? $this->resolveOutput($outputJson, $outputs['public_ip'])
+            : null;
+        $privateIp          = isset($outputs['private_ip'])
+            ? $this->resolveOutput($outputJson, $outputs['private_ip'])
+            : null;
+
+        $metadata = [];
+        foreach (($outputs['metadata'] ?? []) as $metaKey => $outputKey) {
+            $value = $this->resolveOutput($outputJson, $outputKey);
+            if ($value !== null) {
+                $metadata[$metaKey] = $value;
+            }
+        }
+
+        // Special key: iframe_url → stored in metadata_json as 'akoflow_iframe_url'
+        if (isset($outputs['iframe_url'])) {
+            $iframeUrl = $this->resolveOutput($outputJson, $outputs['iframe_url']);
+            if ($iframeUrl !== null) {
+                $metadata['akoflow_iframe_url'] = $iframeUrl;
+            }
+        }
+
         $resourceType = $terraformType
             ? ProvisionedResourceType::where('provider_resource_identifier', $terraformType)->first()
             : null;
@@ -82,7 +123,17 @@ class CreateProvisionedResourcesService
             'status'                       => ProvisionedResource::STATUS_RUNNING,
             'public_ip'                    => $publicIp,
             'private_ip'                   => $privateIp,
-            'metadata_json'                => is_array($metadata) ? $metadata : null,
+            'metadata_json'                => !empty($metadata) ? $metadata : null,
         ]);
+    }
+
+    /**
+     * Resolves a single value from the `terraform output -json` structure.
+     *
+     * @param  array<string, array{value: mixed}>  $outputJson
+     */
+    private function resolveOutput(array $outputJson, string $key): ?string
+    {
+        return isset($outputJson[$key]['value']) ? (string) $outputJson[$key]['value'] : null;
     }
 }

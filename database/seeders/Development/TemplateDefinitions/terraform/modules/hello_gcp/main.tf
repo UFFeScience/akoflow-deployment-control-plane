@@ -14,26 +14,40 @@ provider "google" {
 }
 
 locals {
-  resource_name      = var.environment_id != "" ? "env-${var.environment_id}-${var.instance_name}" : var.instance_name
-  ingress_port_range = var.ingress_from_port == var.ingress_to_port ? tostring(var.ingress_from_port) : "${var.ingress_from_port}-${var.ingress_to_port}"
-  resolved_image     = var.image_gcp != "" ? var.image_gcp : data.google_compute_image.default.self_link
+  resource_name  = var.environment_id != "" ? "env-${var.environment_id}-nginx" : "micro-nginx"
+  resolved_image = var.image_gcp != "" ? var.image_gcp : data.google_compute_image.default.self_link
+
+  startup_script = <<-EOF
+    #!/bin/bash
+    set -eux
+
+    # Install Docker
+    apt-get update -y
+    apt-get install -y docker.io
+
+    systemctl enable docker
+    systemctl start docker
+
+    # Run NGINX on the configured port
+    docker run -d --name nginx --restart always -p ${var.nginx_port}:80 nginx:latest
+  EOF
 }
 
-resource "google_compute_firewall" "hello" {
+resource "google_compute_firewall" "nginx" {
   name    = "${local.resource_name}-fw"
   network = var.network_gcp
 
   allow {
-    protocol = var.ingress_protocol
-    ports    = [local.ingress_port_range]
+    protocol = "tcp"
+    ports    = [tostring(var.nginx_port)]
   }
 
   direction     = "INGRESS"
   priority      = 1000
-  source_ranges = [var.ingress_cidr]
+  source_ranges = ["0.0.0.0/0"]
 }
 
-resource "google_compute_instance" "hello" {
+resource "google_compute_instance" "nginx" {
   name         = local.resource_name
   machine_type = var.machine_type
   zone         = var.zone
@@ -49,13 +63,12 @@ resource "google_compute_instance" "hello" {
     access_config {}
   }
 
-  metadata_startup_script = var.user_data != "" ? var.user_data : null
+  metadata_startup_script = local.startup_script
 
-  tags = ["${local.resource_name}"]
+  tags = [local.resource_name]
 }
 
 data "google_compute_image" "default" {
   family  = var.image_family_gcp
   project = var.image_project_gcp
 }
-

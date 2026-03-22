@@ -22,22 +22,10 @@ variable "zone" {
 
 # ── Instance ──────────────────────────────────────────────────────────────────
 
-variable "instance_name" {
-  description = "Name tag applied to the EC2 instance"
-  type        = string
-  default     = "hello-docker"
-}
-
 variable "instance_type" {
   description = "EC2 instance type"
   type        = string
   default     = "t3.micro"
-}
-
-variable "associate_public_ip" {
-  description = "Whether to associate a public IP address with the instance"
-  type        = bool
-  default     = true
 }
 
 variable "ami_id" {
@@ -72,42 +60,10 @@ variable "subnet_id" {
   default     = ""
 }
 
-# ── Security Group / Firewall ─────────────────────────────────────────────────
+# ── NGINX ─────────────────────────────────────────────────────────────────────
 
-variable "ingress_from_port" {
-  description = "Start of the ingress port range"
+variable "nginx_port" {
+  description = "Host port NGINX is exposed on. Opened in the security group ingress rule."
   type        = number
   default     = 80
-}
-
-variable "ingress_to_port" {
-  description = "End of the ingress port range"
-  type        = number
-  default     = 80
-}
-
-variable "ingress_protocol" {
-  description = "IP protocol for the ingress rule (tcp, udp, icmp, or -1 for all)"
-  type        = string
-  default     = "tcp"
-}
-
-variable "ingress_cidr" {
-  description = "CIDR block allowed for inbound traffic"
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
-variable "egress_cidr" {
-  description = "CIDR block allowed for outbound traffic"
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
-# ── Application ───────────────────────────────────────────────────────────────
-
-variable "user_data" {
-  description = "Full bash startup script executed on first boot (user-data / cloud-init)"
-  type        = string
-  default     = ""
 }

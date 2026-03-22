@@ -19,8 +19,9 @@ class TemplateTerraformModuleResource extends JsonResource
             'main_tf'             => $this->when($request->routeIs('*.show'), $this->main_tf),
             'variables_tf'        => $this->when($request->routeIs('*.show'), $this->variables_tf),
             'outputs_tf'          => $this->when($request->routeIs('*.show'), $this->outputs_tf),
-            'tfvars_mapping_json'  => $this->tfvars_mapping_json,
-            'credential_env_keys'  => $this->credential_env_keys ?? [],
+            'tfvars_mapping_json'   => $this->tfvars_mapping_json,
+            'outputs_mapping_json'  => $this->outputs_mapping_json,
+            'credential_env_keys'   => $this->credential_env_keys ?? [],
             'created_at'           => $this->created_at,
             'updated_at'           => $this->updated_at,
         ];

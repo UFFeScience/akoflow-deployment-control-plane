@@ -74,7 +74,7 @@ class TerraformRunController extends Controller
      *
      * POST /projects/{projectId}/environments/{environmentId}/terraform-runs
      */
-    public function store(string $projectId, string $environmentId): JsonResponse
+    public function store(string $projectId, string $environmentId, Request $request): JsonResponse
     {
         $this->projectAuth->assertUserCanAccessProjectById(auth()->user(), (int) $projectId);
 
@@ -83,9 +83,13 @@ class TerraformRunController extends Controller
             throw new EnvironmentNotFoundException();
         }
 
-        $this->dispatcher->dispatch(Messages::PROVISION_ENVIRONMENT, [
-            'environment_id' => (int) $environmentId,
-        ]);
+        $payload = ['environment_id' => (int) $environmentId];
+
+        if ($request->filled('deployment_id')) {
+            $payload['deployment_id'] = (int) $request->input('deployment_id');
+        }
+
+        $this->dispatcher->dispatch(Messages::PROVISION_ENVIRONMENT, $payload);
 
         return response()->json(['message' => 'Provisioning job queued.'], 202);
     }

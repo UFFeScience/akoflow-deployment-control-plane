@@ -28,12 +28,6 @@ variable "zone" {
 
 # ── Instance ──────────────────────────────────────────────────────────────────
 
-variable "instance_name" {
-  description = "Base name for the compute instance"
-  type        = string
-  default     = "hello-docker"
-}
-
 variable "machine_type" {
   description = "GCP machine type (e.g. e2-micro, n1-standard-1)"
   type        = string
@@ -66,36 +60,10 @@ variable "network_gcp" {
   default     = "default"
 }
 
-# ── Security Group / Firewall ─────────────────────────────────────────────────
+# ── NGINX ─────────────────────────────────────────────────────────────────────
 
-variable "ingress_from_port" {
-  description = "Start of the ingress port range"
+variable "nginx_port" {
+  description = "Host port NGINX is exposed on. Opened in the GCP firewall rule."
   type        = number
   default     = 80
-}
-
-variable "ingress_to_port" {
-  description = "End of the ingress port range"
-  type        = number
-  default     = 80
-}
-
-variable "ingress_protocol" {
-  description = "IP protocol for the ingress rule (tcp, udp, icmp)"
-  type        = string
-  default     = "tcp"
-}
-
-variable "ingress_cidr" {
-  description = "Source CIDR block allowed for inbound traffic"
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
-# ── Application ───────────────────────────────────────────────────────────────
-
-variable "user_data" {
-  description = "Full bash startup script executed on instance boot (metadata_startup_script)"
-  type        = string
-  default     = ""
 }

@@ -25,13 +25,20 @@ class ProvisionEnvironmentService
         private CreateProvisionedResourcesService    $createResources,
     ) {}
 
-    public function handle(int $environmentId): TerraformRun
+    public function handle(int $environmentId, int $deploymentId): TerraformRun
     {
         /** @var Environment $environment */
         $environment = $this->environmentRepository->find((string) $environmentId);
 
         if (!$environment) {
             throw new RuntimeException("Environment {$environmentId} not found.");
+        }
+
+        /** @var Deployment $deployment */
+        $deployment = $this->deploymentRepository->find((string) $deploymentId);
+
+        if (!$deployment) {
+            throw new RuntimeException("Deployment {$deploymentId} not found.");
         }
 
         /** @var TerraformRun $run */
@@ -45,8 +52,8 @@ class ProvisionEnvironmentService
         try {
             // 1. Resolve the provider and its credentials from the DB
             $provider    = $this->providerResolver->resolve($environment);
-            $credentials = $this->credentialResolver->resolve($provider);
-
+            $credentials = $this->credentialResolver->resolve($deployment);
+ 
             $run->appendLog("[akocloud] Provider: {$provider->name} (slug: {$provider->slug})");
 
             // 2. Build workspace files (main.tf, variables.tf, outputs.tf, tfvars.json)
@@ -71,14 +78,19 @@ class ProvisionEnvironmentService
                 $run,
             );
 
-            // 4. Capture outputs
-            $outputJson = $this->readOutputJson($workspace['workspace_path']);
-
+            // 4. Check exit code
             if ($exitCode !== 0) {
                 throw new RuntimeException("Terraform exited with code {$exitCode}.");
             }
 
-            // 5. Mark success
+            // 5. Capture outputs via `terraform output -json`
+            $outputJson = $this->processRunner->captureOutputs(
+                $workspace['workspace_path'],
+                $credentials,
+                $run,
+            );
+
+            // 6. Mark success
             $run->update([
                 'status'      => TerraformRun::STATUS_APPLIED,
                 'output_json' => $outputJson,
@@ -87,18 +99,13 @@ class ProvisionEnvironmentService
 
             $run->appendLog('[akocloud] Provisioning completed successfully.');
 
-            // 6. Create ProvisionedResource records from terraform outputs
-            /** @var Deployment|null $deployment */
-            $deployment = $this->deploymentRepository->latestByEnvironment((string) $environment->id);
+            // 7. Create ProvisionedResource records from terraform outputs
+            $this->createResources->handle($deployment, $run->fresh());
+            $run->appendLog('[akocloud] Provisioned resources created from output_json.');
 
-            if ($deployment) {
-                $this->createResources->handle($deployment, $run->fresh());
-                $run->appendLog('[akocloud] Provisioned resources created from output_json.');
-
-                $this->deploymentRepository->update((string) $deployment->id, [
-                    'status' => Deployment::STATUS_RUNNING,
-                ]);
-            }
+            $this->deploymentRepository->update((string) $deployment->id, [
+                'status' => Deployment::STATUS_RUNNING,
+            ]);
 
             $this->environmentRepository->update((string) $environment->id, ['status' => 'RUNNING']);
 
@@ -107,28 +114,27 @@ class ProvisionEnvironmentService
                 'status'      => TerraformRun::STATUS_FAILED,
                 'finished_at' => now(),
             ]);
-            $run->appendLog('[akocloud][ERROR] ' . $e->getMessage());
+
+            $errorMessage = "Environment: {$environment->name} (id: {$environment->id})"
+                . " | Deployment: {$deployment->name} (id: {$deployment->id})"
+                . " | {$e->getMessage()}";
+
+            $run->appendLog('[akocloud][ERROR] ' . $errorMessage);
+
+            $this->deploymentRepository->update((string) $deployment->id, [
+                'status' => Deployment::STATUS_ERROR,
+            ]);
 
             $this->environmentRepository->update((string) $environment->id, ['status' => 'FAILED']);
 
             Log::error('ProvisionEnvironmentService failed', [
                 'environment_id' => $environmentId,
+                'deployment_id'  => $deployment?->id,
                 'run_id'         => $run->id,
                 'error'          => $e->getMessage(),
             ]);
         }
 
         return $run->fresh();
-    }
-
-    private function readOutputJson(string $workspacePath): ?array
-    {
-        $outputFile = $workspacePath . '/outputs.json';
-
-        if (!file_exists($outputFile)) {
-            return null;
-        }
-
-        return json_decode(file_get_contents($outputFile), true);
     }
 }

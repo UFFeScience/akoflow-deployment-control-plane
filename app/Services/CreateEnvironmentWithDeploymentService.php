@@ -43,11 +43,12 @@ class CreateEnvironmentWithDeploymentService
 
             $this->dispatcher->dispatch(Messages::PROVISION_ENVIRONMENT, [
                 'environment_id' => $environment->id,
+                'deployment_id'  => $deployment->id,
             ]);
 
             return [
                 'environment' => $environment,
-                'deployment'     => $deployment,
+                'deployment'  => $deployment,
             ];
         });
     }

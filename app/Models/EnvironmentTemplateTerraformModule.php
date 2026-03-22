@@ -17,12 +17,14 @@ class EnvironmentTemplateTerraformModule extends Model
         'variables_tf',
         'outputs_tf',
         'tfvars_mapping_json',
+        'outputs_mapping_json',
         'credential_env_keys',
     ];
 
     protected $casts = [
-        'tfvars_mapping_json' => 'array',
-        'credential_env_keys' => 'array',
+        'tfvars_mapping_json'  => 'array',
+        'outputs_mapping_json' => 'array',
+        'credential_env_keys'  => 'array',
     ];
 
     /** Os módulos built-in disponíveis na plataforma. */

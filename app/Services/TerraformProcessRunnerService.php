@@ -37,6 +37,57 @@ class TerraformProcessRunnerService
         return $this->terraformAction($workspacePath, $action, $env, $run);
     }
 
+    /**
+     * Runs `terraform output -json` and returns the decoded map.
+     *
+     * The format returned by Terraform is:
+     *   { "output_name": { "value": "...", "type": "string" }, ... }
+     *
+     * @return array<string, array{value: mixed, type: string}>|null
+     */
+    public function captureOutputs(string $workspacePath, array $credentialEnv, TerraformRun $run): ?array
+    {
+        $run->appendLog('[akocloud] Capturing terraform outputs...');
+
+        $env     = $this->buildProcessEnv($credentialEnv);
+        $process = proc_open(
+            'terraform output -json',
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $workspacePath,
+            $env,
+        );
+
+        if (!is_resource($process)) {
+            $run->appendLog('[akocloud] Failed to start terraform output -json process.');
+            return null;
+        }
+
+        fclose($pipes[0]);
+        $stdout   = stream_get_contents($pipes[1]);
+        $stderr   = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process);
+
+        if ($exitCode !== 0) {
+            $run->appendLog('[akocloud] terraform output -json failed — outputs not captured.');
+            if (!empty(trim($stderr))) {
+                $run->appendLog(trim($stderr));
+            }
+            return null;
+        }
+
+        $decoded = json_decode($stdout, true);
+
+        if (!is_array($decoded)) {
+            $run->appendLog('[akocloud] terraform output -json returned invalid JSON.');
+            return null;
+        }
+
+        return $decoded;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Terraform steps
     // ─────────────────────────────────────────────────────────────────────────
