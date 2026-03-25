@@ -17,7 +17,9 @@ class EnvironmentDeploymentProviderService
      */
     public function resolve(Environment $environment): Provider
     {
-        $deployment = $environment->deployments()->with('provider')->first();
+        $deployment = $environment->deployments()
+            ->with(['providerCredentials'])
+            ->first();
 
         if (!$deployment) {
             throw new RuntimeException(
@@ -26,12 +28,22 @@ class EnvironmentDeploymentProviderService
             );
         }
 
-        if (!$deployment->provider) {
+        $pivot = $deployment->providerCredentials->first();
+
+        if (!$pivot) {
             throw new RuntimeException(
                 "Deployment [{$deployment->id}] has no Provider associated."
             );
         }
 
-        return $deployment->provider;
+        $provider = Provider::find($pivot->provider_id);
+
+        if (!$provider) {
+            throw new RuntimeException(
+                "Deployment [{$deployment->id}] has no Provider associated."
+            );
+        }
+
+        return $provider;
     }
 }

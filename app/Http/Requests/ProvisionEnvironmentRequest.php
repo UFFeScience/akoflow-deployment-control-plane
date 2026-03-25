@@ -29,18 +29,19 @@ class ProvisionEnvironmentRequest extends FormRequest
             'configuration_json'               => 'nullable|array',
 
             // ── Deployment fields ─────────────────────────────────────────────
-            'deployment'                          => 'nullable|array',
-            'deployment.provider_id'              => 'required_with:deployment|integer|exists:providers,id',
-            'deployment.provider_credential_id'    => 'nullable|integer|exists:provider_credentials,id',
-            'deployment.region'                   => 'nullable|string',
-            'deployment.environment_type'         => ['nullable', 'string', function ($attr, $value, $fail) {
+            'deployment'                                       => 'nullable|array',
+            'deployment.provider_credentials'                  => 'required_with:deployment|array|min:1',
+            'deployment.provider_credentials.*.provider_id'    => 'required|integer|exists:providers,id',
+            'deployment.provider_credentials.*.credential_id'  => 'nullable|integer|exists:provider_credentials,id',
+            'deployment.region'                                => 'nullable|string',
+            'deployment.environment_type'                      => ['nullable', 'string', function ($attr, $value, $fail) {
                 if ($value === null) return;
                 if (!in_array($value, Deployment::ENVIRONMENT_TYPES, true)) {
                     $fail('Invalid deployment environment type');
                 }
             }],
-            'deployment.name'                        => 'nullable|string|max:255',
-            'deployment.deployment_template_id'      => 'nullable|integer|exists:deployment_templates,id',
+            'deployment.name'                                  => 'nullable|string|max:255',
+            'deployment.deployment_template_id'                => 'nullable|integer|exists:deployment_templates,id',
         ];
     }
 }

@@ -13,7 +13,10 @@ class DeploymentRepository extends BaseRepository
 
     public function listByEnvironment(string $environmentId)
     {
-        return $this->model->where('environment_id', $environmentId)->get();
+        return $this->model
+            ->with('providerCredentials')
+            ->where('environment_id', $environmentId)
+            ->get();
     }
 
     public function latestByEnvironment(string $environmentId): ?Deployment

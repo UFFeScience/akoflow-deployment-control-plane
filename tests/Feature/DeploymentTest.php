@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Deployment;
+use App\Models\DeploymentProviderCredential;
 use App\Models\DeploymentTemplate;
 use App\Models\Environment;
 use App\Models\EnvironmentTemplate;
@@ -30,6 +31,7 @@ class DeploymentTest extends TestCase
     {
         $provider = Provider::create([
             'name'   => 'Provider for Deployment',
+            'slug'   => 'aws',
             'type'   => Provider::TYPES[0],
             'status' => Provider::STATUSES[0],
         ]);
@@ -62,8 +64,8 @@ class DeploymentTest extends TestCase
             'is_active'   => true,
         ]);
 
-        $org        = Organization::factory()->create(['user_id' => $user->id]);
-        $project    = Project::factory()->create(['organization_id' => $org->id]);
+        $org         = Organization::factory()->create(['user_id' => $user->id]);
+        $project     = Project::factory()->create(['organization_id' => $org->id]);
         $environment = Environment::create([
             'project_id' => $project->id,
             'name'       => 'Environment for deployment',
@@ -73,20 +75,35 @@ class DeploymentTest extends TestCase
         return compact('provider', 'deploymentTemplate', 'environment', 'instanceType');
     }
 
+    /** Creates a deployment + its pivot credential row directly (bypasses API). */
+    private function createDeploymentWithProvider(
+        Environment $environment,
+        Provider    $provider,
+        array       $attrs = []
+    ): Deployment {
+        $deployment = Deployment::create(array_merge([
+            'environment_id'  => $environment->id,
+            'region'          => 'us-east-1',
+            'environment_type' => Deployment::ENVIRONMENT_TYPES[0],
+            'name'            => 'Test Deployment',
+            'status'          => Deployment::STATUSES[1],
+        ], $attrs));
+
+        DeploymentProviderCredential::create([
+            'deployment_id' => $deployment->id,
+            'provider_id'   => $provider->id,
+            'provider_slug' => $provider->slug,
+        ]);
+
+        return $deployment;
+    }
+
     public function test_user_can_list_deployments_by_environment(): void
     {
         $user = User::factory()->create();
-        ['provider' => $provider, 'deploymentTemplate' => $deploymentTemplate, 'environment' => $environment] = $this->createDependencies($user);
+        ['provider' => $provider, 'environment' => $environment] = $this->createDependencies($user);
 
-        Deployment::create([
-            'environment_id' => $environment->id,
-            'deployment_template_id' => $deploymentTemplate->id,
-            'provider_id' => $provider->id,
-            'region' => 'us-east-1',
-            'environment_type' => Deployment::ENVIRONMENT_TYPES[0],
-            'name' => 'Primary Deployment',
-            'status' => Deployment::STATUSES[1],
-        ]);
+        $this->createDeploymentWithProvider($environment, $provider, ['name' => 'Primary Deployment']);
 
         $response = $this->withHeaders($this->authHeader($user))
             ->getJson("/api/environments/{$environment->id}/deployments");
@@ -103,10 +120,12 @@ class DeploymentTest extends TestCase
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/environments/{$environment->id}/deployments", [
                 'deployment_template_id' => $deploymentTemplate->id,
-                'provider_id' => $provider->id,
-                'region' => 'us-west-2',
+                'provider_credentials'   => [
+                    ['provider_id' => $provider->id],
+                ],
+                'region'           => 'us-west-2',
                 'environment_type' => Deployment::ENVIRONMENT_TYPES[0],
-                'name' => 'Created Deployment',
+                'name'             => 'Created Deployment',
             ]);
 
         $response->assertStatus(201)
@@ -115,23 +134,46 @@ class DeploymentTest extends TestCase
 
         $this->assertDatabaseHas('deployments', [
             'environment_id' => $environment->id,
-            'name' => 'Created Deployment',
+            'name'           => 'Created Deployment',
         ]);
+
+        $this->assertDatabaseHas('deployment_provider_credentials', [
+            'provider_id' => $provider->id,
+        ]);
+    }
+
+    public function test_user_can_create_deployment_with_multiple_providers(): void
+    {
+        $user = User::factory()->create();
+        ['environment' => $environment] = $this->createDependencies($user);
+
+        $aws = Provider::create(['name' => 'AWS', 'slug' => 'aws-2', 'type' => Provider::TYPES[0], 'status' => Provider::STATUSES[0]]);
+        $gcp = Provider::create(['name' => 'GCP', 'slug' => 'gcp', 'type' => Provider::TYPES[1], 'status' => Provider::STATUSES[0]]);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->postJson("/api/environments/{$environment->id}/deployments", [
+                'provider_credentials' => [
+                    ['provider_id' => $aws->id],
+                    ['provider_id' => $gcp->id],
+                ],
+                'name' => 'Multi-Cloud Deployment',
+            ]);
+
+        $response->assertStatus(201);
+
+        $this->assertDatabaseCount('deployment_provider_credentials', 2);
     }
 
     public function test_user_can_delete_deployment(): void
     {
         $user = User::factory()->create();
-        ['provider' => $provider, 'deploymentTemplate' => $deploymentTemplate, 'environment' => $environment] = $this->createDependencies($user);
+        ['provider' => $provider, 'environment' => $environment] = $this->createDependencies($user);
 
-        $deployment = Deployment::create([
-            'environment_id' => $environment->id,
-            'deployment_template_id' => $deploymentTemplate->id,
-            'provider_id' => $provider->id,
-            'region' => 'ap-southeast-1',
+        $deployment = $this->createDeploymentWithProvider($environment, $provider, [
+            'region'           => 'ap-southeast-1',
             'environment_type' => Deployment::ENVIRONMENT_TYPES[2],
-            'name' => 'Disposable Deployment',
-            'status' => Deployment::STATUSES[2],
+            'name'             => 'Disposable Deployment',
+            'status'           => Deployment::STATUSES[2],
         ]);
 
         $response = $this->withHeaders($this->authHeader($user))
@@ -141,7 +183,21 @@ class DeploymentTest extends TestCase
 
         $this->assertDatabaseHas('deployments', [
             'id'     => $deployment->id,
-            'status' => \App\Models\Deployment::STATUS_DESTROYING,
+            'status' => Deployment::STATUS_DESTROYING,
         ]);
+    }
+
+    public function test_create_deployment_requires_provider_credentials(): void
+    {
+        $user = User::factory()->create();
+        ['environment' => $environment] = $this->createDependencies($user);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->postJson("/api/environments/{$environment->id}/deployments", [
+                'name' => 'Missing Creds',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['provider_credentials']);
     }
 }

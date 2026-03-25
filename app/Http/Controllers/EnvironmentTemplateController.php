@@ -84,6 +84,17 @@ class EnvironmentTemplateController extends Controller
         return EnvironmentTemplateVersionResource::make($version);
     }
 
+    public function showVersionById(string $versionId)
+    {
+        $version = EnvironmentTemplateVersion::with('terraformModules')
+            ->find($versionId);
+
+        if (!$version) {
+            return response()->json(['error' => 'Version not found'], 404);
+        }
+        return EnvironmentTemplateVersionResource::make($version);
+    }
+
     public function showActiveVersion(string $id)
     {
         $version = $this->activeVersionService->handle($id);

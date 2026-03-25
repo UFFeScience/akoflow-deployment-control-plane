@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Deployment;
+use App\Models\DeploymentProviderCredential;
 use App\Models\Environment;
 use App\Models\EnvironmentTemplate;
 use App\Models\EnvironmentTemplateVersion;
@@ -36,6 +37,7 @@ class ProvisionEnvironmentTest extends TestCase
     {
         return Provider::create([
             'name'   => 'Test Provider',
+            'slug'   => 'aws',
             'type'   => Provider::TYPES[0],
             'status' => Provider::STATUSES[0],
         ]);
@@ -54,7 +56,7 @@ class ProvisionEnvironmentTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Happy path — environment only (no deployment)
+    // Happy path — environment + deployment in a single request
     // ──────────────────────────────────────────────────────────────────────────
 
     public function test_provision_creates_environment_with_deployment(): void
@@ -69,7 +71,9 @@ class ProvisionEnvironmentTest extends TestCase
                 'name'           => 'Provision Env Only',
                 'execution_mode' => 'manual',
                 'deployment' => [
-                    'provider_id' => $provider->id,
+                    'provider_credentials' => [
+                        ['provider_id' => $provider->id],
+                    ],
                     'region'      => 'us-east-1',
                     'instance_groups' => [
                         [
@@ -91,10 +95,11 @@ class ProvisionEnvironmentTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('deployments', 1);
+        $this->assertDatabaseCount('deployment_provider_credentials', 1);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // Happy path — environment + deployment in a single request
+    // Happy path — verify deployment and pivot records are created atomically
     // ──────────────────────────────────────────────────────────────────────────
 
     public function test_provision_creates_environment_and_deployment_atomically(): void
@@ -110,7 +115,9 @@ class ProvisionEnvironmentTest extends TestCase
                 'description'    => 'Environment with deployment',
                 'execution_mode' => 'manual',
                 'deployment' => [
-                    'provider_id' => $provider->id,
+                    'provider_credentials' => [
+                        ['provider_id' => $provider->id],
+                    ],
                     'region'      => 'us-east-1',
                     'instance_groups' => [
                         [
@@ -132,8 +139,8 @@ class ProvisionEnvironmentTest extends TestCase
                     'deployment' => [
                         'id',
                         'environment_id',
-                        'provider_id',
                         'region',
+                        'provider_credentials',
                     ],
                 ],
             ]);
@@ -144,10 +151,11 @@ class ProvisionEnvironmentTest extends TestCase
         ]);
 
         $environmentId = $response->json('data.id');
-        $this->assertDatabaseHas('deployments', [
-            'environment_id' => $environmentId,
-            'provider_id'    => $provider->id,
-            'region'         => 'us-east-1',
+        $deployment    = Deployment::where('environment_id', $environmentId)->firstOrFail();
+
+        $this->assertDatabaseHas('deployment_provider_credentials', [
+            'deployment_id' => $deployment->id,
+            'provider_id'   => $provider->id,
         ]);
     }
 
@@ -166,8 +174,10 @@ class ProvisionEnvironmentTest extends TestCase
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name' => 'Multi-Group Provision',
                 'deployment' => [
-                    'provider_id' => $provider->id,
-                    'region'      => 'us-west-2',
+                    'provider_credentials' => [
+                        ['provider_id' => $provider->id],
+                    ],
+                    'region' => 'us-west-2',
                     'instance_groups' => [
                         [
                             'instance_type_id' => $instanceType->id,
@@ -191,6 +201,58 @@ class ProvisionEnvironmentTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────────────────
+    // Multiple providers in one deployment
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public function test_provision_creates_deployment_with_multiple_providers(): void
+    {
+        $user         = User::factory()->create();
+        $project      = $this->projectBelongingToUser($user);
+        $provider     = $this->createProvider();
+        $provider2    = Provider::create([
+            'name'   => 'Second Provider',
+            'slug'   => 'gcp',
+            'type'   => Provider::TYPES[0],
+            'status' => Provider::STATUSES[0],
+        ]);
+        $instanceType = $this->createInstanceType($provider);
+
+        $response = $this->withHeaders($this->authHeader($user))
+            ->postJson("/api/projects/{$project->id}/environments/provision", [
+                'name' => 'Multi-Provider Provision',
+                'deployment' => [
+                    'provider_credentials' => [
+                        ['provider_id' => $provider->id],
+                        ['provider_id' => $provider2->id],
+                    ],
+                    'region' => 'us-east-1',
+                    'instance_groups' => [
+                        [
+                            'instance_type_id' => $instanceType->id,
+                            'role'             => 'worker',
+                            'quantity'         => 1,
+                        ],
+                    ],
+                ],
+            ]);
+
+        $response->assertStatus(201);
+
+        $environmentId = $response->json('data.id');
+        $deployment    = Deployment::where('environment_id', $environmentId)->firstOrFail();
+
+        $this->assertDatabaseCount('deployment_provider_credentials', 2);
+        $this->assertDatabaseHas('deployment_provider_credentials', [
+            'deployment_id' => $deployment->id,
+            'provider_id'   => $provider->id,
+        ]);
+        $this->assertDatabaseHas('deployment_provider_credentials', [
+            'deployment_id' => $deployment->id,
+            'provider_id'   => $provider2->id,
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
     // configuration_json is merged with template defaults
     // ──────────────────────────────────────────────────────────────────────────
 
@@ -200,9 +262,9 @@ class ProvisionEnvironmentTest extends TestCase
         $project = $this->projectBelongingToUser($user);
 
         $template = EnvironmentTemplate::create([
-            'name'         => 'K8s Template',
-            'slug'         => 'k8s-template-' . uniqid(),
-            'is_public'    => true,
+            'name'      => 'K8s Template',
+            'slug'      => 'k8s-template-' . uniqid(),
+            'is_public' => true,
         ]);
 
         $templateVersion = EnvironmentTemplateVersion::create([
@@ -230,14 +292,16 @@ class ProvisionEnvironmentTest extends TestCase
 
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/projects/{$project->id}/environments/provision", [
-                'name'                           => 'Templated Env',
+                'name'                            => 'Templated Env',
                 'environment_template_version_id' => $templateVersion->id,
                 'configuration_json' => [
                     'environment_configuration' => ['project' => 'my-gcp-project'],
                 ],
                 'deployment' => [
-                    'provider_id' => $provider->id,
-                    'region'      => 'us-central1',
+                    'provider_credentials' => [
+                        ['provider_id' => $provider->id],
+                    ],
+                    'region' => 'us-central1',
                     'instance_groups' => [
                         [
                             'instance_type_id' => $instanceType->id,
@@ -279,21 +343,21 @@ class ProvisionEnvironmentTest extends TestCase
             ->assertJsonValidationErrors(['name']);
     }
 
-    public function test_provision_requires_provider_id_when_deployment_key_is_present(): void
+    public function test_provision_requires_provider_credentials_when_deployment_key_is_present(): void
     {
         $user    = User::factory()->create();
         $project = $this->projectBelongingToUser($user);
 
         $response = $this->withHeaders($this->authHeader($user))
             ->postJson("/api/projects/{$project->id}/environments/provision", [
-                'name'    => 'Env missing provider',
+                'name'       => 'Env missing provider',
                 'deployment' => [
                     'region' => 'us-east-1',
                 ],
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['deployment.provider_id']);
+            ->assertJsonValidationErrors(['deployment.provider_credentials']);
     }
 
     public function test_provision_rejects_non_existent_provider(): void
@@ -305,13 +369,15 @@ class ProvisionEnvironmentTest extends TestCase
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name' => 'Bad Provider Env',
                 'deployment' => [
-                    'provider_id' => 9999,
-                    'region'      => 'us-east-1',
+                    'provider_credentials' => [
+                        ['provider_id' => 9999],
+                    ],
+                    'region' => 'us-east-1',
                 ],
             ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['deployment.provider_id']);
+            ->assertJsonValidationErrors(['deployment.provider_credentials.0.provider_id']);
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -361,8 +427,10 @@ class ProvisionEnvironmentTest extends TestCase
             ->postJson("/api/projects/{$project->id}/environments/provision", [
                 'name' => 'Should Not Persist',
                 'deployment' => [
-                    'provider_id' => 99999,
-                    'region'      => 'us-east-1',
+                    'provider_credentials' => [
+                        ['provider_id' => 99999],
+                    ],
+                    'region' => 'us-east-1',
                 ],
             ]);
 

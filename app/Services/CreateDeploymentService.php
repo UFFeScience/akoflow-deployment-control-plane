@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Repositories\DeploymentRepository;
 use App\Models\Deployment;
 use App\Models\DeploymentTemplate;
+use App\Models\DeploymentProviderCredential;
+use App\Models\Provider;
 use Illuminate\Support\Str;
 
 class CreateDeploymentService
@@ -16,6 +18,10 @@ class CreateDeploymentService
     public function handle(string $environmentId, array $data): Deployment
     {
         $data['environment_id'] = $environmentId;
+
+        // Extract multi-provider credentials — required
+        $providerCredentials = $data['provider_credentials'];
+        unset($data['provider_credentials']);
 
         if (empty($data['deployment_template_id'])) {
             $fallbackTemplateId = DeploymentTemplate::value('id');
@@ -35,6 +41,18 @@ class CreateDeploymentService
         /** @var Deployment $deployment */
         $deployment = $this->deployments->create($data);
 
-        return $deployment;
+        // Persist one pivot record per provider credential entry
+        foreach ($providerCredentials as $entry) {
+            $providerSlug = Provider::where('id', $entry['provider_id'])->value('slug');
+
+            DeploymentProviderCredential::create([
+                'deployment_id'          => $deployment->id,
+                'provider_id'            => $entry['provider_id'],
+                'provider_credential_id' => $entry['credential_id'] ?? null,
+                'provider_slug'          => $providerSlug,
+            ]);
+        }
+
+        return $deployment->load('providerCredentials');
     }
 }

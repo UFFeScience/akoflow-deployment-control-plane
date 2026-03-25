@@ -91,6 +91,7 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::post('/environment-templates/{id}/versions', [EnvironmentTemplateController::class, 'addVersion']);
     Route::get('/environment-templates/{id}/versions/{versionId}', [EnvironmentTemplateController::class, 'showVersion']);
     Route::patch('/environment-templates/{id}/versions/{versionId}/activate', [EnvironmentTemplateController::class, 'activateVersion']);
+    Route::get('/environment-template-versions/{versionId}', [EnvironmentTemplateController::class, 'showVersionById']);
 
     // Terraform modules for a template version (one per cloud provider)
     Route::get(

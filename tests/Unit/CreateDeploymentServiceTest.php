@@ -27,6 +27,7 @@ class CreateDeploymentServiceTest extends TestCase
 
         $provider = Provider::create([
             'name'   => 'Test Provider',
+            'slug'   => 'aws',
             'type'   => Provider::TYPES[0],
             'status' => Provider::STATUSES[0],
         ]);
@@ -71,7 +72,9 @@ class CreateDeploymentServiceTest extends TestCase
             = $this->buildDependencies();
 
         $deployment = $this->service()->handle((string) $environment->id, [
-            'provider_id'            => $provider->id,
+            'provider_credentials'   => [
+                ['provider_id' => $provider->id],
+            ],
             'deployment_template_id' => $deploymentTemplate->id,
             'region'                 => 'us-east-1',
             'environment_type'       => Deployment::ENVIRONMENT_TYPES[0],
@@ -80,7 +83,6 @@ class CreateDeploymentServiceTest extends TestCase
 
         $this->assertInstanceOf(Deployment::class, $deployment);
         $this->assertEquals($environment->id, $deployment->environment_id);
-        $this->assertEquals($provider->id, $deployment->provider_id);
         $this->assertEquals('us-east-1', $deployment->region);
         $this->assertEquals('My Deployment', $deployment->name);
 
@@ -88,6 +90,37 @@ class CreateDeploymentServiceTest extends TestCase
             'environment_id' => $environment->id,
             'name'           => 'My Deployment',
         ]);
+
+        $this->assertDatabaseHas('deployment_provider_credentials', [
+            'deployment_id' => $deployment->id,
+            'provider_id'   => $provider->id,
+            'provider_slug' => 'aws',
+        ]);
+    }
+
+    public function test_creates_deployment_with_multiple_providers(): void
+    {
+        ['environment' => $environment, 'provider' => $awsProvider]
+            = $this->buildDependencies();
+
+        $gcpProvider = Provider::create([
+            'name'   => 'GCP Provider',
+            'slug'   => 'gcp',
+            'type'   => Provider::TYPES[1],
+            'status' => Provider::STATUSES[0],
+        ]);
+
+        $deployment = $this->service()->handle((string) $environment->id, [
+            'provider_credentials' => [
+                ['provider_id' => $awsProvider->id],
+                ['provider_id' => $gcpProvider->id],
+            ],
+            'name' => 'Multi-Cloud',
+        ]);
+
+        $this->assertDatabaseCount('deployment_provider_credentials', 2);
+        $this->assertDatabaseHas('deployment_provider_credentials', ['provider_slug' => 'aws']);
+        $this->assertDatabaseHas('deployment_provider_credentials', ['provider_slug' => 'gcp']);
     }
 
     public function test_deployment_gets_default_environment_type_when_not_provided(): void
@@ -96,7 +129,7 @@ class CreateDeploymentServiceTest extends TestCase
             = $this->buildDependencies();
 
         $deployment = $this->service()->handle((string) $environment->id, [
-            'provider_id'            => $provider->id,
+            'provider_credentials'   => [['provider_id' => $provider->id]],
             'deployment_template_id' => $deploymentTemplate->id,
             'region'                 => 'eu-west-1',
         ]);
@@ -110,7 +143,7 @@ class CreateDeploymentServiceTest extends TestCase
             = $this->buildDependencies();
 
         $deployment = $this->service()->handle((string) $environment->id, [
-            'provider_id'            => $provider->id,
+            'provider_credentials'   => [['provider_id' => $provider->id]],
             'deployment_template_id' => $deploymentTemplate->id,
         ]);
 
@@ -123,7 +156,7 @@ class CreateDeploymentServiceTest extends TestCase
             = $this->buildDependencies();
 
         $deployment = $this->service()->handle((string) $environment->id, [
-            'provider_id'            => $provider->id,
+            'provider_credentials'   => [['provider_id' => $provider->id]],
             'deployment_template_id' => $deploymentTemplate->id,
             'name'                   => 'No Groups',
             'instance_groups'        => [
@@ -131,7 +164,6 @@ class CreateDeploymentServiceTest extends TestCase
             ],
         ]);
 
-        // The service intentionally strips instance_groups — deployment is created
         $this->assertInstanceOf(Deployment::class, $deployment);
         $this->assertDatabaseCount('deployments', 1);
     }
@@ -143,8 +175,8 @@ class CreateDeploymentServiceTest extends TestCase
 
         // An existing DeploymentTemplate exists from buildDependencies — the service should pick it up
         $deployment = $this->service()->handle((string) $environment->id, [
-            'provider_id' => $provider->id,
-            'name'        => 'Auto Template',
+            'provider_credentials' => [['provider_id' => $provider->id]],
+            'name'                 => 'Auto Template',
         ]);
 
         $this->assertNotNull($deployment->deployment_template_id);

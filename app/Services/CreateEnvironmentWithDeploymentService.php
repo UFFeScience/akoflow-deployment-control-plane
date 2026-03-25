@@ -29,8 +29,8 @@ class CreateEnvironmentWithDeploymentService
      */
     public function handle(string $projectId, array $data): array
     {
-        if (empty($data['deployment']) || empty($data['deployment']['provider_id'])) {
-            throw new InvalidArgumentException('Deployment data with provider_id is required.');
+        if (empty($data['deployment']) || empty($data['deployment']['provider_credentials'])) {
+            throw new InvalidArgumentException('Deployment data with provider_credentials is required.');
         }
 
         return DB::transaction(function () use ($projectId, $data) {

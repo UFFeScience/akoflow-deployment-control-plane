@@ -8,13 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Deployment extends Model
 {
+    // Multi-provider support: see deployment_provider_credentials table.
     protected $table = 'deployments';
 
     protected $fillable = [
         'environment_id',
         'deployment_template_id',
-        'provider_id',
-        'provider_credential_id',
         'region',
         'environment_type',
         'name',
@@ -47,18 +46,13 @@ class Deployment extends Model
         return $this->belongsTo(DeploymentTemplate::class, 'deployment_template_id');
     }
 
-    public function provider(): BelongsTo
-    {
-        return $this->belongsTo(Provider::class, 'provider_id');
-    }
-
-    public function credential(): BelongsTo
-    {
-        return $this->belongsTo(ProviderCredential::class, 'provider_credential_id');
-    }
-
     public function resources(): HasMany
     {
         return $this->hasMany(ProvisionedResource::class, 'deployment_id');
+    }
+
+    public function providerCredentials(): HasMany
+    {
+        return $this->hasMany(DeploymentProviderCredential::class, 'deployment_id');
     }
 }

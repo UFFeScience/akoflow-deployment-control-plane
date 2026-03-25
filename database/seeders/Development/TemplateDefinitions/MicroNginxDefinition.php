@@ -7,6 +7,17 @@ class MicroNginxDefinition
     public static function get(): array
     {
         return [
+            // Declare which cloud providers this template supports.
+            // The deployment form will show one credential card per entry.
+            'providers' => ['aws', 'gcp'],
+
+            // Providers that are always required (cannot be deselected).
+            // Optional providers can be toggled on/off per deployment.
+            'required_providers' => [],
+
+            // Minimum number of providers that must be selected.
+            'min_providers' => 1,
+
             'environment_configuration' => [
                 'label'       => 'MicroNGINX Settings',
                 'description' => 'Configure your MicroNGINX instance. Settings are split into Deploy Configuration (cloud infrastructure) and NGINX Configuration (server behaviour).',
@@ -42,17 +53,6 @@ class MicroNginxDefinition
                         'group'       => 'deploy',
                         'fields'      => [
                             [
-                                'name'     => 'cloud_provider',
-                                'label'    => 'Provider',
-                                'type'     => 'select',
-                                'required' => true,
-                                'default'  => 'aws',
-                                'options'  => [
-                                    ['label' => 'AWS', 'value' => 'aws'],
-                                    ['label' => 'GCP', 'value' => 'gcp'],
-                                ],
-                            ],
-                            [
                                 'name'     => 'region',
                                 'label'    => 'Region',
                                 'type'     => 'string',
@@ -60,11 +60,11 @@ class MicroNginxDefinition
                                 'default'  => 'us-east-1',
                             ],
                             [
-                                'name'     => 'zone',
-                                'label'    => 'Zone / AZ (optional)',
-                                'type'     => 'string',
-                                'required' => false,
-                                'default'  => '',
+                                'name'      => 'zone',
+                                'label'     => 'Zone / AZ (optional)',
+                                'type'      => 'string',
+                                'required'  => false,
+                                'default'   => '',
                             ],
                             [
                                 'name'        => 'project_id',
@@ -73,6 +73,7 @@ class MicroNginxDefinition
                                 'required'    => false,
                                 'default'     => '',
                                 'description' => 'Required when deploying to GCP.',
+                                'providers'   => ['gcp'],
                             ],
                         ],
                     ],
@@ -91,6 +92,7 @@ class MicroNginxDefinition
                                 'required'    => false,
                                 'default'     => 't3.micro',
                                 'description' => 'EC2 instance type used when deploying on AWS.',
+                                'providers'   => ['aws'],
                             ],
                             [
                                 'name'        => 'machine_type',
@@ -99,6 +101,7 @@ class MicroNginxDefinition
                                 'required'    => false,
                                 'default'     => 'e2-micro',
                                 'description' => 'Compute Engine machine type used when deploying on GCP.',
+                                'providers'   => ['gcp'],
                             ],
                         ],
                     ],
@@ -117,6 +120,7 @@ class MicroNginxDefinition
                                 'required'    => false,
                                 'default'     => '',
                                 'description' => 'Name of an existing EC2 Key Pair. When set, port 22 is opened in the security group. Example: key-0193e669636e675da',
+                                'providers'   => ['aws'],
                             ],
                             [
                                 'name'        => 'ssh_public_key',
@@ -125,6 +129,7 @@ class MicroNginxDefinition
                                 'required'    => false,
                                 'default'     => '',
                                 'description' => 'SSH public key in "user:ssh-rsa AAAA..." format added to instance metadata. When set, port 22 is opened in the firewall.',
+                                'providers'   => ['gcp'],
                             ],
                         ],
                     ],

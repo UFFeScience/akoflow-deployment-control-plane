@@ -7,12 +7,16 @@ use App\Models\ProviderCredential;
 use RuntimeException;
 
 /**
- * Loads the credential defined on a Deployment and returns all its field
- * values as an environment-variable map ready to be injected into a
- * Terraform process environment.
+ * Loads all credentials attached to a Deployment (via the
+ * deployment_provider_credentials pivot) and merges their field values into a
+ * single environment-variable map ready to be injected into a Terraform process.
  *
  * Field keys are uppercased:
  *   field_key "aws_access_key_id" → env key "AWS_ACCESS_KEY_ID"
+ *
+ * When a deployment has more than one provider (e.g. AWS + GCP), all env vars
+ * from every credential are merged. Later entries overwrite earlier ones on
+ * key collision, so ordering matters.
  */
 class ProviderCredentialResolverService
 {
@@ -23,26 +27,28 @@ class ProviderCredentialResolverService
      */
     public function resolve(Deployment $deployment): array
     {
-        if (!$deployment->provider_credential_id) {
-            throw new RuntimeException(
-                "Deployment [{$deployment->id}] has no provider credential configured."
-            );
-        }
+        $pivotRecords = $deployment->providerCredentials()
+            ->whereNotNull('provider_credential_id')
+            ->get();
 
-        /** @var ProviderCredential|null $credential */
-        $credential = ProviderCredential::with('values')
-            ->find($deployment->provider_credential_id);
-
-        if (!$credential) {
+        if ($pivotRecords->isEmpty()) {
             throw new RuntimeException(
-                "Provider credential [{$deployment->provider_credential_id}] not found "
-                . "(referenced by Deployment [{$deployment->id}])."
+                "Deployment [{$deployment->id}] has no provider credentials configured."
             );
         }
 
         $env = [];
-        foreach ($credential->values as $value) {
-            $env[strtoupper($value->field_key)] = (string) $value->field_value;
+        foreach ($pivotRecords as $pivot) {
+            $credential = ProviderCredential::with('values')
+                ->find($pivot->provider_credential_id);
+
+            if (!$credential) {
+                continue;
+            }
+
+            foreach ($credential->values as $value) {
+                $env[strtoupper($value->field_key)] = (string) $value->field_value;
+            }
         }
 
         return $env;

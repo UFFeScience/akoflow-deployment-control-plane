@@ -8,6 +8,6 @@ class EnvironmentsSeeder extends Seeder
 {
     public function run(): void
     {
-        // No demo environments seeded – environments are created through the UI.
+        // Environments are created through the UI.
     }
 }

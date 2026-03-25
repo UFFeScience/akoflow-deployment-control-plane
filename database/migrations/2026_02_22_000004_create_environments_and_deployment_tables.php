@@ -20,7 +20,6 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('environment_id')->constrained('environments')->cascadeOnDelete();
             $table->foreignId('deployment_template_id')->constrained('deployment_templates')->cascadeOnDelete();
-            $table->foreignId('provider_id')->constrained('providers')->cascadeOnDelete();
             $table->string('region')->nullable();
             $table->string('environment_type');
             $table->string('name');
@@ -28,7 +27,6 @@ return new class extends Migration {
             $table->timestamps();
 
             $table->index('environment_id');
-            $table->index('provider_id');
             $table->index('deployment_template_id');
             $table->index('status');
             $table->index('environment_type');
