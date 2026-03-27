@@ -50,8 +50,8 @@ class ProvisionEnvironmentService
         ]);
 
         try {
-            // 1. Resolve the provider and its credentials from the DB
-            $provider    = $this->providerResolver->resolve($environment);
+            // 1. Resolve the provider and its credentials from the specific deployment
+            $provider    = $this->providerResolver->resolveFromDeployment($deployment);
             $credentials = $this->credentialResolver->resolve($deployment);
  
             $run->appendLog("[akocloud] Provider: {$provider->name} (slug: {$provider->slug})");

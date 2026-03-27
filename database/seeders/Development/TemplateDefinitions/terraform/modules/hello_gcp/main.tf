@@ -8,9 +8,9 @@ terraform {
 }
 
 provider "google" {
-  project = var.project_id
-  region  = var.region
-  zone    = var.zone
+  project = var.project_id != "" ? var.project_id : null
+  region  = var.region != "" ? var.region : null
+  zone    = var.zone != "" ? var.zone : null
 }
 
 locals {
@@ -130,12 +130,14 @@ resource "google_compute_firewall" "nginx" {
 
   allow {
     protocol = "tcp"
-    ports    = [tostring(var.nginx_port)]
+    # Always open port 80; also open nginx_port when it differs from 80
+    ports = distinct(["80", tostring(var.nginx_port)])
   }
 
   direction     = "INGRESS"
   priority      = 1000
   source_ranges = ["0.0.0.0/0"]
+  target_tags   = [local.resource_name]
 }
 
 resource "google_compute_firewall" "ssh" {
@@ -151,6 +153,7 @@ resource "google_compute_firewall" "ssh" {
   direction     = "INGRESS"
   priority      = 1000
   source_ranges = ["0.0.0.0/0"]
+  target_tags   = [local.resource_name]
 }
 
 resource "google_compute_instance" "nginx" {

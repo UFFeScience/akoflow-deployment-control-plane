@@ -106,7 +106,9 @@ class TemplateTerraformModulesSeeder extends Seeder
                 ],
             ],
             'credential_env_keys' => [
-                'AKO_GCP_SERVICE_ACCOUNT_KEY',
+                'GOOGLE_CREDENTIALS',
+                'GOOGLE_PROJECT',
+                'GOOGLE_REGION',
             ],
             'outputs_mapping_json' => [
                 'resources' => [

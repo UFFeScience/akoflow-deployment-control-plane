@@ -64,7 +64,7 @@ class DestroyEnvironmentService
         $run->appendLog("\n[akocloud] ──────────── DESTROY ────────────");
 
         try {
-            $provider    = $this->providerResolver->resolve($environment);
+            $provider    = $this->providerResolver->resolveFromDeployment($deployment);
             $credentials = $this->credentialResolver->resolve($deployment);
 
             $run->appendLog("[akocloud] Destroying workspace: {$run->workspace_path}");

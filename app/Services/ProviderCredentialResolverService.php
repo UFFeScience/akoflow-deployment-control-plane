@@ -11,8 +11,9 @@ use RuntimeException;
  * deployment_provider_credentials pivot) and merges their field values into a
  * single environment-variable map ready to be injected into a Terraform process.
  *
- * Field keys are uppercased:
- *   field_key "aws_access_key_id" → env key "AWS_ACCESS_KEY_ID"
+ * Field keys are uppercased unless overridden by ENV_KEY_OVERRIDES:
+ *   field_key "aws_access_key_id"   → env key "AWS_ACCESS_KEY_ID"
+ *   field_key "service_account_json" → env key "GOOGLE_CREDENTIALS"
  *
  * When a deployment has more than one provider (e.g. AWS + GCP), all env vars
  * from every credential are merged. Later entries overwrite earlier ones on
@@ -20,6 +21,16 @@ use RuntimeException;
  */
 class ProviderCredentialResolverService
 {
+    /**
+     * Maps stored field_key values to the exact env var name expected by the
+     * corresponding Terraform provider (when the default strtoupper() would
+     * produce the wrong name).
+     */
+    private const ENV_KEY_OVERRIDES = [
+        'service_account_json' => 'GOOGLE_CREDENTIALS',
+        'gcp_project_id'       => 'GOOGLE_PROJECT',
+        'gcp_region'           => 'GOOGLE_REGION',
+    ];
     /**
      * @return array<string, string>  ['ENV_VAR_NAME' => 'value', ...]
      *
@@ -47,7 +58,9 @@ class ProviderCredentialResolverService
             }
 
             foreach ($credential->values as $value) {
-                $env[strtoupper($value->field_key)] = (string) $value->field_value;
+                $rawKey = $value->field_key;
+                $envKey = self::ENV_KEY_OVERRIDES[$rawKey] ?? strtoupper($rawKey);
+                $env[$envKey] = (string) $value->field_value;
             }
         }
 

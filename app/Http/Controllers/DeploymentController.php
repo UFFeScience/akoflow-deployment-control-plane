@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Exceptions\DeploymentNotFoundException;
 use App\Http\Requests\CreateDeploymentRequest;
 use App\Http\Resources\DeploymentResource;
+use App\Enums\Messages;
+use App\Messaging\Contracts\MessageDispatcherInterface;
 use App\Services\CreateDeploymentService;
 use App\Services\DestroyDeploymentService;
 use App\Services\EnvironmentAuthorizationService;
@@ -17,6 +19,7 @@ class DeploymentController extends Controller
         protected CreateDeploymentService         $createService,
         protected DestroyDeploymentService        $destroyService,
         protected EnvironmentAuthorizationService $environmentAuthorizationService,
+        protected MessageDispatcherInterface      $dispatcher,
     ) {}
 
     public function index(string $environmentId)
@@ -31,6 +34,11 @@ class DeploymentController extends Controller
         $this->environmentAuthorizationService->assertUserCanAccessEnvironment(auth()->user(), $environmentId);
 
         $deployment = $this->createService->handle($environmentId, $request->validated());
+
+        $this->dispatcher->dispatch(Messages::PROVISION_ENVIRONMENT, [
+            'environment_id' => (int) $environmentId,
+            'deployment_id'  => $deployment->id,
+        ]);
 
         return new DeploymentResource($deployment);
     }
