@@ -86,16 +86,17 @@ export USE_GKE_GCLOUD_AUTH_PLUGIN=True
 # ─────────────────────────────────────────────────────────────────────────────
 # Workspace
 # ─────────────────────────────────────────────────────────────────────────────
-mkdir -p /home/ubuntu/akospace /home/ubuntu/.kube
-chown -R ubuntu:ubuntu /home/ubuntu/akospace /home/ubuntu/.kube
+mkdir -p /root/akospace /home/ubuntu/.kube
+chown -R ubuntu:ubuntu /root/akospace /home/ubuntu/.kube
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GCP service account credentials (base64-encoded to avoid heredoc issues)
 # ─────────────────────────────────────────────────────────────────────────────
-echo "${local.gcp_sa_key_b64}" | base64 --decode > /home/ubuntu/akospace/gcp-sa.json
-chmod 600 /home/ubuntu/akospace/gcp-sa.json
-chown ubuntu:ubuntu /home/ubuntu/akospace/gcp-sa.json
-export GOOGLE_APPLICATION_CREDENTIALS=/home/ubuntu/akospace/gcp-sa.json
+echo "${local.gcp_sa_key_b64}" | base64 --decode > /root/akospace/gcp-sa.json
+chmod 600 /root/akospace/gcp-sa.json
+sed -i 's/\\\\n/\\n/g' /root/akospace/gcp-sa.json
+chown ubuntu:ubuntu /root/akospace/gcp-sa.json
+export GOOGLE_APPLICATION_CREDENTIALS=/root/akospace/gcp-sa.json
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configure kubeconfig — EKS
@@ -110,31 +111,53 @@ aws eks update-kubeconfig \
 # Configure kubeconfig — GKE
 # ─────────────────────────────────────────────────────────────────────────────
 echo "Configuring kubeconfig for GKE cluster: ${local.gke_cluster_name} ..."
-gcloud auth activate-service-account --key-file=/home/ubuntu/akospace/gcp-sa.json
-CLOUDSDK_CORE_DISABLE_PROMPTS=1 USE_GKE_GCLOUD_AUTH_PLUGIN=True \
-  gcloud container clusters get-credentials "${local.gke_cluster_name}" \
-    --region "${var.gcp_region}" \
-    --project "${var.gcp_project_id}" \
-    --kubeconfig /home/ubuntu/.kube/config-gke
 
+# ─────────────────────────────────────────────────────────
+# AUTH (gcloud + ADC)
+# ─────────────────────────────────────────────────────────
+export GOOGLE_APPLICATION_CREDENTIALS=/root/akospace/gcp-sa.json
+export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+
+gcloud auth activate-service-account \
+  --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+
+gcloud config set project "${var.gcp_project_id}"
+
+# ─────────────────────────────────────────────────────────
+# KUBECONFIG GKE
+# ─────────────────────────────────────────────────────────
+export KUBECONFIG=/home/ubuntu/.kube/config-gke
+
+gcloud container clusters get-credentials "${local.gke_cluster_name}" \
+  --region "${var.gcp_region}" \
+  --project "${var.gcp_project_id}"
+
+# garantir permissão
 chown -R ubuntu:ubuntu /home/ubuntu/.kube
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Apply AkoFlow manifest to both clusters
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────
+# APPLY AKOFLOW
+# ─────────────────────────────────────────────────────────
 AKOFLOW_YAML="https://raw.githubusercontent.com/UFFeScience/akoflow/main/pkg/server/resource/akoflow-dev-dockerdesktop.yaml"
 
 echo "Applying AkoFlow to EKS..."
 for i in 1 2 3 4 5; do
   KUBECONFIG=/home/ubuntu/.kube/config-eks kubectl apply -f "$AKOFLOW_YAML" && break
-  echo "  retry $i/5 in 30s..."; sleep 30
+  echo "  retry $i/5 in 30s..."
+  sleep 30
 done
 
 echo "Applying AkoFlow to GKE..."
 for i in 1 2 3 4 5; do
-  KUBECONFIG=/home/ubuntu/.kube/config-gke USE_GKE_GCLOUD_AUTH_PLUGIN=True \
-    kubectl apply -f "$AKOFLOW_YAML" && break
-  echo "  retry $i/5 in 30s..."; sleep 30
+  export KUBECONFIG=/home/ubuntu/.kube/config-gke
+
+  kubectl cluster-info >/dev/null 2>&1 || true
+
+  kubectl apply -f "$AKOFLOW_YAML" && break
+
+  echo "  retry $i/5 in 30s..."
+  sleep 30
 done
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -171,10 +194,12 @@ GKE_TOKEN=$(KUBECONFIG=/home/ubuntu/.kube/config-gke USE_GKE_GCLOUD_AUTH_PLUGIN=
 # API server endpoints
 # ─────────────────────────────────────────────────────────────────────────────
 EKS_API=$(KUBECONFIG=/home/ubuntu/.kube/config-eks \
-  kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+  kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' \
+  | sed 's|https\?://||')
 
 GKE_API=$(KUBECONFIG=/home/ubuntu/.kube/config-gke \
-  kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+  kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' \
+  | sed 's|https\?://||')
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Instance public IP (via IMDSv1)
@@ -184,7 +209,7 @@ INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 # ─────────────────────────────────────────────────────────────────────────────
 # Write ~/akospace/.env
 # ─────────────────────────────────────────────────────────────────────────────
-cat > /home/ubuntu/akospace/.env << ENVEOF
+cat > /root/akospace/.env << ENVEOF
 K8S1_API_SERVER_HOST=$EKS_API
 K8S1_API_SERVER_TOKEN=$EKS_TOKEN
 K8S2_API_SERVER_HOST=$GKE_API
@@ -192,15 +217,15 @@ K8S2_API_SERVER_TOKEN=$GKE_TOKEN
 AKOFLOW_SERVER_SERVICE_SERVICE_HOST=$INSTANCE_IP
 AKOFLOW_SERVER_SERVICE_SERVICE_PORT=8080
 ENVEOF
-chown ubuntu:ubuntu /home/ubuntu/akospace/.env
+chown ubuntu:ubuntu /root/akospace/.env
 echo "--- .env written ---"
-cat /home/ubuntu/akospace/.env | grep -v TOKEN
+cat /root/akospace/.env | grep -v TOKEN
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Run AkoFlow
 # ─────────────────────────────────────────────────────────────────────────────
 echo "Starting AkoFlow installer..."
-cd /home/ubuntu/akospace
+cd /root/akospace
 curl -fsSL https://akoflow.com/run | bash
 
 echo "=== AkoFlow setup complete at $(date) ==="
@@ -468,7 +493,7 @@ data "aws_ami" "ubuntu" {
 
 resource "aws_security_group" "akoflow" {
   name_prefix = "${local.resource_prefix}-akoflow-"
-  description = "AkoFlow server — ports 80 and 8080"
+  description = "AkoFlow server ports 80 and 8080"
   vpc_id      = aws_vpc.main.id
 
   ingress {
