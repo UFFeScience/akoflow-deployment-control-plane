@@ -32,32 +32,11 @@ class TemplatesSeeder extends Seeder
                 'definition'            => MicroNginxDefinition::get(),
             ],
             [
-                'slug'                  => 'ubuntu-docker-eks',
-                'name'                  => 'Ubuntu + Docker VM + EKS Cluster (AWS)',
-                'description'           => 'Provisions an Ubuntu 22.04 EC2 instance with Docker CE and an Amazon EKS cluster '
-                    . 'inside a dedicated VPC. Ideal for teams that need both a general-purpose Docker host and a managed Kubernetes cluster.',
-                'is_public'             => true,
-                'owner_organization_id' => $organizationId,
-                'version'               => '1.0.0',
-                'definition'            => AwsUbuntuDockerEksDefinition::get(),
-            ],
-            [
-                'slug'                  => 'ubuntu-docker-gke',
-                'name'                  => 'Ubuntu + Docker VM + GKE Cluster (GCP)',
-                'description'           => 'Provisions an Ubuntu 22.04 LTS Compute Engine instance with Docker CE and a Google '
-                    . 'Kubernetes Engine (GKE) cluster inside a dedicated VPC-native network. Perfect for teams that need '
-                    . 'a general-purpose Docker host alongside a managed Kubernetes cluster on GCP.',
-                'is_public'             => true,
-                'owner_organization_id' => $organizationId,
-                'version'               => '1.0.0',
-                'definition'            => GcpUbuntuDockerGkeDefinition::get(),
-            ],
-            [
                 'slug'                  => 'akoflow-multicloud',
-                'name'                  => 'AkoFlow — EKS (AWS) + GKE (GCP) + Server',
-                'description'           => 'Provisions an Ubuntu EC2 instance (AkoFlow server) on AWS, an EKS cluster on AWS '
+                'name'                  => 'AkôFlow Multicloud Demo',
+                'description'           => 'Provisions an Ubuntu EC2 instance (AkôFlow Workstration) on AWS, an EKS cluster on AWS '
                     . 'and a GKE cluster on GCP. The server auto-installs Docker, configures kubectl for both clusters, '
-                    . 'deploys AkoFlow, generates service account tokens, writes the .env and runs the AkoFlow installer.',
+                    . 'deploys AkôFlow, generates service account tokens, writes the .env and runs the AkôFlow installer.',
                 'is_public'             => true,
                 'owner_organization_id' => $organizationId,
                 'version'               => '1.0.0',

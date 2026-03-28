@@ -56,8 +56,8 @@ class TemplateTerraformModulesSeeder extends Seeder
         return [
             $this->awsMicroNginx(),
             $this->gcpMicroNginx(),
-            $this->awsUbuntuDockerEks(),
-            $this->gcpUbuntuDockerGke(),
+            // $this->awsUbuntuDockerEks(),
+            // $this->gcpUbuntuDockerGke(),
             $this->akoflowMulticloud(),
         ];
     }
@@ -155,130 +155,6 @@ class TemplateTerraformModulesSeeder extends Seeder
         ];
     }
 
-    private function awsUbuntuDockerEks(): array
-    {
-        return [
-            'template_slug'    => 'ubuntu-docker-eks',
-            'template_version' => '1.0.0',
-            'provider_type'    => 'aws',
-            'module_slug'      => 'ubuntu-docker-eks-aws',
-            'main_tf'          => $this->readTerraformFile('ubuntu_docker_eks_aws/main.tf'),
-            'variables_tf'     => $this->readTerraformFile('ubuntu_docker_eks_aws/variables.tf'),
-            'outputs_tf'       => $this->readTerraformFile('ubuntu_docker_eks_aws/outputs.tf'),
-            'tfvars_mapping_json' => [
-                'environment_configuration' => [
-                    'region'               => 'region',
-                    'vpc_cidr'             => 'vpc_cidr',
-                    'subnet_public_1_cidr' => 'subnet_public_1_cidr',
-                    'subnet_public_2_cidr' => 'subnet_public_2_cidr',
-                    'instance_type'        => 'instance_type',
-                    'key_name'             => 'key_name',
-                    'cluster_name'         => 'cluster_name',
-                    'kubernetes_version'   => 'kubernetes_version',
-                    'node_instance_type'   => 'node_instance_type',
-                    'desired_node_count'   => 'desired_node_count',
-                    'min_node_count'       => 'min_node_count',
-                    'max_node_count'       => 'max_node_count',
-                ],
-                'instance_configurations' => [],
-            ],
-            'credential_env_keys'  => [],
-            'outputs_mapping_json' => [
-                'resources' => [
-                    [
-                        'name'           => 'docker-vm',
-                        'terraform_type' => 'aws_instance',
-                        'outputs'        => [
-                            'provider_resource_id' => 'docker_vm_instance_id',
-                            'public_ip'            => 'public_ip',
-                            'private_ip'           => 'private_ip',
-                            'iframe_url'           => 'akoflow_iframe_url',
-                            'metadata'             => ['vpc_id' => 'vpc_id'],
-                        ],
-                    ],
-                    [
-                        'name'           => 'eks-cluster',
-                        'terraform_type' => 'aws_eks_cluster',
-                        'outputs'        => [
-                            'provider_resource_id' => 'eks_cluster_arn',
-                            'public_ip'            => '',
-                            'private_ip'           => '',
-                            'iframe_url'           => '',
-                            'metadata'             => [
-                                'eks_cluster_name'       => 'eks_cluster_name',
-                                'eks_cluster_endpoint'   => 'eks_cluster_endpoint',
-                                'eks_kubernetes_version' => 'eks_kubernetes_version',
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ];
-    }
-
-    private function gcpUbuntuDockerGke(): array
-    {
-        return [
-            'template_slug'    => 'ubuntu-docker-gke',
-            'template_version' => '1.0.0',
-            'provider_type'    => 'gcp',
-            'module_slug'      => 'ubuntu-docker-gke-gcp',
-            'main_tf'          => $this->readTerraformFile('ubuntu_docker_gke_gcp/main.tf'),
-            'variables_tf'     => $this->readTerraformFile('ubuntu_docker_gke_gcp/variables.tf'),
-            'outputs_tf'       => $this->readTerraformFile('ubuntu_docker_gke_gcp/outputs.tf'),
-            'tfvars_mapping_json' => [
-                'environment_configuration' => [
-                    'project_id'            => 'project_id',
-                    'region'                => 'region',
-                    'zone'                  => 'zone',
-                    'subnet_cidr'           => 'subnet_cidr',
-                    'pods_cidr'             => 'pods_cidr',
-                    'services_cidr'         => 'services_cidr',
-                    'instance_machine_type' => 'instance_machine_type',
-                    'ssh_public_key'        => 'ssh_public_key',
-                    'cluster_name'          => 'cluster_name',
-                    'kubernetes_version'    => 'kubernetes_version',
-                    'node_machine_type'     => 'node_machine_type',
-                    'desired_node_count'    => 'desired_node_count',
-                    'min_node_count'        => 'min_node_count',
-                    'max_node_count'        => 'max_node_count',
-                ],
-                'instance_configurations' => [],
-            ],
-            'credential_env_keys'  => ['GOOGLE_CREDENTIALS', 'GOOGLE_PROJECT', 'GOOGLE_REGION'],
-            'outputs_mapping_json' => [
-                'resources' => [
-                    [
-                        'name'           => 'docker-vm',
-                        'terraform_type' => 'google_compute_instance',
-                        'outputs'        => [
-                            'provider_resource_id' => 'docker_vm_instance_name',
-                            'public_ip'            => 'public_ip',
-                            'private_ip'           => 'private_ip',
-                            'iframe_url'           => 'akoflow_iframe_url',
-                            'metadata'             => ['network_name' => 'network_name'],
-                        ],
-                    ],
-                    [
-                        'name'           => 'gke-cluster',
-                        'terraform_type' => 'google_container_cluster',
-                        'outputs'        => [
-                            'provider_resource_id' => 'gke_cluster_name',
-                            'public_ip'            => '',
-                            'private_ip'           => '',
-                            'iframe_url'           => '',
-                            'metadata'             => [
-                                'gke_cluster_name'       => 'gke_cluster_name',
-                                'gke_cluster_endpoint'   => 'gke_cluster_endpoint',
-                                'gke_kubernetes_version' => 'gke_kubernetes_version',
-                                'gke_node_pool_name'     => 'gke_node_pool_name',
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        ];
-    }
 
     private function akoflowMulticloud(): array
     {

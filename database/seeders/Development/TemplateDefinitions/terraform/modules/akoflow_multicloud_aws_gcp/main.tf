@@ -68,15 +68,9 @@ apt-get update -y
 apt-get install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
 export USE_GKE_GCLOUD_AUTH_PLUGIN=True
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Workspace
-# ─────────────────────────────────────────────────────────────────────────────
 mkdir -p /root/akospace /home/ubuntu/.kube
 chown -R ubuntu:ubuntu /root/akospace /home/ubuntu/.kube
 
-# ─────────────────────────────────────────────────────────────────────────────
-# GCP service account credentials (base64-encoded to avoid heredoc issues)
-# ─────────────────────────────────────────────────────────────────────────────
 echo "${local.gcp_sa_key_b64}" | base64 --decode > /root/akospace/gcp-sa.json
 chmod 600 /root/akospace/gcp-sa.json
 sed -i 's/\\\\n/\\n/g' /root/akospace/gcp-sa.json
@@ -106,7 +100,6 @@ gcloud container clusters get-credentials "${local.gke_cluster_name}" \
   --region "${var.gcp_region}" \
   --project "${var.gcp_project_id}"
 
-# garantir permissão
 chown -R ubuntu:ubuntu /home/ubuntu/.kube
 AKOFLOW_YAML="https://raw.githubusercontent.com/UFFeScience/akoflow/main/pkg/server/resource/akoflow-dev-dockerdesktop.yaml"
 
@@ -177,8 +170,13 @@ echo "--- .env written ---"
 cat /root/akospace/.env | grep -v TOKEN
 
 echo "Starting AkoFlow installer..."
+
+mkdir -p /akospace
+cp /root/akospace/.env /akospace/.env
+cat /root/akospace/.env
+cat /akospace/.env
+
 cd /root/akospace
-mkdir -p /akospace && cp /root/akospace/.env /akospace/.env && chown -R ubuntu:ubuntu /akospace
 curl -fsSL https://akoflow.com/run | bash
 
 BASH
