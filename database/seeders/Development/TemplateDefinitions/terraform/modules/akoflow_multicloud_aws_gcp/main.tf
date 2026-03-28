@@ -33,15 +33,9 @@ exec > >(tee /var/log/akoflow-setup.log) 2>&1
 echo "=== AkoFlow multicloud setup started at $(date) ==="
 export DEBIAN_FRONTEND=noninteractive
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Base packages
-# ─────────────────────────────────────────────────────────────────────────────
 apt-get update -y
 apt-get install -y curl unzip gnupg lsb-release ca-certificates apt-transport-https jq
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Docker CE
-# ─────────────────────────────────────────────────────────────────────────────
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
   | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -55,9 +49,6 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 systemctl enable docker && systemctl start docker
 usermod -aG docker ubuntu
 
-# ─────────────────────────────────────────────────────────────────────────────
-# kubectl
-# ─────────────────────────────────────────────────────────────────────────────
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key \
   | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' \
@@ -65,16 +56,10 @@ echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 apt-get update -y
 apt-get install -y kubectl
 
-# ─────────────────────────────────────────────────────────────────────────────
-# AWS CLI v2
-# ─────────────────────────────────────────────────────────────────────────────
 curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
 cd /tmp && unzip -q awscliv2.zip && ./aws/install && rm -rf awscliv2.zip aws
 cd /
 
-# ─────────────────────────────────────────────────────────────────────────────
-# gcloud CLI + GKE auth plugin
-# ─────────────────────────────────────────────────────────────────────────────
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
   | tee /etc/apt/sources.list.d/google-cloud-sdk.list
 curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
@@ -98,23 +83,14 @@ sed -i 's/\\\\n/\\n/g' /root/akospace/gcp-sa.json
 chown ubuntu:ubuntu /root/akospace/gcp-sa.json
 export GOOGLE_APPLICATION_CREDENTIALS=/root/akospace/gcp-sa.json
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Configure kubeconfig — EKS
-# ─────────────────────────────────────────────────────────────────────────────
 echo "Configuring kubeconfig for EKS cluster: ${local.eks_cluster_name} ..."
 aws eks update-kubeconfig \
   --name "${local.eks_cluster_name}" \
   --region "${var.aws_region}" \
   --kubeconfig /home/ubuntu/.kube/config-eks
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Configure kubeconfig — GKE
-# ─────────────────────────────────────────────────────────────────────────────
 echo "Configuring kubeconfig for GKE cluster: ${local.gke_cluster_name} ..."
 
-# ─────────────────────────────────────────────────────────
-# AUTH (gcloud + ADC)
-# ─────────────────────────────────────────────────────────
 export GOOGLE_APPLICATION_CREDENTIALS=/root/akospace/gcp-sa.json
 export USE_GKE_GCLOUD_AUTH_PLUGIN=True
 export CLOUDSDK_CORE_DISABLE_PROMPTS=1
@@ -124,9 +100,6 @@ gcloud auth activate-service-account \
 
 gcloud config set project "${var.gcp_project_id}"
 
-# ─────────────────────────────────────────────────────────
-# KUBECONFIG GKE
-# ─────────────────────────────────────────────────────────
 export KUBECONFIG=/home/ubuntu/.kube/config-gke
 
 gcloud container clusters get-credentials "${local.gke_cluster_name}" \
@@ -135,10 +108,6 @@ gcloud container clusters get-credentials "${local.gke_cluster_name}" \
 
 # garantir permissão
 chown -R ubuntu:ubuntu /home/ubuntu/.kube
-
-# ─────────────────────────────────────────────────────────
-# APPLY AKOFLOW
-# ─────────────────────────────────────────────────────────
 AKOFLOW_YAML="https://raw.githubusercontent.com/UFFeScience/akoflow/main/pkg/server/resource/akoflow-dev-dockerdesktop.yaml"
 
 echo "Applying AkoFlow to EKS..."
@@ -160,9 +129,6 @@ for i in 1 2 3 4 5; do
   sleep 30
 done
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Wait for akoflow-server-sa service account to exist
-# ─────────────────────────────────────────────────────────────────────────────
 echo "Waiting for akoflow-server-sa on EKS..."
 for i in $(seq 1 30); do
   KUBECONFIG=/home/ubuntu/.kube/config-eks \
@@ -179,9 +145,6 @@ for i in $(seq 1 30); do
   echo "  waiting... ($i/30)"; sleep 10
 done
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Generate tokens (800h)
-# ─────────────────────────────────────────────────────────────────────────────
 echo "Generating EKS token..."
 EKS_TOKEN=$(KUBECONFIG=/home/ubuntu/.kube/config-eks \
   kubectl create token akoflow-server-sa --duration=800h --namespace=akoflow)
@@ -190,9 +153,6 @@ echo "Generating GKE token..."
 GKE_TOKEN=$(KUBECONFIG=/home/ubuntu/.kube/config-gke USE_GKE_GCLOUD_AUTH_PLUGIN=True \
   kubectl create token akoflow-server-sa --duration=800h --namespace=akoflow)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# API server endpoints
-# ─────────────────────────────────────────────────────────────────────────────
 EKS_API=$(KUBECONFIG=/home/ubuntu/.kube/config-eks \
   kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' \
   | sed 's|https\?://||')
@@ -201,14 +161,9 @@ GKE_API=$(KUBECONFIG=/home/ubuntu/.kube/config-gke \
   kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' \
   | sed 's|https\?://||')
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Instance public IP (via IMDSv1)
-# ─────────────────────────────────────────────────────────────────────────────
+
 INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Write ~/akospace/.env
-# ─────────────────────────────────────────────────────────────────────────────
 cat > /root/akospace/.env << ENVEOF
 K8S1_API_SERVER_HOST=$EKS_API
 K8S1_API_SERVER_TOKEN=$EKS_TOKEN
@@ -221,14 +176,10 @@ chown ubuntu:ubuntu /root/akospace/.env
 echo "--- .env written ---"
 cat /root/akospace/.env | grep -v TOKEN
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Run AkoFlow
-# ─────────────────────────────────────────────────────────────────────────────
 echo "Starting AkoFlow installer..."
 cd /root/akospace
 curl -fsSL https://akoflow.com/run | bash
 
-echo "=== AkoFlow setup complete at $(date) ==="
 BASH
   )
 }
