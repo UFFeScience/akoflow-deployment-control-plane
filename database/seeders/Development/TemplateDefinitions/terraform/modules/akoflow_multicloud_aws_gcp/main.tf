@@ -178,6 +178,7 @@ cat /root/akospace/.env | grep -v TOKEN
 
 echo "Starting AkoFlow installer..."
 cd /root/akospace
+mkdir -p /akospace && cp /root/akospace/.env /akospace/.env && chown -R ubuntu:ubuntu /akospace
 curl -fsSL https://akoflow.com/run | bash
 
 BASH
