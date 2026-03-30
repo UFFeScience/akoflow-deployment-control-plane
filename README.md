@@ -113,7 +113,7 @@ DB_PASSWORD=akocloud
 
 ## Related
 
-- [akoflow-deployment-control-plane-ui](https://github.com/ovvesley/akoflow-deployment-control-plane-ui) — Frontend (Next.js 16)
+- [akoflow-deployment-control-plane-ui](https://github.com/uffescience/akoflow-deployment-control-plane-ui) — Frontend (Next.js 16)
 
 ## License
 
