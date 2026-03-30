@@ -1,59 +1,120 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# akoflow-deployment-control-plane
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**akoflow-deployment-control-plane** is the backend REST API of AkoFlow — a multi-cloud infrastructure provisioning and management platform built on top of Terraform. It allows teams to define reusable infrastructure templates, provision environments across multiple cloud providers (AWS, GCP, Azure, On-Premises, HPC), and track the full lifecycle of provisioned resources.
 
-## About Laravel
+## Tech Stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Laravel 12** (PHP 8.2+)
+- **PostgreSQL** — primary database
+- **Laravel Sanctum** — API token authentication
+- **Laravel Queues** — async job processing (Terraform runs)
+- **Docker socket** — queue workers spawn Terraform containers at runtime
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Features
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Environment Templates** — versioned, reusable Terraform module bundles per cloud provider
+- **Multi-Cloud Provisioning** — AWS, GCP, Azure, On-Premises and HPC in the same deployment
+- **Credential Management** — securely store and map provider credentials per deployment
+- **Async Terraform Execution** — queue workers spawn sandboxed Docker containers to run `terraform init/apply/destroy`
+- **Real-time Logs** — stream Terraform run logs during provisioning
+- **Provisioned Resource Tracking** — automatically parse Terraform output and record created resources
+- **Provider Health Checks** — continuous background jobs to validate provider connectivity
+- **Organizations & Projects** — multi-tenant model with role-based membership
 
-## Learning Laravel
+## Architecture Overview
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│              akoflow-deployment-control-plane                         │
+│                  Laravel 12 API (port 8080)                           │
+│                                                                       │
+│  ┌─────────────┐       ┌──────────────┐       ┌─────────────────┐    │
+│  │ Controllers │       │   Services   │       │      Jobs       │    │
+│  └──────┬──────┘       └──────┬───────┘       └────────┬────────┘    │
+│         └────────────────────┬┘────────────────────────┘             │
+│                       ┌──────▼──────┐                                │
+│                       │ PostgreSQL  │                                 │
+│                       └─────────────┘                                │
+└──────────────────────────────┬────────────────────────────────────────┘
+                               │ Docker socket
+                  ┌────────────▼────────────┐
+                  │   Terraform Containers  │
+                  │  (apply / destroy runs) │
+                  └─────────────────────────┘
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Getting Started
 
-## Laravel Sponsors
+### Prerequisites
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+- Docker and Docker Compose
 
-### Premium Partners
+### Running with Docker
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```bash
+# 1. Clone the repository
+git clone <repo-url> akoflow-deployment-control-plane
+cd akoflow-deployment-control-plane
 
-## Contributing
+# 2. Copy environment file and configure
+cp .env.example .env
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+# 3. Build images
+make build
 
-## Code of Conduct
+# 4. Start services (app + PostgreSQL)
+make up
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# 5. Run migrations and seed initial data
+make fresh
+```
 
-## Security Vulnerabilities
+The API will be available at `http://localhost:8080`.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Useful Commands
+
+| Command | Description |
+|---|---|
+| `make up` | Start all services |
+| `make down` | Stop all services |
+| `make migrate` | Run pending migrations |
+| `make fresh` | Drop, migrate and seed the database |
+| `make bash` | Open a shell inside the app container |
+| `make logs` | Stream container logs |
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and adjust the key variables:
+
+```env
+DB_CONNECTION=pgsql
+DB_HOST=db
+DB_PORT=5432
+DB_DATABASE=akocloud
+DB_USERNAME=akocloud
+DB_PASSWORD=akocloud
+```
+
+## API Overview
+
+| Group | Endpoints |
+|---|---|
+| Auth | Register, Login, Logout, Refresh token, Lost password |
+| Users | Profile, change password, delete account |
+| Organizations | CRUD, member management |
+| Projects | CRUD (scoped to organization) |
+| Providers | CRUD, health check, provider-type schema catalog |
+| Provider Credentials | CRUD |
+| Environment Templates | Versioning, activation, Terraform module upload |
+| Environments | Create, provision, list |
+| Deployments | CRUD with multi-provider credential mappings |
+| Terraform Runs | Trigger apply/destroy, stream logs |
+| Provisioned Resources | List by deployment |
+
+## Related
+
+- [akoflow-deployment-control-plane-ui](https://github.com/ovvesley/akoflow-deployment-control-plane-ui) — Frontend (Next.js 16)
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+MIT
