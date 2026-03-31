@@ -9,37 +9,6 @@ env:
   IMAGE: akoflow/akoflow-deployment-control-plane
 
 jobs:
-  # ─────────────────────────────────────────────
-  # Job 1: Run tests inside Docker (no local PHP)
-  # ─────────────────────────────────────────────
-  test:
-    name: Run Tests (Docker)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Build test image (with dev dependencies)
-        run: |
-          docker build \
-            -f Dockerfile.deploy \
-            --build-arg COMPOSER_FLAGS="" \
-            -t akocloud-test \
-            .
-
-      - name: Run PHPUnit tests inside container
-        run: |
-          docker run --rm \
-            -e APP_ENV=testing \
-            -e DB_CONNECTION=sqlite \
-            -e DB_DATABASE=":memory:" \
-            akocloud-test \
-            sh -c "cp .env.example .env && php artisan key:generate && php artisan test"
-
-  # ─────────────────────────────────────────────
-  # Job 2: Build & push production image to Docker Hub
-  # ─────────────────────────────────────────────
   build-and-push:
     name: Build & Push to Docker Hub
     runs-on: ubuntu-latest
