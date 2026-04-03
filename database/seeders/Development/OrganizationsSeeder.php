@@ -21,7 +21,7 @@ class OrganizationsSeeder extends Seeder
                 'user_id' => $admin->id,
             ],
             [
-                'description' => 'Organizacao inicial para desenvolvimento',
+                'description' => 'Initial organization for development and testing.',
             ]
         );
 

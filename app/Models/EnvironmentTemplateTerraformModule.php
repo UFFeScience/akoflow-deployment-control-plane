@@ -10,9 +10,8 @@ class EnvironmentTemplateTerraformModule extends Model
     protected $table = 'environment_template_terraform_modules';
 
     protected $fillable = [
-        'template_version_id',
+        'provider_configuration_id',
         'module_slug',
-        'provider_type',
         'main_tf',
         'variables_tf',
         'outputs_tf',
@@ -27,23 +26,20 @@ class EnvironmentTemplateTerraformModule extends Model
         'credential_env_keys'  => 'array',
     ];
 
-    /** Os módulos built-in disponíveis na plataforma. */
     public const BUILT_IN_SLUGS = ['aws_nvflare', 'gcp_gke'];
 
-    /** Verdadeiro se main_tf foi preenchido manualmente. */
     public function hasCustomHcl(): bool
     {
         return !empty($this->main_tf);
     }
 
-    /** Verdadeiro se referencia um módulo built-in sem HCL custom. */
     public function isBuiltIn(): bool
     {
         return !$this->hasCustomHcl() && !empty($this->module_slug);
     }
 
-    public function templateVersion(): BelongsTo
+    public function providerConfiguration(): BelongsTo
     {
-        return $this->belongsTo(EnvironmentTemplateVersion::class, 'template_version_id');
+        return $this->belongsTo(EnvironmentTemplateProviderConfiguration::class, 'provider_configuration_id');
     }
 }

@@ -15,10 +15,14 @@ class UpsertTemplateTerraformModuleService
 
     public function handle(string $versionId, string $providerType, array $data): EnvironmentTemplateTerraformModule
     {
-        // provider_type is always the one from the route — ignore any body value
         unset($data['provider_type']);
 
-        return $this->moduleRepository->upsertForVersionAndProvider($versionId, $providerType, $data);
+        $config = \App\Models\EnvironmentTemplateProviderConfiguration::firstOrCreate(
+            ['template_version_id' => $versionId, 'name' => strtoupper($providerType)],
+            ['applies_to_providers' => [strtoupper($providerType)]],
+        );
+
+        return $this->moduleRepository->upsertForConfiguration($config->id, $data);
     }
 
     // kept for slug-based auto-detection when module_slug arrives without provider_type context

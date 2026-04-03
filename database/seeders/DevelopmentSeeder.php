@@ -13,6 +13,7 @@ use Database\Seeders\Development\InstanceTypesSeeder;
 use Database\Seeders\Development\ProvisionedResourceKindsAndTypesSeeder;
 use Database\Seeders\Development\TemplatesSeeder;
 use Database\Seeders\Development\TemplateTerraformModulesSeeder;
+use Database\Seeders\Development\TemplateAnsiblePlaybooksSeeder;
 use Database\Seeders\Development\EnvironmentsSeeder;
 
 class DevelopmentSeeder extends Seeder
@@ -30,6 +31,7 @@ class DevelopmentSeeder extends Seeder
             ProvisionedResourceKindsAndTypesSeeder::class,
             TemplatesSeeder::class,
             TemplateTerraformModulesSeeder::class,
+            TemplateAnsiblePlaybooksSeeder::class,
             EnvironmentsSeeder::class,
         ]);
     }

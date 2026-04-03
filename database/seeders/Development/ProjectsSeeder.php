@@ -18,10 +18,10 @@ class ProjectsSeeder extends Seeder
         Project::firstOrCreate(
             [
                 'organization_id' => $organization->id,
-                'name' => 'Projeto Demo',
+                'name' => 'Demo Project',
             ],
             [
-                'description' => 'Projeto basico para desenvolvimento e testes manuais',
+                'description' => 'Default project for development and manual testing.',
             ]
         );
     }

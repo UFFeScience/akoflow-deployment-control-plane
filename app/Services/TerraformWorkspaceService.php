@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Environment;
 use App\Models\EnvironmentTemplateTerraformModule;
+use App\Models\EnvironmentTemplateProviderConfiguration;
+use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
 
 /**
@@ -88,7 +90,7 @@ class TerraformWorkspaceService
 
         return [
             'workspace_path' => $workspacePath,
-            'provider_type'  => $tfModule->provider_type ?? 'unknown',
+            'provider_type'  => strtoupper($providerType ?? 'default'),
             'tfvars'         => $tfvars,
         ];
     }
@@ -101,35 +103,51 @@ class TerraformWorkspaceService
     {
         if (empty($environment->environment_template_version_id)) {
             throw new RuntimeException(
-                "Environment {$environment->id} has no template version assigned. A TerraformModule cannot be resolved without a template version.",
+                "Environment {$environment->id} has no template version assigned.",
             );
         }
 
-        $version = $environment->templateVersion()->with('terraformModules')->first();
+        $version = $environment->templateVersion()
+            ->with('providerConfigurations.terraformModule')
+            ->first();
 
-        if ($providerType) {
-            $module = $version?->terraformModules->firstWhere('provider_type', $providerType);
-        } else {
-            $module = $version?->terraformModules->first();
-        }
+        $module = $this->resolveModuleFromConfigs(
+            $version?->providerConfigurations ?? collect(),
+            $providerType,
+        );
 
         if (!$module) {
-            $hint = $providerType ? "provider '{$providerType}'" : 'any provider';
+            $hint = $providerType ? "provider type '{$providerType}'" : 'any provider';
             throw new RuntimeException(
                 "Template version #{$environment->environment_template_version_id} " .
                 "has no TerraformModule configured for {$hint}. " .
-                'Register one via PUT /environment-templates/{id}/versions/{versionId}/terraform-modules/{providerType}.',
+                'Create a provider configuration at POST /environment-templates/{id}/versions/{versionId}/provider-configurations.',
             );
         }
 
         if (empty($module->main_tf)) {
             throw new RuntimeException(
-                "TerraformModule #{$module->id} has no main_tf content. " .
-                'Set the main_tf field with valid HCL before provisioning.',
+                "TerraformModule #{$module->id} has no main_tf content.",
             );
         }
 
         return $module;
+    }
+
+    private function resolveModuleFromConfigs(Collection $configs, ?string $providerType): ?EnvironmentTemplateTerraformModule
+    {
+        if ($providerType) {
+            $upper  = strtoupper($providerType);
+            $config = $configs->first(function (EnvironmentTemplateProviderConfiguration $c) use ($upper) {
+                return in_array($upper, array_map('strtoupper', $c->applies_to_providers ?? []), true);
+            });
+            if ($config?->terraformModule) {
+                return $config->terraformModule;
+            }
+        }
+
+        $default = $configs->first(fn(EnvironmentTemplateProviderConfiguration $c) => empty($c->applies_to_providers));
+        return $default?->terraformModule;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

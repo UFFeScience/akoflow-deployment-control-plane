@@ -4,6 +4,7 @@ namespace App\Messaging;
 
 use App\Enums\Messages;
 use App\Jobs\CheckProviderHealthJob;
+use App\Jobs\ConfigureEnvironmentJob;
 use App\Jobs\DestroyEnvironmentJob;
 use App\Jobs\ProvisionEnvironmentJob;
 use App\Messaging\Contracts\MessageDispatcherInterface;
@@ -23,10 +24,11 @@ class LaravelJobMessageDispatcher implements MessageDispatcherInterface
      * @var array<string, class-string>
      */
     private array $map = [
-        Messages::PROVISION_ENVIRONMENT->value => ProvisionEnvironmentJob::class,
-        Messages::DESTROY_ENVIRONMENT->value   => DestroyEnvironmentJob::class,
-        Messages::DESTROY_DEPLOYMENT->value    => DestroyEnvironmentJob::class,
-        Messages::CHECK_PROVIDER_HEALTH->value => CheckProviderHealthJob::class,
+        Messages::PROVISION_ENVIRONMENT->value  => ProvisionEnvironmentJob::class,
+        Messages::CONFIGURE_ENVIRONMENT->value  => ConfigureEnvironmentJob::class,
+        Messages::DESTROY_ENVIRONMENT->value    => DestroyEnvironmentJob::class,
+        Messages::DESTROY_DEPLOYMENT->value     => DestroyEnvironmentJob::class,
+        Messages::CHECK_PROVIDER_HEALTH->value  => CheckProviderHealthJob::class,
     ];
 
     public function dispatch(Messages $message, array $payload = []): void

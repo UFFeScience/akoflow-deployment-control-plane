@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\EnvironmentTemplateTerraformModule;
+use Illuminate\Database\Eloquent\Collection;
 
 class EnvironmentTemplateTerraformModuleRepository extends BaseRepository
 {
@@ -11,34 +12,17 @@ class EnvironmentTemplateTerraformModuleRepository extends BaseRepository
         parent::__construct(new EnvironmentTemplateTerraformModule());
     }
 
-    public function findAllByVersionId(string $versionId): \Illuminate\Database\Eloquent\Collection
+    public function findByConfigurationId(string $configId): ?EnvironmentTemplateTerraformModule
     {
-        return EnvironmentTemplateTerraformModule::where('template_version_id', $versionId)
-            ->orderBy('provider_type')
-            ->get();
+        return EnvironmentTemplateTerraformModule::where('provider_configuration_id', $configId)->first();
     }
 
-    public function findByVersionAndProvider(string $versionId, string $providerType): ?EnvironmentTemplateTerraformModule
+    public function upsertForConfiguration(string $configId, array $data): EnvironmentTemplateTerraformModule
     {
-        return EnvironmentTemplateTerraformModule::where('template_version_id', $versionId)
-            ->where('provider_type', $providerType)
-            ->first();
-    }
-
-    public function findFirstByVersion(string $versionId): ?EnvironmentTemplateTerraformModule
-    {
-        return EnvironmentTemplateTerraformModule::where('template_version_id', $versionId)
-            ->orderBy('provider_type')
-            ->first();
-    }
-
-    public function upsertForVersionAndProvider(string $versionId, string $providerType, array $data): EnvironmentTemplateTerraformModule
-    {
-        $data['template_version_id'] = $versionId;
-        $data['provider_type']       = $providerType;
+        $data['provider_configuration_id'] = $configId;
 
         return EnvironmentTemplateTerraformModule::updateOrCreate(
-            ['template_version_id' => $versionId, 'provider_type' => $providerType],
+            ['provider_configuration_id' => $configId],
             $data,
         );
     }

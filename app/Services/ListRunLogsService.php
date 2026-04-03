@@ -14,6 +14,11 @@ class ListRunLogsService
         return $this->logs->listByRun($runId, $afterId);
     }
 
+    public function handleByAnsibleRun(string $runId, ?int $afterId = null): Collection
+    {
+        return $this->logs->listByAnsibleRun($runId, $afterId);
+    }
+
     public function handleByResource(string $resourceId, ?int $afterId = null): Collection
     {
         return $this->logs->listByResource($resourceId, $afterId);

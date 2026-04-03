@@ -21,6 +21,7 @@ class Deployment extends Model
     ];
 
     public const STATUS_PROVISIONING = 'PROVISIONING';
+    public const STATUS_CONFIGURING  = 'CONFIGURING';
     public const STATUS_RUNNING      = 'RUNNING';
     public const STATUS_STOPPED      = 'STOPPED';
     public const STATUS_ERROR        = 'ERROR';
@@ -28,6 +29,7 @@ class Deployment extends Model
 
     public const STATUSES = [
         self::STATUS_PROVISIONING,
+        self::STATUS_CONFIGURING,
         self::STATUS_RUNNING,
         self::STATUS_STOPPED,
         self::STATUS_ERROR,
@@ -54,5 +56,10 @@ class Deployment extends Model
     public function providerCredentials(): HasMany
     {
         return $this->hasMany(DeploymentProviderCredential::class, 'deployment_id');
+    }
+
+    public function ansibleRuns(): HasMany
+    {
+        return $this->hasMany(AnsibleRun::class, 'deployment_id');
     }
 }

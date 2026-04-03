@@ -13,6 +13,7 @@ class RunLog extends Model
 
     protected $fillable = [
         'terraform_run_id',
+        'ansible_run_id',
         'provisioned_resource_id',
         'environment_id',
         'source',
@@ -24,6 +25,7 @@ class RunLog extends Model
 
     // ── Source constants ──────────────────────────────────────────────────────
     public const SOURCE_TERRAFORM = 'terraform';
+    public const SOURCE_ANSIBLE   = 'ansible';
     public const SOURCE_RESOURCE  = 'resource';
 
     // ── Level constants ───────────────────────────────────────────────────────
@@ -36,6 +38,11 @@ class RunLog extends Model
     public function terraformRun(): BelongsTo
     {
         return $this->belongsTo(TerraformRun::class, 'terraform_run_id');
+    }
+
+    public function ansibleRun(): BelongsTo
+    {
+        return $this->belongsTo(AnsibleRun::class, 'ansible_run_id');
     }
 
     public function provisionedResource(): BelongsTo

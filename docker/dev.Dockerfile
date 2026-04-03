@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    python3 \
+    python3-pip \
+    python3-venv \
+    openssh-client \
     && docker-php-ext-install \
         pdo \
         pdo_pgsql \
@@ -22,6 +26,15 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-enable xdebug \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Ansible via pip (isolated to avoid OS package conflicts)
+RUN python3 -m venv /opt/ansible-venv \
+    && /opt/ansible-venv/bin/pip install --upgrade pip \
+    && /opt/ansible-venv/bin/pip install ansible \
+    && ln -s /opt/ansible-venv/bin/ansible /usr/local/bin/ansible \
+    && ln -s /opt/ansible-venv/bin/ansible-playbook /usr/local/bin/ansible-playbook \
+    && ln -s /opt/ansible-venv/bin/ansible-galaxy /usr/local/bin/ansible-galaxy \
+    && ansible --version
 
 # Install Terraform
 RUN TERRAFORM_VERSION=1.14.7 && \

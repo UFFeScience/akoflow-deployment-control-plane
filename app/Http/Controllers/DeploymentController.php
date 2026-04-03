@@ -8,6 +8,7 @@ use App\Http\Resources\DeploymentResource;
 use App\Enums\Messages;
 use App\Messaging\Contracts\MessageDispatcherInterface;
 use App\Services\CreateDeploymentService;
+use App\Services\DeploymentWorkflowOrchestratorService;
 use App\Services\DestroyDeploymentService;
 use App\Services\EnvironmentAuthorizationService;
 use App\Services\ListDeploymentsService;
@@ -15,11 +16,12 @@ use App\Services\ListDeploymentsService;
 class DeploymentController extends Controller
 {
     public function __construct(
-        protected ListDeploymentsService          $listService,
-        protected CreateDeploymentService         $createService,
-        protected DestroyDeploymentService        $destroyService,
-        protected EnvironmentAuthorizationService $environmentAuthorizationService,
-        protected MessageDispatcherInterface      $dispatcher,
+        protected ListDeploymentsService                    $listService,
+        protected CreateDeploymentService                   $createService,
+        protected DestroyDeploymentService                  $destroyService,
+        protected EnvironmentAuthorizationService           $environmentAuthorizationService,
+        protected DeploymentWorkflowOrchestratorService     $orchestrator,
+        protected MessageDispatcherInterface                $dispatcher,
     ) {}
 
     public function index(string $environmentId)
@@ -35,10 +37,7 @@ class DeploymentController extends Controller
 
         $deployment = $this->createService->handle($environmentId, $request->validated());
 
-        $this->dispatcher->dispatch(Messages::PROVISION_ENVIRONMENT, [
-            'environment_id' => (int) $environmentId,
-            'deployment_id'  => $deployment->id,
-        ]);
+        $this->orchestrator->dispatch($deployment);
 
         return new DeploymentResource($deployment);
     }

@@ -60,7 +60,7 @@ class EnvironmentTemplateController extends Controller
     public function showVersion(string $id, string $versionId)
     {
         $version = EnvironmentTemplateVersion::where('template_id', $id)
-            ->with('terraformModules')
+            ->with(['providerConfigurations.terraformModule', 'providerConfigurations.ansiblePlaybook'])
             ->find($versionId);
 
         if (!$version) {
@@ -86,7 +86,7 @@ class EnvironmentTemplateController extends Controller
 
     public function showVersionById(string $versionId)
     {
-        $version = EnvironmentTemplateVersion::with('terraformModules')
+        $version = EnvironmentTemplateVersion::with(['providerConfigurations.terraformModule', 'providerConfigurations.ansiblePlaybook'])
             ->find($versionId);
 
         if (!$version) {

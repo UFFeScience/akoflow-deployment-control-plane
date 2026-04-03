@@ -9,7 +9,6 @@ class AkoflowMulticloudDefinition
         return [
             'providers'          => ['aws', 'gcp'],
             'required_providers' => ['aws', 'gcp'],
-            'min_providers'      => 2,
 
             'environment_configuration' => [
                 'label'       => 'AkoFlow Multicloud — EKS + GKE + Server',

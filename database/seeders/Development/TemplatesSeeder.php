@@ -7,6 +7,7 @@ use App\Models\EnvironmentTemplateVersion;
 use App\Models\Organization;
 use Database\Seeders\Development\TemplateDefinitions\AkoFlowEngineK8sDefinition;
 use Database\Seeders\Development\TemplateDefinitions\AkoflowMulticloudDefinition;
+use Database\Seeders\Development\TemplateDefinitions\AwsDockerAnsibleDefinition;
 use Database\Seeders\Development\TemplateDefinitions\AwsUbuntuDockerEksDefinition;
 use Database\Seeders\Development\TemplateDefinitions\GcpUbuntuDockerGkeDefinition;
 use Database\Seeders\Development\TemplateDefinitions\MicroNginxDefinition;
@@ -41,6 +42,15 @@ class TemplatesSeeder extends Seeder
                 'owner_organization_id' => $organizationId,
                 'version'               => '1.0.0',
                 'definition'            => AkoflowMulticloudDefinition::get(),
+            ],
+            [
+                'slug'                  => 'aws-docker-ansible',
+                'name'                  => 'AWS EC2 + Docker (via Ansible)',
+                'description'           => 'Provisions an EC2 instance on AWS with Terraform and installs Docker Engine via Ansible. Ideal for testing the Terraform → Ansible pipeline in a cloud environment.',
+                'is_public'             => true,
+                'owner_organization_id' => $organizationId,
+                'version'               => '1.0.0',
+                'definition'            => AwsDockerAnsibleDefinition::get(),
             ],
         ];
     }

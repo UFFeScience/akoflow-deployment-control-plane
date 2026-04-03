@@ -16,6 +16,9 @@ use App\Http\Controllers\DeploymentController;
 use App\Http\Controllers\ProvisionedResourceController;
 use App\Http\Controllers\TerraformRunController;
 use App\Http\Controllers\EnvironmentTemplateTerraformModuleController;
+use App\Http\Controllers\EnvironmentTemplateAnsiblePlaybookController;
+use App\Http\Controllers\EnvironmentTemplateProviderConfigurationController;
+use App\Http\Controllers\AnsibleRunController;
 use App\Http\Middleware\AuthMiddleware;
 
 
@@ -115,6 +118,50 @@ Route::middleware([AuthMiddleware::class])->group(function () {
         [EnvironmentTemplateTerraformModuleController::class, 'upsert']
     )->name('template-versions.terraform-modules.upsert');
 
+    // Ansible playbooks for a template version (one per provider)
+    Route::get(
+        '/environment-templates/{templateId}/versions/{versionId}/ansible-playbooks',
+        [EnvironmentTemplateAnsiblePlaybookController::class, 'index']
+    )->name('template-versions.ansible-playbooks.index');
+    Route::get(
+        '/environment-templates/{templateId}/versions/{versionId}/ansible-playbooks/{providerType}',
+        [EnvironmentTemplateAnsiblePlaybookController::class, 'show']
+    )->name('template-versions.ansible-playbooks.show');
+    Route::put(
+        '/environment-templates/{templateId}/versions/{versionId}/ansible-playbooks/{providerType}',
+        [EnvironmentTemplateAnsiblePlaybookController::class, 'upsert']
+    )->name('template-versions.ansible-playbooks.upsert');
+
+    // Provider configurations — unified HCL + Ansible configuration per provider set
+    Route::get(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations',
+        [EnvironmentTemplateProviderConfigurationController::class, 'index']
+    )->name('template-versions.provider-configurations.index');
+    Route::post(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations',
+        [EnvironmentTemplateProviderConfigurationController::class, 'store']
+    )->name('template-versions.provider-configurations.store');
+    Route::get(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}',
+        [EnvironmentTemplateProviderConfigurationController::class, 'show']
+    )->name('template-versions.provider-configurations.show');
+    Route::put(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}',
+        [EnvironmentTemplateProviderConfigurationController::class, 'update']
+    )->name('template-versions.provider-configurations.update');
+    Route::delete(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}',
+        [EnvironmentTemplateProviderConfigurationController::class, 'destroy']
+    )->name('template-versions.provider-configurations.destroy');
+    Route::put(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/terraform',
+        [EnvironmentTemplateProviderConfigurationController::class, 'upsertTerraform']
+    )->name('template-versions.provider-configurations.terraform');
+    Route::put(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/ansible',
+        [EnvironmentTemplateProviderConfigurationController::class, 'upsertAnsible']
+    )->name('template-versions.provider-configurations.ansible');
+
     Route::get('/projects/{projectId}/environments', [EnvironmentController::class, 'index']);
     Route::post('/projects/{projectId}/environments', [EnvironmentController::class, 'store']);
     Route::post('/projects/{projectId}/environments/provision', [EnvironmentController::class, 'provision']);
@@ -127,6 +174,12 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::post('/projects/{projectId}/environments/{environmentId}/terraform-runs/destroy', [TerraformRunController::class, 'destroy']);
     Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}', [TerraformRunController::class, 'show']);
     Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}/logs', [TerraformRunController::class, 'logs']);
+
+    // Ansible provisioning runs
+    Route::get('/projects/{projectId}/environments/{environmentId}/ansible-runs', [AnsibleRunController::class, 'index']);
+    Route::post('/projects/{projectId}/environments/{environmentId}/ansible-runs', [AnsibleRunController::class, 'store']);
+    Route::get('/projects/{projectId}/environments/{environmentId}/ansible-runs/{runId}', [AnsibleRunController::class, 'show']);
+    Route::get('/projects/{projectId}/environments/{environmentId}/ansible-runs/{runId}/logs', [AnsibleRunController::class, 'logs']);
 
     Route::get('/environments/{id}/deployments', [DeploymentController::class, 'index']);
     Route::post('/environments/{id}/deployments', [DeploymentController::class, 'store']);

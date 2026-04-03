@@ -3,30 +3,41 @@
 namespace App\Services;
 
 use App\Models\EnvironmentTemplateTerraformModule;
-use App\Repositories\EnvironmentTemplateTerraformModuleRepository;
+use App\Models\EnvironmentTemplateProviderConfiguration;
 use Illuminate\Database\Eloquent\Collection;
 
 class GetTemplateTerraformModuleService
 {
-    public function __construct(
-        private EnvironmentTemplateTerraformModuleRepository $moduleRepository,
-    ) {}
-
-    /** Returns all modules for a version (one per provider). */
     public function allForVersion(string $versionId): Collection
     {
-        return $this->moduleRepository->findAllByVersionId($versionId);
+        return EnvironmentTemplateTerraformModule::whereHas('providerConfiguration', function ($q) use ($versionId) {
+            $q->where('template_version_id', $versionId);
+        })->get();
     }
 
-    /** Returns the first module for a version (any provider), or null if absent. */
     public function firstForVersion(string $versionId): ?EnvironmentTemplateTerraformModule
     {
-        return $this->moduleRepository->findFirstByVersion($versionId);
+        return $this->allForVersion($versionId)->first();
     }
 
-    /** Returns a single module by version + providerType, or null if absent. */
     public function handle(string $versionId, string $providerType): ?EnvironmentTemplateTerraformModule
     {
-        return $this->moduleRepository->findByVersionAndProvider($versionId, $providerType);
+        $upper = strtoupper($providerType);
+
+        $specific = EnvironmentTemplateProviderConfiguration::where('template_version_id', $versionId)
+            ->whereJsonContains('applies_to_providers', $upper)
+            ->with('terraformModule')
+            ->first();
+
+        if ($specific?->terraformModule) {
+            return $specific->terraformModule;
+        }
+
+        $default = EnvironmentTemplateProviderConfiguration::where('template_version_id', $versionId)
+            ->whereJsonLength('applies_to_providers', 0)
+            ->with('terraformModule')
+            ->first();
+
+        return $default?->terraformModule;
     }
 }

@@ -4,6 +4,7 @@ namespace Database\Seeders\Development;
 
 use App\Models\EnvironmentTemplate;
 use App\Models\EnvironmentTemplateVersion;
+use App\Models\EnvironmentTemplateProviderConfiguration;
 use App\Models\EnvironmentTemplateTerraformModule;
 use Illuminate\Database\Seeder;
 
@@ -21,11 +22,15 @@ class TemplateTerraformModulesSeeder extends Seeder
                 continue;
             }
 
-            EnvironmentTemplateTerraformModule::query()->updateOrCreate(
-                [
-                    'template_version_id' => $versionId,
-                    'provider_type'       => $module['provider_type'],
-                ],
+            $providerType = strtoupper($module['provider_type']);
+
+            $config = EnvironmentTemplateProviderConfiguration::firstOrCreate(
+                ['template_version_id' => $versionId, 'name' => $providerType],
+                ['applies_to_providers' => [$providerType]],
+            );
+
+            EnvironmentTemplateTerraformModule::updateOrCreate(
+                ['provider_configuration_id' => $config->id],
                 [
                     'module_slug'          => $module['module_slug'],
                     'main_tf'              => $module['main_tf'],
@@ -59,6 +64,7 @@ class TemplateTerraformModulesSeeder extends Seeder
             // $this->awsUbuntuDockerEks(),
             // $this->gcpUbuntuDockerGke(),
             $this->akoflowMulticloud(),
+            $this->awsDockerAnsible(),
         ];
     }
 
@@ -239,6 +245,46 @@ class TemplateTerraformModulesSeeder extends Seeder
                                 'gke_cluster_endpoint'   => 'gke_cluster_endpoint',
                                 'gke_kubernetes_version' => 'gke_kubernetes_version',
                                 'gke_node_pool_name'     => 'gke_node_pool_name',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private function awsDockerAnsible(): array
+    {
+        return [
+            'template_slug'    => 'aws-docker-ansible',
+            'template_version' => '1.0.0',
+            'provider_type'    => 'aws',
+            'module_slug'      => 'aws-docker-ansible',
+            'main_tf'          => $this->readTerraformFile('aws_ubuntu_ansible/main.tf'),
+            'variables_tf'     => $this->readTerraformFile('aws_ubuntu_ansible/variables.tf'),
+            'outputs_tf'       => $this->readTerraformFile('aws_ubuntu_ansible/outputs.tf'),
+            'tfvars_mapping_json' => [
+                'environment_configuration' => [
+                    'region'        => 'region',
+                    'instance_type' => 'instance_type',
+                    'key_name'      => 'key_name',
+                ],
+                'instance_configurations' => [],
+            ],
+            'credential_env_keys'  => [],
+            'outputs_mapping_json' => [
+                'resources' => [
+                    [
+                        'name'           => 'docker-ec2',
+                        'terraform_type' => 'aws_instance',
+                        'outputs'        => [
+                            'provider_resource_id' => 'instance_id',
+                            'public_ip'            => 'public_ip',
+                            'private_ip'           => 'private_ip',
+                            'iframe_url'           => '',
+                            'metadata'             => [
+                                'security_group_id' => 'security_group_id',
+                                'resolved_ami'      => 'resolved_ami',
                             ],
                         ],
                     ],

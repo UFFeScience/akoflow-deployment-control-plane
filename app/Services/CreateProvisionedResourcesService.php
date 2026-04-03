@@ -3,10 +3,13 @@
 namespace App\Services;
 
 use App\Models\Deployment;
+use App\Models\EnvironmentTemplateProviderConfiguration;
+use App\Models\EnvironmentTemplateTerraformModule;
 use App\Models\ProvisionedResource;
 use App\Models\ProvisionedResourceType;
 use App\Models\TerraformRun;
 use App\Repositories\ProvisionedResourceRepository;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -53,13 +56,17 @@ class CreateProvisionedResourcesService
             return;
         }
 
-        // Load outputs_mapping_json from the module used for this run
-        $module = $run->environment
+        // Load outputs_mapping_json from the module used for this run.
+        // Modules are linked through providerConfigurations, not a direct relation.
+        $version = $run->environment
             ->templateVersion()
-            ->with('terraformModules')
-            ->first()
-            ?->terraformModules
-            ->firstWhere('provider_type', $run->provider_type);
+            ->with('providerConfigurations.terraformModule')
+            ->first();
+
+        $module = $this->resolveModule(
+            $version?->providerConfigurations ?? collect(),
+            $run->provider_type,
+        );
 
         $resourceMappings = $module?->outputs_mapping_json['resources'] ?? [];
 
@@ -75,6 +82,23 @@ class CreateProvisionedResourcesService
         foreach ($resourceMappings as $mapping) {
             $this->createResource($deployment, $mapping, $outputJson);
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function resolveModule(Collection $configs, string $providerType): ?EnvironmentTemplateTerraformModule
+    {
+        $upper  = strtoupper($providerType);
+        $config = $configs->first(function (EnvironmentTemplateProviderConfiguration $c) use ($upper) {
+            return in_array($upper, array_map('strtoupper', $c->applies_to_providers ?? []), true);
+        });
+
+        if ($config?->terraformModule) {
+            return $config->terraformModule;
+        }
+
+        $default = $configs->first(fn(EnvironmentTemplateProviderConfiguration $c) => empty($c->applies_to_providers));
+        return $default?->terraformModule;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

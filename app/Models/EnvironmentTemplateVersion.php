@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 /**
  * @property int $id
@@ -25,8 +26,28 @@ class EnvironmentTemplateVersion extends Model
         return $this->belongsTo(EnvironmentTemplate::class, 'template_id');
     }
 
-    public function terraformModules(): HasMany
+    public function providerConfigurations(): HasMany
     {
-        return $this->hasMany(EnvironmentTemplateTerraformModule::class, 'template_version_id');
+        return $this->hasMany(EnvironmentTemplateProviderConfiguration::class, 'template_version_id');
+    }
+
+    public function terraformModules(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            EnvironmentTemplateTerraformModule::class,
+            EnvironmentTemplateProviderConfiguration::class,
+            'template_version_id',
+            'provider_configuration_id',
+        );
+    }
+
+    public function ansiblePlaybooks(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            EnvironmentTemplateAnsiblePlaybook::class,
+            EnvironmentTemplateProviderConfiguration::class,
+            'template_version_id',
+            'provider_configuration_id',
+        );
     }
 }

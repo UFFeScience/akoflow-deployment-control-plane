@@ -15,7 +15,7 @@ class ListEnvironmentTemplateVersionsService
         }
 
         return $template->versions()
-            ->with('terraformModules')
+            ->with(['providerConfigurations.terraformModule', 'providerConfigurations.ansiblePlaybook'])
             ->orderBy('created_at', 'desc')
             ->get();
     }

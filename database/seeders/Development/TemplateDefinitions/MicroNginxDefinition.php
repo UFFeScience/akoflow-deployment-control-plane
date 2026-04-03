@@ -8,15 +8,10 @@ class MicroNginxDefinition
     {
         return [
             // Declare which cloud providers this template supports.
-            // The deployment form will show one credential card per entry.
             'providers' => ['aws', 'gcp'],
 
             // Providers that are always required (cannot be deselected).
-            // Optional providers can be toggled on/off per deployment.
             'required_providers' => [],
-
-            // Minimum number of providers that must be selected.
-            'min_providers' => 1,
 
             'environment_configuration' => [
                 'label'       => 'MicroNGINX Settings',

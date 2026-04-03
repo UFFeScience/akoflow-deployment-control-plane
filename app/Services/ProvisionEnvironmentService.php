@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\Messages;
 use App\Models\Deployment;
 use App\Models\Environment;
 use App\Models\TerraformRun;
+use App\Messaging\Contracts\MessageDispatcherInterface;
 use App\Repositories\DeploymentRepository;
 use App\Repositories\EnvironmentRepository;
 use App\Repositories\TerraformRunRepository;
@@ -23,6 +25,7 @@ class ProvisionEnvironmentService
         private ProviderCredentialResolverService    $credentialResolver,
         private TerraformProcessRunnerService        $processRunner,
         private CreateProvisionedResourcesService    $createResources,
+        private MessageDispatcherInterface           $dispatcher,
     ) {}
 
     public function handle(int $environmentId, int $deploymentId): TerraformRun
@@ -57,7 +60,7 @@ class ProvisionEnvironmentService
             $run->appendLog("[akocloud] Provider: {$provider->name} (slug: {$provider->slug})");
 
             // 2. Build workspace files (main.tf, variables.tf, outputs.tf, tfvars.json)
-            $workspace = $this->workspaceService->build($environment, $provider->slug);
+            $workspace = $this->workspaceService->build($environment, strtoupper($provider->type));
 
             $run->update([
                 'provider_type'  => $workspace['provider_type'],
@@ -103,11 +106,16 @@ class ProvisionEnvironmentService
             $this->createResources->handle($deployment, $run->fresh());
             $run->appendLog('[akocloud] Provisioned resources created from output_json.');
 
+            // 8. Chain the Ansible configuration phase
             $this->deploymentRepository->update((string) $deployment->id, [
-                'status' => Deployment::STATUS_RUNNING,
+                'status' => Deployment::STATUS_CONFIGURING,
             ]);
 
-            $this->environmentRepository->update((string) $environment->id, ['status' => 'RUNNING']);
+            $this->dispatcher->dispatch(Messages::CONFIGURE_ENVIRONMENT, [
+                'deployment_id' => $deployment->id,
+            ]);
+
+            $run->appendLog('[akocloud] Configuration job queued — Ansible will run next.');
 
         } catch (Throwable $e) {
             $run->update([

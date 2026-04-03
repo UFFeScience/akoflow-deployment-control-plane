@@ -13,8 +13,6 @@ class GcpUbuntuDockerGkeDefinition
             // GCP credentials are mandatory.
             'required_providers' => ['gcp'],
 
-            'min_providers' => 1,
-
             'environment_configuration' => [
                 'label'       => 'Ubuntu + Docker + GKE Settings',
                 'description' => 'Provisions an Ubuntu 22.04 LTS Compute Engine instance with Docker CE and a Google Kubernetes Engine (GKE) cluster inside a dedicated VPC-native network.',

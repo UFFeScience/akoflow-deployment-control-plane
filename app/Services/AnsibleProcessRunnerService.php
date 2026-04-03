@@ -1,0 +1,201 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\AnsibleRun;
+use RuntimeException;
+
+/**
+ * Low-level Ansible executor.
+ *
+ * Runs `ansible-galaxy install` (when requirements.yml is present) followed by
+ * `ansible-playbook`, streaming every output line into the AnsibleRun log in
+ * real time.
+ *
+ * SSH credentials are injected as process environment variables — the private
+ * key content is written to a temporary file (via tempnam) which is deleted
+ * immediately after the process finishes. The file path is exposed to the
+ * ansible process only via the ANSIBLE_PRIVATE_KEY_FILE env var.
+ */
+class AnsibleProcessRunnerService
+{
+    /**
+     * Run ansible-galaxy + ansible-playbook inside the given workspace directory.
+     *
+     * @param  string                 $workspacePath  Absolute path to the Ansible workspace.
+     * @param  array<string, string>  $credentialEnv  Provider credentials to inject as env vars.
+     * @param  AnsibleRun             $run            Log target; updated in real time.
+     * @return int  The ansible-playbook exit code (0 = success).
+     *
+     * @throws RuntimeException when the process cannot be started.
+     */
+    public function run(string $workspacePath, array $credentialEnv, AnsibleRun $run): int
+    {
+        $tempKeyFile = null;
+        $env         = $this->buildProcessEnv($credentialEnv, $workspacePath, $tempKeyFile);
+
+        try {
+            if (file_exists($workspacePath . '/requirements.yml')) {
+                $this->installRoles($workspacePath, $env, $run);
+            }
+
+            return $this->runPlaybook($workspacePath, $env, $run);
+        } finally {
+            if ($tempKeyFile !== null && file_exists($tempKeyFile)) {
+                unlink($tempKeyFile);
+            }
+        }
+    }
+
+    /**
+     * Reads ansible_outputs.json written by the playbook and returns the decoded map.
+     *
+     * The playbook is responsible for writing this file. Expected format:
+     *   { "output_name": "value", ... }   (flat key-value, not the Terraform nested format)
+     *
+     * @return array<string, mixed>|null
+     */
+    public function captureOutputs(string $workspacePath, AnsibleRun $run): ?array
+    {
+        $outputFile = $workspacePath . '/ansible_outputs.json';
+
+        if (!file_exists($outputFile)) {
+            $run->appendLog('[akocloud] ansible_outputs.json not found — outputs not captured.');
+            return null;
+        }
+
+        $json    = file_get_contents($outputFile);
+        $decoded = json_decode($json, true);
+
+        if (!is_array($decoded)) {
+            $run->appendLog('[akocloud] ansible_outputs.json is not valid JSON — outputs not captured.');
+            return null;
+        }
+
+        $run->appendLog('[akocloud] Captured ' . count($decoded) . ' output(s) from ansible_outputs.json.');
+
+        return $decoded;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Internal helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Builds the process environment array.
+     *
+     * If $credentialEnv contains SSH_PRIVATE_KEY, its content is written to a
+     * temp file and ANSIBLE_PRIVATE_KEY_FILE is set to that path instead.
+     * $tempKeyFile is set by reference so the caller can delete it after use.
+     */
+    private function buildProcessEnv(array $credentialEnv, string $workspacePath, ?string &$tempKeyFile): array
+    {
+        $env = array_merge($_SERVER, $_ENV, [
+            'ANSIBLE_FORCE_COLOR'         => '0',
+            'ANSIBLE_HOST_KEY_CHECKING'   => 'False',
+            'ANSIBLE_STDOUT_CALLBACK'     => 'default',
+            'PYTHONUNBUFFERED'            => '1',
+        ]);
+
+        // Strip irrelevant PHP superglobals that cause env pollution
+        unset($env['argv'], $env['argc']);
+
+        if (isset($credentialEnv['SSH_PRIVATE_KEY'])) {
+            $tempKeyFile = tempnam(sys_get_temp_dir(), 'ako_ssh_');
+            chmod($tempKeyFile, 0600);
+            file_put_contents($tempKeyFile, $credentialEnv['SSH_PRIVATE_KEY']);
+
+            $env['ANSIBLE_PRIVATE_KEY_FILE'] = $tempKeyFile;
+            unset($credentialEnv['SSH_PRIVATE_KEY']);
+        }
+
+        foreach ($credentialEnv as $key => $value) {
+            $env[$key] = $value;
+        }
+
+        return $env;
+    }
+
+    private function installRoles(string $workspacePath, array $env, AnsibleRun $run): void
+    {
+        $run->appendLog('[akocloud] Installing Ansible roles from requirements.yml...');
+
+        $exitCode = $this->streamProcess(
+            'ansible-galaxy install -r requirements.yml',
+            $workspacePath,
+            $env,
+            $run,
+        );
+
+        if ($exitCode !== 0) {
+            throw new RuntimeException(
+                "ansible-galaxy install failed with exit code {$exitCode}."
+            );
+        }
+    }
+
+    private function runPlaybook(string $workspacePath, array $env, AnsibleRun $run): int
+    {
+        $run->appendLog('[akocloud] Running ansible-playbook...');
+
+        return $this->streamProcess(
+            'ansible-playbook -i inventory.ini playbook.yml --extra-vars @extra_vars.json',
+            $workspacePath,
+            $env,
+            $run,
+        );
+    }
+
+    /**
+     * Opens a process, streams stdout+stderr line by line to the run log,
+     * and returns the exit code.
+     */
+    private function streamProcess(string $command, string $cwd, array $env, AnsibleRun $run): int
+    {
+        $descriptors = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $process = proc_open($command, $descriptors, $pipes, $cwd, $env);
+
+        if (!is_resource($process)) {
+            throw new RuntimeException("Failed to start process: {$command}");
+        }
+
+        fclose($pipes[0]);
+
+        // Merge stdout and stderr into a single stream for real-time logging
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+
+        while (true) {
+            $status = proc_get_status($process);
+
+            $stdout = stream_get_contents($pipes[1]);
+            $stderr = stream_get_contents($pipes[2]);
+
+            foreach ([$stdout, $stderr] as $chunk) {
+                if (!empty($chunk)) {
+                    foreach (explode("\n", rtrim($chunk)) as $line) {
+                        if ($line !== '') {
+                            $run->appendLog($line);
+                        }
+                    }
+                }
+            }
+
+            if (!$status['running']) {
+                break;
+            }
+
+            usleep(50000); // 50ms poll
+        }
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        return proc_close($process);
+    }
+}

@@ -13,8 +13,6 @@ class AwsUbuntuDockerEksDefinition
             // AWS credentials are mandatory.
             'required_providers' => ['aws'],
 
-            'min_providers' => 1,
-
             'environment_configuration' => [
                 'label'       => 'Ubuntu + Docker + EKS Settings',
                 'description' => 'Provisions an Ubuntu 22.04 EC2 instance with Docker CE and an Amazon EKS cluster inside a dedicated VPC.',
