@@ -23,6 +23,9 @@ class TemplateProviderConfigurationResource extends JsonResource
                     ? (new TemplateAnsiblePlaybookResource($this->ansiblePlaybook))->toArray(request())
                     : null;
             }),
+            'runbooks'             => RunbookResource::collection(
+                $this->whenLoaded('runbooks'),
+            ),
             'created_at'           => $this->created_at,
             'updated_at'           => $this->updated_at,
         ];

@@ -39,4 +39,9 @@ class EnvironmentTemplateProviderConfiguration extends Model
     {
         return $this->hasOne(EnvironmentTemplateAnsiblePlaybook::class, 'provider_configuration_id');
     }
+
+    public function runbooks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(EnvironmentTemplateRunbook::class, 'provider_configuration_id')->orderBy('position');
+    }
 }

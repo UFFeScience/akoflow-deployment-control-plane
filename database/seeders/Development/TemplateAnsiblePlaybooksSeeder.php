@@ -2,9 +2,11 @@
 
 namespace Database\Seeders\Development;
 
+use App\Models\AnsiblePlaybookTask;
 use App\Models\EnvironmentTemplate;
 use App\Models\EnvironmentTemplateAnsiblePlaybook;
 use App\Models\EnvironmentTemplateProviderConfiguration;
+use App\Models\EnvironmentTemplateRunbook;
 use App\Models\EnvironmentTemplateVersion;
 use Illuminate\Database\Seeder;
 
@@ -29,7 +31,7 @@ class TemplateAnsiblePlaybooksSeeder extends Seeder
                 ['applies_to_providers' => [$providerType]],
             );
 
-            EnvironmentTemplateAnsiblePlaybook::updateOrCreate(
+            $playbook = EnvironmentTemplateAnsiblePlaybook::updateOrCreate(
                 ['provider_configuration_id' => $config->id],
                 [
                     'playbook_slug'        => $entry['playbook_slug'],
@@ -41,6 +43,45 @@ class TemplateAnsiblePlaybooksSeeder extends Seeder
                     'roles_json'           => $entry['roles_json'] ?? [],
                 ],
             );
+
+            // Seed structured tasks for this playbook (idempotent: clear + re-insert)
+            if (!empty($entry['tasks'])) {
+                $playbook->tasks()->delete();
+                foreach ($entry['tasks'] as $i => $taskData) {
+                    AnsiblePlaybookTask::create(array_merge($taskData, [
+                        'ansible_playbook_id' => $playbook->id,
+                        'position'            => $taskData['position'] ?? $i,
+                    ]));
+                }
+            }
+
+            // Seed sample runbooks for this provider config
+            foreach ($entry['runbooks'] ?? [] as $runbookData) {
+                $runbook = EnvironmentTemplateRunbook::updateOrCreate(
+                    [
+                        'provider_configuration_id' => $config->id,
+                        'name'                      => $runbookData['name'],
+                    ],
+                    [
+                        'description'         => $runbookData['description'] ?? null,
+                        'playbook_yaml'       => $runbookData['playbook_yaml'] ?? null,
+                        'vars_mapping_json'   => $runbookData['vars_mapping_json'] ?? null,
+                        'credential_env_keys' => $runbookData['credential_env_keys'] ?? [],
+                        'roles_json'          => $runbookData['roles_json'] ?? [],
+                        'position'            => $runbookData['position'] ?? 0,
+                    ],
+                );
+
+                if (!empty($runbookData['tasks'])) {
+                    $runbook->tasks()->delete();
+                    foreach ($runbookData['tasks'] as $i => $taskData) {
+                        AnsiblePlaybookTask::create(array_merge($taskData, [
+                            'runbook_id' => $runbook->id,
+                            'position'   => $taskData['position'] ?? $i,
+                        ]));
+                    }
+                }
+            }
         }
     }
 
@@ -149,9 +190,90 @@ YAML,
                 ],
             ],
 
-            'credential_env_keys' => [],
+            'credential_env_keys' => ['SSH_PRIVATE_KEY'],
 
             'roles_json' => [],
+
+            // ── Structured tasks (stored in ansible_playbook_tasks table) ────
+            'tasks' => [
+                ['name' => 'Update apt cache',                    'module' => 'apt'],
+                ['name' => 'Install prerequisites',               'module' => 'apt'],
+                ['name' => 'Add Docker GPG key',                  'module' => 'apt_key'],
+                ['name' => 'Add Docker APT repository',           'module' => 'apt_repository'],
+                ['name' => 'Install Docker Engine and Compose plugin', 'module' => 'apt'],
+                ['name' => 'Start and enable Docker service',     'module' => 'systemd'],
+                ['name' => 'Write ansible_outputs.json',          'module' => 'copy'],
+            ],
+
+            // ── Sample standalone runbooks ────────────────────────────────────
+            'runbooks' => [
+                [
+                    'name'        => 'Restart Docker',
+                    'description' => 'Restarts the Docker daemon on the provisioned instance.',
+                    'position'    => 0,
+                    'playbook_yaml' => <<<'YAML'
+- name: Restart Docker
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Restart Docker service
+      systemd:
+        name: docker
+        state: restarted
+
+    - name: Verify Docker is running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+YAML,
+                    'vars_mapping_json'   => ['environment_configuration' => ['ssh_user' => 'ansible_user']],
+                    'credential_env_keys' => ['SSH_PRIVATE_KEY'],
+                    'tasks' => [
+                        ['name' => 'Restart Docker service', 'module' => 'systemd'],
+                        ['name' => 'Verify Docker is running', 'module' => 'systemd'],
+                    ],
+                ],
+                [
+                    'name'        => 'Update System Packages',
+                    'description' => 'Runs apt upgrade to update all system packages on the instance.',
+                    'position'    => 1,
+                    'playbook_yaml' => <<<'YAML'
+- name: Update System Packages
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 0
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+        autoremove: yes
+
+    - name: Check if reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Print reboot status
+      debug:
+        msg: "Reboot required: {{ reboot_required.stat.exists }}"
+YAML,
+                    'vars_mapping_json'   => ['environment_configuration' => ['ssh_user' => 'ansible_user']],
+                    'credential_env_keys' => ['SSH_PRIVATE_KEY'],
+                    'tasks' => [
+                        ['name' => 'Update apt cache',          'module' => 'apt'],
+                        ['name' => 'Upgrade all packages',      'module' => 'apt'],
+                        ['name' => 'Check if reboot is required', 'module' => 'stat'],
+                        ['name' => 'Print reboot status',       'module' => 'debug'],
+                    ],
+                ],
+            ],
         ];
     }
 }

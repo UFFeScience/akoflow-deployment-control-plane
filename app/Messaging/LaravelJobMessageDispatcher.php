@@ -6,6 +6,7 @@ use App\Enums\Messages;
 use App\Jobs\CheckProviderHealthJob;
 use App\Jobs\ConfigureEnvironmentJob;
 use App\Jobs\DestroyEnvironmentJob;
+use App\Jobs\ExecuteRunbookJob;
 use App\Jobs\ProvisionEnvironmentJob;
 use App\Messaging\Contracts\MessageDispatcherInterface;
 use InvalidArgumentException;
@@ -29,6 +30,7 @@ class LaravelJobMessageDispatcher implements MessageDispatcherInterface
         Messages::DESTROY_ENVIRONMENT->value    => DestroyEnvironmentJob::class,
         Messages::DESTROY_DEPLOYMENT->value     => DestroyEnvironmentJob::class,
         Messages::CHECK_PROVIDER_HEALTH->value  => CheckProviderHealthJob::class,
+        Messages::EXECUTE_RUNBOOK->value        => ExecuteRunbookJob::class,
     ];
 
     public function dispatch(Messages $message, array $payload = []): void

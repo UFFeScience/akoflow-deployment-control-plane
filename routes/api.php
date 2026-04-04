@@ -19,6 +19,8 @@ use App\Http\Controllers\EnvironmentTemplateTerraformModuleController;
 use App\Http\Controllers\EnvironmentTemplateAnsiblePlaybookController;
 use App\Http\Controllers\EnvironmentTemplateProviderConfigurationController;
 use App\Http\Controllers\AnsibleRunController;
+use App\Http\Controllers\RunbookController;
+use App\Http\Controllers\RunbookRunController;
 use App\Http\Middleware\AuthMiddleware;
 
 
@@ -162,6 +164,38 @@ Route::middleware([AuthMiddleware::class])->group(function () {
         [EnvironmentTemplateProviderConfigurationController::class, 'upsertAnsible']
     )->name('template-versions.provider-configurations.ansible');
 
+    // Runbooks — standalone on-demand playbooks per provider configuration
+    Route::get(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks',
+        [RunbookController::class, 'index']
+    )->name('template-versions.provider-configurations.runbooks.index');
+    Route::post(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks',
+        [RunbookController::class, 'store']
+    )->name('template-versions.provider-configurations.runbooks.store');
+    Route::get(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks/{runbookId}',
+        [RunbookController::class, 'show']
+    )->name('template-versions.provider-configurations.runbooks.show');
+    Route::put(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks/{runbookId}',
+        [RunbookController::class, 'update']
+    )->name('template-versions.provider-configurations.runbooks.update');
+    Route::delete(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks/{runbookId}',
+        [RunbookController::class, 'destroy']
+    )->name('template-versions.provider-configurations.runbooks.destroy');
+    // Sync task list for a runbook
+    Route::put(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks/{runbookId}/tasks',
+        [RunbookController::class, 'syncTasks']
+    )->name('template-versions.provider-configurations.runbooks.tasks.sync');
+    // Sync task list for the configure playbook
+    Route::put(
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/ansible/tasks',
+        [RunbookController::class, 'syncPlaybookTasks']
+    )->name('template-versions.provider-configurations.ansible.tasks.sync');
+
     Route::get('/projects/{projectId}/environments', [EnvironmentController::class, 'index']);
     Route::post('/projects/{projectId}/environments', [EnvironmentController::class, 'store']);
     Route::post('/projects/{projectId}/environments/provision', [EnvironmentController::class, 'provision']);
@@ -180,6 +214,12 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::post('/projects/{projectId}/environments/{environmentId}/ansible-runs', [AnsibleRunController::class, 'store']);
     Route::get('/projects/{projectId}/environments/{environmentId}/ansible-runs/{runId}', [AnsibleRunController::class, 'show']);
     Route::get('/projects/{projectId}/environments/{environmentId}/ansible-runs/{runId}/logs', [AnsibleRunController::class, 'logs']);
+
+    // Runbook runs — on-demand execution per deployment
+    Route::get('/projects/{projectId}/environments/{environmentId}/runbook-runs', [RunbookRunController::class, 'index']);
+    Route::post('/projects/{projectId}/environments/{environmentId}/runbook-runs', [RunbookRunController::class, 'store']);
+    Route::get('/projects/{projectId}/environments/{environmentId}/runbook-runs/{runId}', [RunbookRunController::class, 'show']);
+    Route::get('/projects/{projectId}/environments/{environmentId}/deployments/{deploymentId}/runbook-runs', [RunbookRunController::class, 'indexByDeployment']);
 
     Route::get('/environments/{id}/deployments', [DeploymentController::class, 'index']);
     Route::post('/environments/{id}/deployments', [DeploymentController::class, 'store']);

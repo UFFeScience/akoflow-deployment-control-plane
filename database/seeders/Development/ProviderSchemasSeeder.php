@@ -116,6 +116,18 @@ class ProviderSchemasSeeder extends Seeder
                     'options_json'  => null,
                     'default_value' => null,
                 ],
+                [
+                    'section'       => 'ssh',
+                    'name'          => 'SSH_PRIVATE_KEY',
+                    'label'         => 'SSH Private Key',
+                    'description'   => 'PEM private key used by Ansible to SSH into provisioned instances (must match the Key Pair configured in the environment).',
+                    'type'          => 'textarea',
+                    'required'      => false,
+                    'is_sensitive'  => true,
+                    'position'      => 5,
+                    'options_json'  => null,
+                    'default_value' => null,
+                ],
             ],
 
             // ─── Slurm / HPC ──────────────────────────────────────────────────

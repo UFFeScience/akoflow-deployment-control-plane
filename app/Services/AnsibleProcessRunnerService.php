@@ -103,7 +103,15 @@ class AnsibleProcessRunnerService
         if (isset($credentialEnv['SSH_PRIVATE_KEY'])) {
             $tempKeyFile = tempnam(sys_get_temp_dir(), 'ako_ssh_');
             chmod($tempKeyFile, 0600);
-            file_put_contents($tempKeyFile, $credentialEnv['SSH_PRIVATE_KEY']);
+
+            // Normalize the key: replace literal \n escape sequences with real newlines
+            // (keys stored via API/JSON often arrive with \\n instead of actual line breaks),
+            // then ensure a single trailing newline — libcrypto requires a well-formed PEM file.
+            $keyContent = $credentialEnv['SSH_PRIVATE_KEY'];
+            $keyContent = str_replace(['\r\n', '\n', '\r'], "\n", $keyContent);
+            $keyContent = rtrim($keyContent) . "\n";
+
+            file_put_contents($tempKeyFile, $keyContent);
 
             $env['ANSIBLE_PRIVATE_KEY_FILE'] = $tempKeyFile;
             unset($credentialEnv['SSH_PRIVATE_KEY']);

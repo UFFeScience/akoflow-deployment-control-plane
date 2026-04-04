@@ -7,6 +7,7 @@ use App\Models\Deployment;
 use App\Models\Environment;
 use App\Models\EnvironmentTemplateAnsiblePlaybook;
 use App\Models\EnvironmentTemplateProviderConfiguration;
+use App\Models\EnvironmentTemplateRunbook;
 use App\Models\ProvisionedResource;
 use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
@@ -260,6 +261,64 @@ class AnsibleWorkspaceService
         }
 
         return implode("\n", $lines) . "\n";
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Runbook workspace — uses the runbook's own playbook_yaml + vars_mapping
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Build a workspace for a standalone Runbook execution.
+     *
+     * @return array{workspace_path: string, provider_type: string, extra_vars: array, inventory_ini: string}
+     */
+    public function buildForRunbook(
+        Environment $environment,
+        Deployment $deployment,
+        string $providerType,
+        EnvironmentTemplateRunbook $runbook,
+    ): array {
+        // Use a sub-directory to avoid colliding with configure workspaces
+        $workspacePath = storage_path('app/ansible/' . $deployment->id . '/runbooks/' . $runbook->id);
+        if (!is_dir($workspacePath)) {
+            mkdir($workspacePath, 0755, true);
+        }
+
+        $playbookYaml = $runbook->playbook_yaml;
+        if (empty($playbookYaml)) {
+            throw new RuntimeException("Runbook #{$runbook->id} '{$runbook->name}' has no playbook_yaml.");
+        }
+
+        file_put_contents($workspacePath . '/playbook.yml', $playbookYaml);
+
+        // Reuse env-config mapping if the runbook defines vars_mapping_json
+        $extraVars = ['environment_id' => (string) $environment->id];
+        if (!empty($runbook->vars_mapping_json)) {
+            $extraVars += $this->applyMapping(
+                $environment->configuration_json ?? [],
+                $runbook->vars_mapping_json,
+            );
+        }
+
+        file_put_contents(
+            $workspacePath . '/extra_vars.json',
+            json_encode($extraVars, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+        );
+
+        $sshUser     = $extraVars['ansible_user'] ?? null;
+        $inventoryIni = $this->generateInventoryFromResources($deployment, $sshUser);
+        file_put_contents($workspacePath . '/inventory.ini', $inventoryIni);
+
+        if (!empty($runbook->roles_json)) {
+            $this->writeRequirements($workspacePath, $runbook->roles_json);
+        }
+
+        return [
+            'workspace_path' => $workspacePath,
+            'provider_type'  => $providerType,
+            'extra_vars'     => $extraVars,
+            'inventory_ini'  => $inventoryIni,
+        ];
     }
 
     // ─────────────────────────────────────────────────────────────────────────

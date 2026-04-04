@@ -43,4 +43,9 @@ class EnvironmentTemplateAnsiblePlaybook extends Model
     {
         return $this->belongsTo(EnvironmentTemplateProviderConfiguration::class, 'provider_configuration_id');
     }
+
+    public function tasks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(AnsiblePlaybookTask::class, 'ansible_playbook_id')->orderBy('position');
+    }
 }

@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\AnsibleRun;
 use App\Models\RunLog;
+use App\Models\RunbookRun;
 use App\Models\TerraformRun;
 use Illuminate\Support\Collection;
 
@@ -73,6 +74,32 @@ class RunLogRepository extends BaseRepository
     {
         return $this->model
             ->where('ansible_run_id', $runId)
+            ->when($afterId !== null, fn ($q) => $q->where('id', '>', $afterId))
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Append one log line for a RunbookRun.
+     */
+    public function createForRunbookRun(RunbookRun $run, string $level, string $message): RunLog
+    {
+        return $this->model->create([
+            'runbook_run_id' => $run->id,
+            'environment_id' => $run->deployment->environment_id ?? null,
+            'source'         => RunLog::SOURCE_ANSIBLE,
+            'level'          => $level,
+            'message'        => $message,
+        ]);
+    }
+
+    /**
+     * All logs for a runbook run, optionally only rows after $afterId.
+     */
+    public function listByRunbookRun(string $runId, ?int $afterId = null): Collection
+    {
+        return $this->model
+            ->where('runbook_run_id', $runId)
             ->when($afterId !== null, fn ($q) => $q->where('id', '>', $afterId))
             ->orderBy('id')
             ->get();
