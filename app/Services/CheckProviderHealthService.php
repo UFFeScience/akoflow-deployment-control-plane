@@ -2,72 +2,41 @@
 
 namespace App\Services;
 
-use App\Enums\HealthStatus;
-use App\Models\Provider;
+use App\Models\ProviderCredential;
 use App\Repositories\ProviderRepository;
-use App\Services\CloudHealthChecks\AwsHealthCheckService;
-use App\Services\CloudHealthChecks\GcpHealthCheckService;
-use App\Services\CloudHealthChecks\SlurmHealthCheckService;
 
+/**
+ * Triggers a health check for every credential that belongs to a provider.
+ * Delegates the actual cloud check to CheckCredentialHealthService.
+ */
 class CheckProviderHealthService
 {
     public function __construct(
-        private ProviderRepository               $providerRepository,
-        private AwsHealthCheckService            $awsHealthCheck,
-        private GcpHealthCheckService            $gcpHealthCheck,
-        private SlurmHealthCheckService          $slurmHealthCheck,
-        private TerraformHealthCheckRunnerService $runner,
+        private ProviderRepository           $providerRepository,
+        private CheckCredentialHealthService $checkCredentialHealth,
     ) {}
 
-    public function handle(string $providerId, string $organizationId): Provider
+    /**
+     * @return ProviderCredential[]  Updated credentials.
+     */
+    public function handle(string $providerId, string $organizationId): array
     {
         $provider = $this->providerRepository->findByOrganizationOrFail($providerId, $organizationId);
 
-        $activeCredential = $provider->credentials()
-            ->where('is_active', true)
-            ->with('values')
-            ->first();
+        $credentials = $provider->credentials()->with('values')->get();
 
-        if (!$activeCredential) {
-            return $this->persistHealth($provider, false, 'No active credential configured for this provider.');
+        if ($credentials->isEmpty()) {
+            return [];
         }
 
-        /** @var array<string, string> $credentialValues */
-        $credentialValues = $activeCredential->values->pluck('field_value', 'field_key')->toArray();
-
-        try {
-            $workspace = match ($provider->slug) {
-                'aws'   => $this->awsHealthCheck->buildWorkspace($credentialValues),
-                'gcp'   => $this->gcpHealthCheck->buildWorkspace($credentialValues),
-                'slurm' => $this->slurmHealthCheck->buildWorkspace($credentialValues),
-                default => null,
-            };
-        } catch (\InvalidArgumentException $e) {
-            return $this->persistHealth($provider, false, $e->getMessage());
+        $results = [];
+        foreach ($credentials as $credential) {
+            /** @var ProviderCredential $credential */
+            $credential->setRelation('provider', $provider);
+            $results[] = $this->checkCredentialHealth->handle($credential);
         }
 
-        if ($workspace === null) {
-            return $this->persistHealth(
-                $provider,
-                false,
-                "Health check via Terraform is not supported for provider slug '{$provider->slug}'.",
-            );
-        }
-
-        $result = $this->runner->run($providerId, $workspace);
-
-        return $this->persistHealth($provider, $result['healthy'], $result['message']);
-    }
-
-    private function persistHealth(Provider $provider, bool $healthy, string $message): Provider
-    {
-        $provider->update([
-            'health_status'        => $healthy ? HealthStatus::HEALTHY->value : HealthStatus::UNHEALTHY->value,
-            'health_message'       => $message,
-            'last_health_check_at' => now(),
-        ]);
-
-        return $provider->fresh();
+        return $results;
     }
 }
 

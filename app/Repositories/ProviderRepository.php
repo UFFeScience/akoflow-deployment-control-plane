@@ -18,11 +18,19 @@ class ProviderRepository extends BaseRepository
         return $this->model->withCount('credentials')->orderBy('name')->get();
     }
 
+    public function allWithOrganization(): Collection
+    {
+        return $this->model->whereNotNull('organization_id')->orderBy('id')->get();
+    }
+
 	public function allByOrganizationWithCredentialsCount(string $organizationId): Collection
 	{
 		return $this->model
 			->where('organization_id', $organizationId)
 			->withCount('credentials')
+			->withCount(['credentials as healthy_credentials_count' => function ($q) {
+				$q->where('health_status', 'HEALTHY');
+			}])
 			->orderBy('name')
 			->get();
 	}

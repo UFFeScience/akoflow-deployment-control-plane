@@ -16,10 +16,15 @@ class ProviderCredential extends Model
         'slug',
         'description',
         'is_active',
+        'health_check_template',
+        'health_status',
+        'health_message',
+        'last_health_check_at',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'is_active'            => 'boolean',
+        'last_health_check_at' => 'datetime',
     ];
 
     public function provider(): BelongsTo
@@ -30,5 +35,10 @@ class ProviderCredential extends Model
     public function values(): HasMany
     {
         return $this->hasMany(ProviderCredentialValue::class, 'provider_credential_id');
+    }
+
+    public function healthLogs(): HasMany
+    {
+        return $this->hasMany(ProviderCredentialHealthLog::class, 'provider_credential_id')->orderByDesc('checked_at');
     }
 }

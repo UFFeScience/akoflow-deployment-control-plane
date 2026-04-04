@@ -4,10 +4,12 @@ services:
       context: .
       dockerfile: ./docker/dev.Dockerfile
     container_name: akocloud_app
+    group_add:
+      - "${DOCKER_GID:-999}"
     volumes:
       - ./:/var/www/html
       - ./docker/php/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
-      # Docker socket: allows the queue worker to spawn Terraform containers
+      # Docker socket: allows the queue worker and health-check loop to talk to Docker
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8080:80"

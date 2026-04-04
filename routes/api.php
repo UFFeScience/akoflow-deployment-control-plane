@@ -75,6 +75,8 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::get('/organizations/{organizationId}/providers/{providerId}/credentials', [ProviderCredentialController::class, 'index']);
     Route::post('/organizations/{organizationId}/providers/{providerId}/credentials', [ProviderCredentialController::class, 'store']);
     Route::delete('/organizations/{organizationId}/providers/{providerId}/credentials/{credentialId}', [ProviderCredentialController::class, 'destroy']);
+    Route::post('/organizations/{organizationId}/providers/{providerId}/credentials/{credentialId}/health/check', [ProviderCredentialController::class, 'runHealthCheck']);
+    Route::get('/organizations/{organizationId}/providers/{providerId}/credentials/{credentialId}/health/logs', [ProviderCredentialController::class, 'healthLogs']);
 
     // Provider variable schemas (per-provider)
     Route::get('/organizations/{organizationId}/providers/{providerId}/schemas', [ProviderVariableSchemaController::class, 'index']);

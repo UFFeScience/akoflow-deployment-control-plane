@@ -37,6 +37,13 @@ class ProvidersSeeder extends Seeder
                 'type'                => 'HPC',
                 'description'         => 'On-premises HPC deployment managed via Slurm workload manager.',
             ],
+            [
+                'name'                => 'Local',
+                'slug'                => 'local',
+                'default_module_slug' => null,
+                'type'                => 'LOCAL',
+                'description'         => 'Local machine — uses the Docker socket to run containers directly on the host.',
+            ],
         ];
 
         foreach ($providers as $provider) {

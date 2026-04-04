@@ -223,7 +223,13 @@ class TerraformHealthCheckRunnerService
 
         foreach (array_diff(scandir($dir), ['.', '..']) as $item) {
             $path = $dir . '/' . $item;
-            is_dir($path) ? $this->deleteDirectory($path) : unlink($path);
+            // Check symlink first: is_dir() follows symlinks and returns true for
+            // symlinks pointing at directories, but rmdir() cannot remove a symlink.
+            if (is_link($path) || is_file($path)) {
+                unlink($path);
+            } else {
+                $this->deleteDirectory($path);
+            }
         }
 
         rmdir($dir);

@@ -217,6 +217,22 @@ class ProviderSchemasSeeder extends Seeder
                     'default_value' => '01:00:00',
                 ],
             ],
+
+            // ─── Local / Docker ───────────────────────────────────────────────
+            'local' => [
+                [
+                    'section'       => 'connection',
+                    'name'          => 'docker_host',
+                    'label'         => 'Docker Host',
+                    'description'   => 'URL of the Docker daemon socket (e.g. unix:///var/run/docker.sock).',
+                    'type'          => 'string',
+                    'required'      => false,
+                    'is_sensitive'  => false,
+                    'position'      => 1,
+                    'options_json'  => null,
+                    'default_value' => 'unix:///var/run/docker.sock',
+                ],
+            ],
         ];
 
         foreach ($schemasBySlug as $slug => $schemas) {

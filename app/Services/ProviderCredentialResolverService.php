@@ -30,7 +30,37 @@ class ProviderCredentialResolverService
         'service_account_json' => 'GOOGLE_CREDENTIALS',
         'gcp_project_id'       => 'GOOGLE_PROJECT',
         'gcp_region'           => 'GOOGLE_REGION',
+        'docker_host'          => 'DOCKER_HOST',
+        'aws_region'           => 'AWS_DEFAULT_REGION',
     ];
+    /**
+     * Resolve a single credential's values into a flat env-var map.
+     *
+     * Each field produces two entries:
+     *   1. The provider-specific env var (e.g. GOOGLE_CREDENTIALS) via ENV_KEY_OVERRIDES or strtoupper()
+     *   2. A TF_VAR_{field_key} entry so Terraform variable blocks can pick it up without a tfvars file.
+     *
+     * @return array<string, string>
+     */
+    public function resolveForCredential(ProviderCredential $credential): array
+    {
+        $credential->loadMissing('values');
+
+        $env = [];
+        foreach ($credential->values as $value) {
+            $rawKey     = $value->field_key;
+            $fieldValue = (string) $value->field_value;
+
+            $envKey        = self::ENV_KEY_OVERRIDES[$rawKey] ?? strtoupper($rawKey);
+            $env[$envKey]  = $fieldValue;
+
+            // Terraform picks up TF_VAR_* env vars as variable values automatically.
+            $env['TF_VAR_' . $rawKey] = $fieldValue;
+        }
+
+        return $env;
+    }
+
     /**
      * @return array<string, string>  ['ENV_VAR_NAME' => 'value', ...]
      *

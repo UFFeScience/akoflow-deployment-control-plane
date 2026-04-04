@@ -21,6 +21,11 @@ class ProviderVariableSchemaController extends Controller
     public function index(string $organizationId, string $providerId): AnonymousResourceCollection
     {
         $provider = $this->providers->findOrFailById($providerId);
+
+        if (empty($provider->slug)) {
+            return ProviderVariableSchemaResource::collection(collect());
+        }
+
         $schemas = $this->service->handle($provider->slug);
         return ProviderVariableSchemaResource::collection($schemas);
     }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Repositories\ProviderRepository;
 use App\Repositories\ProviderVariableSchemaRepository;
 use App\Models\Provider;
+use Illuminate\Support\Str;
 
 class CreateProviderService
 {
@@ -17,6 +18,10 @@ class CreateProviderService
     {
         $schemas = $data['variable_schemas'] ?? [];
         unset($data['variable_schemas']);
+
+        if (empty($data['slug'])) {
+            $data['slug'] = Str::slug($data['name']);
+        }
 
         /** @var Provider $provider */
         $provider = $this->providers->create($data);

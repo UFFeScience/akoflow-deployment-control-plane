@@ -23,11 +23,12 @@ class CreateProviderCredentialService
 
         return $this->credentials->createWithValues(
             [
-                'provider_id' => $provider->id,
-                'name'        => $data['name'],
-                'slug'        => $slug,
-                'description' => $data['description'] ?? null,
-                'is_active'   => $data['is_active'] ?? true,
+                'provider_id'           => $provider->id,
+                'name'                  => $data['name'],
+                'slug'                  => $slug,
+                'description'           => $data['description'] ?? null,
+                'is_active'             => $data['is_active'] ?? true,
+                'health_check_template' => $data['health_check_template'] ?? null,
             ],
             $data['values'] ?? [],
         );

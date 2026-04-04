@@ -20,7 +20,7 @@ class ProviderCredentialRepository extends BaseRepository
     {
         return $this->model
             ->where('provider_id', $providerId)
-            ->with('values')
+            ->with(['values', 'healthLogs' => fn ($q) => $q->limit(10)])
             ->orderBy('created_at', 'desc')
             ->get();
     }
@@ -65,4 +65,30 @@ class ProviderCredentialRepository extends BaseRepository
         $credential = $this->findByProviderAndIdOrFail($providerId, $credentialId);
         $credential->delete();
     }
+
+    /**
+     * Returns every credential (with provider + values) that has an organisation — used by the health-check sweep.
+     */
+    public function allWithProviderAndValues(): \Illuminate\Database\Eloquent\Collection
+    {
+        return $this->model
+            ->with(['provider', 'values'])
+            ->whereHas('provider', fn ($q) => $q->whereNotNull('organization_id'))
+            ->orderBy('id')
+            ->get();
+    }
+
+    public function updateHealth(string $credentialId, string $status, ?string $message): ProviderCredential
+    {
+        /** @var ProviderCredential $credential */
+        $credential = $this->model->findOrFail($credentialId);
+        $credential->update([
+            'health_status'        => $status,
+            'health_message'       => $message,
+            'last_health_check_at' => now(),
+        ]);
+
+        return $credential->fresh();
+    }
 }
+

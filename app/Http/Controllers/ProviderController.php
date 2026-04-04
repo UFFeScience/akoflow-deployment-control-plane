@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateProviderRequest;
 use App\Http\Requests\UpdateProviderHealthRequest;
+use App\Http\Resources\ProviderCredentialResource;
 use App\Http\Resources\ProviderResource;
 use App\Services\CheckProviderHealthService;
 use App\Services\CreateProviderService;
@@ -50,7 +51,7 @@ class ProviderController extends Controller
 
     public function runHealthCheck(string $organizationId, string $id): JsonResponse
     {
-        $provider = $this->checkHealthService->handle($id, $organizationId);
-        return response()->json(['data' => new ProviderResource($provider)], 201);
+        $credentials = $this->checkHealthService->handle($id, $organizationId);
+        return response()->json(['data' => ProviderCredentialResource::collection($credentials)], 200);
     }
 }

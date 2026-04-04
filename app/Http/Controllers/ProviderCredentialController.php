@@ -3,7 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CreateProviderCredentialRequest;
+use App\Http\Resources\ProviderCredentialHealthLogResource;
 use App\Http\Resources\ProviderCredentialResource;
+use App\Models\ProviderCredential;
+use App\Repositories\ProviderCredentialHealthLogRepository;
+use App\Repositories\ProviderCredentialRepository;
+use App\Services\CheckCredentialHealthService;
 use App\Services\CreateProviderCredentialService;
 use App\Services\DeleteProviderCredentialService;
 use App\Services\ListProviderCredentialsService;
@@ -13,9 +18,12 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 class ProviderCredentialController extends Controller
 {
     public function __construct(
-        protected ListProviderCredentialsService $listService,
-        protected CreateProviderCredentialService $createService,
-        protected DeleteProviderCredentialService $deleteService,
+        protected ListProviderCredentialsService      $listService,
+        protected CreateProviderCredentialService     $createService,
+        protected DeleteProviderCredentialService     $deleteService,
+        protected CheckCredentialHealthService        $checkHealthService,
+        protected ProviderCredentialRepository        $credentialRepository,
+        protected ProviderCredentialHealthLogRepository $logRepository,
     ) {}
 
     public function index(string $organizationId, string $providerId): AnonymousResourceCollection
@@ -34,5 +42,19 @@ class ProviderCredentialController extends Controller
     {
         $this->deleteService->handle($providerId, $credentialId);
         return response()->json(['message' => 'Credential deleted successfully']);
+    }
+
+    public function runHealthCheck(string $organizationId, string $providerId, string $credentialId): ProviderCredentialResource
+    {
+        $credential = $this->credentialRepository->findByProviderAndIdOrFail($providerId, $credentialId);
+        $updated    = $this->checkHealthService->handle($credential);
+        return new ProviderCredentialResource($updated);
+    }
+
+    public function healthLogs(string $organizationId, string $providerId, string $credentialId): AnonymousResourceCollection
+    {
+        $this->credentialRepository->findByProviderAndIdOrFail($providerId, $credentialId);
+        $logs = $this->logRepository->latestByCredential($credentialId);
+        return ProviderCredentialHealthLogResource::collection($logs);
     }
 }

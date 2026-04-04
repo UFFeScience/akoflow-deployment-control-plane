@@ -22,6 +22,13 @@ class SeedOrganizationDefaultProvidersService
             'type'                => 'GCP',
             'description'         => 'Google Cloud Platform — public cloud provider.',
         ],
+        [
+            'name'                => 'Local',
+            'slug'                => 'local',
+            'default_module_slug' => null,
+            'type'                => 'LOCAL',
+            'description'         => 'Local machine — uses the Docker socket to run containers directly on the host.',
+        ],
     ];
 
     public function __construct(
