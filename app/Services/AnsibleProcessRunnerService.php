@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\AnsibleRun;
+use App\Contracts\HasRunLog;
 use RuntimeException;
 
 /**
@@ -29,7 +29,7 @@ class AnsibleProcessRunnerService
      *
      * @throws RuntimeException when the process cannot be started.
      */
-    public function run(string $workspacePath, array $credentialEnv, AnsibleRun $run): int
+    public function run(string $workspacePath, array $credentialEnv, HasRunLog $run): int
     {
         $tempKeyFile = null;
         $env         = $this->buildProcessEnv($credentialEnv, $workspacePath, $tempKeyFile);
@@ -55,7 +55,7 @@ class AnsibleProcessRunnerService
      *
      * @return array<string, mixed>|null
      */
-    public function captureOutputs(string $workspacePath, AnsibleRun $run): ?array
+    public function captureOutputs(string $workspacePath, HasRunLog $run): ?array
     {
         $outputFile = $workspacePath . '/ansible_outputs.json';
 
@@ -124,7 +124,7 @@ class AnsibleProcessRunnerService
         return $env;
     }
 
-    private function installRoles(string $workspacePath, array $env, AnsibleRun $run): void
+    private function installRoles(string $workspacePath, array $env, HasRunLog $run): void
     {
         $run->appendLog('[akocloud] Installing Ansible roles from requirements.yml...');
 
@@ -142,7 +142,7 @@ class AnsibleProcessRunnerService
         }
     }
 
-    private function runPlaybook(string $workspacePath, array $env, AnsibleRun $run): int
+    private function runPlaybook(string $workspacePath, array $env, HasRunLog $run): int
     {
         $run->appendLog('[akocloud] Running ansible-playbook...');
 
@@ -158,7 +158,7 @@ class AnsibleProcessRunnerService
      * Opens a process, streams stdout+stderr line by line to the run log,
      * and returns the exit code.
      */
-    private function streamProcess(string $command, string $cwd, array $env, AnsibleRun $run): int
+    private function streamProcess(string $command, string $cwd, array $env, HasRunLog $run): int
     {
         $descriptors = [
             0 => ['pipe', 'r'],

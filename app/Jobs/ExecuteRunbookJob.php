@@ -27,6 +27,7 @@ class ExecuteRunbookJob implements ShouldQueue
             (int) $data['runbook_id'],
             (int) $data['deployment_id'],
             (string) ($data['triggered_by'] ?? 'system'),
+            isset($data['run_id']) ? (int) $data['run_id'] : null,
         );
     }
 }

@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\EnvironmentNotFoundException;
 use App\Http\Resources\RunbookRunResource;
+use App\Http\Resources\RunLogResource;
 use App\Services\EnvironmentAuthorizationService;
 use App\Services\GetEnvironmentService;
 use App\Services\GetRunbookRunService;
 use App\Services\ListRunbookRunsByDeploymentService;
 use App\Services\ListRunbookRunsService;
+use App\Services\ListRunLogsService;
 use App\Services\ProjectAuthorizationService;
 use App\Services\TriggerRunbookRunService;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +23,7 @@ class RunbookRunController extends Controller
         private ListRunbookRunsByDeploymentService $listRunsByDeployment,
         private TriggerRunbookRunService          $triggerRun,
         private GetRunbookRunService              $getRun,
+        private ListRunLogsService                $listLogs,
         private GetEnvironmentService             $getEnvironment,
         private ProjectAuthorizationService       $projectAuth,
         private EnvironmentAuthorizationService   $environmentAuth,
@@ -74,11 +77,7 @@ class RunbookRunController extends Controller
             return response()->json(['message' => 'No deployment found for this environment.'], 422);
         }
 
-        return response()->json([
-            'message'       => 'Runbook execution queued.',
-            'runbook_name'  => $result['runbook_name'],
-            'deployment_id' => $result['deployment_id'],
-        ], 202);
+        return response()->json(new RunbookRunResource($result['run']), 202);
     }
 
     public function show(string $projectId, string $environmentId, string $runId): JsonResponse
@@ -88,5 +87,15 @@ class RunbookRunController extends Controller
         $run = $this->getRun->handle($runId);
 
         return response()->json(new RunbookRunResource($run));
+    }
+
+    public function logs(string $projectId, string $environmentId, string $runId, Request $request): JsonResponse
+    {
+        $this->projectAuth->assertUserCanAccessProjectById(auth()->user(), (int) $projectId);
+
+        $afterId = $request->query('after_id') ? (int) $request->query('after_id') : null;
+        $logs    = $this->listLogs->handleByRunbookRun($runId, $afterId);
+
+        return response()->json(RunLogResource::collection($logs));
     }
 }

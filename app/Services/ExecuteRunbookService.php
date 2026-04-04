@@ -24,7 +24,7 @@ class ExecuteRunbookService
         private AnsibleProcessRunnerService          $processRunner,
     ) {}
 
-    public function handle(int $runbookId, int $deploymentId, string $triggeredBy = 'system'): RunbookRun
+    public function handle(int $runbookId, int $deploymentId, string $triggeredBy = 'system', ?int $existingRunId = null): RunbookRun
     {
         /** @var EnvironmentTemplateRunbook $runbook */
         $runbook = EnvironmentTemplateRunbook::with('tasks')->findOrFail($runbookId);
@@ -42,14 +42,25 @@ class ExecuteRunbookService
         }
 
         /** @var RunbookRun $run */
-        $run = $this->runRepository->create([
-            'deployment_id' => $deployment->id,
-            'runbook_id'    => $runbook->id,
-            'runbook_name'  => $runbook->name,
-            'status'        => RunbookRun::STATUS_INITIALIZING,
-            'triggered_by'  => $triggeredBy,
-            'started_at'    => now(),
-        ]);
+        $run = $existingRunId
+            ? $this->runRepository->find((string) $existingRunId)
+            : null;
+
+        if (!$run) {
+            $run = $this->runRepository->create([
+                'deployment_id' => $deployment->id,
+                'runbook_id'    => $runbook->id,
+                'runbook_name'  => $runbook->name,
+                'status'        => RunbookRun::STATUS_INITIALIZING,
+                'triggered_by'  => $triggeredBy,
+                'started_at'    => now(),
+            ]);
+        } else {
+            $run->update([
+                'status'     => RunbookRun::STATUS_INITIALIZING,
+                'started_at' => now(),
+            ]);
+        }
 
         try {
             $provider    = $this->providerResolver->resolveFromDeployment($deployment);

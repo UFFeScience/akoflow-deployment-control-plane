@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class RunbookRun extends Model
+use App\Contracts\HasRunLog;
+
+class RunbookRun extends Model implements HasRunLog
 {
     protected $table = 'runbook_runs';
 

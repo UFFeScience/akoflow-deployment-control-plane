@@ -6,7 +6,9 @@ use App\Repositories\RunLogRepository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class AnsibleRun extends Model
+use App\Contracts\HasRunLog;
+
+class AnsibleRun extends Model implements HasRunLog
 {
     protected $table = 'ansible_runs';
 

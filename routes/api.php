@@ -219,6 +219,7 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::get('/projects/{projectId}/environments/{environmentId}/runbook-runs', [RunbookRunController::class, 'index']);
     Route::post('/projects/{projectId}/environments/{environmentId}/runbook-runs', [RunbookRunController::class, 'store']);
     Route::get('/projects/{projectId}/environments/{environmentId}/runbook-runs/{runId}', [RunbookRunController::class, 'show']);
+    Route::get('/projects/{projectId}/environments/{environmentId}/runbook-runs/{runId}/logs', [RunbookRunController::class, 'logs']);
     Route::get('/projects/{projectId}/environments/{environmentId}/deployments/{deploymentId}/runbook-runs', [RunbookRunController::class, 'indexByDeployment']);
 
     Route::get('/environments/{id}/deployments', [DeploymentController::class, 'index']);
