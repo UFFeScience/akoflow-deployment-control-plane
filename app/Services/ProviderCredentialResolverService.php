@@ -32,6 +32,9 @@ class ProviderCredentialResolverService
         'gcp_region'           => 'GOOGLE_REGION',
         'docker_host'          => 'DOCKER_HOST',
         'aws_region'           => 'AWS_DEFAULT_REGION',
+        // Local / on-prem SSH credentials
+        'ssh_private_key'      => 'SSH_PRIVATE_KEY',
+        'ssh_password'         => 'SSH_PASSWORD',
     ];
     /**
      * Resolve a single credential's values into a flat env-var map.
@@ -88,9 +91,15 @@ class ProviderCredentialResolverService
             }
 
             foreach ($credential->values as $value) {
-                $rawKey = $value->field_key;
-                $envKey = self::ENV_KEY_OVERRIDES[$rawKey] ?? strtoupper($rawKey);
-                $env[$envKey] = (string) $value->field_value;
+                $rawKey     = $value->field_key;
+                $fieldValue = (string) $value->field_value;
+
+                $envKey        = self::ENV_KEY_OVERRIDES[$rawKey] ?? strtoupper($rawKey);
+                $env[$envKey]  = $fieldValue;
+
+                // Also inject as TF_VAR_* so Terraform variable blocks pick them up
+                // automatically without requiring a tfvars file entry.
+                $env['TF_VAR_' . $rawKey] = $fieldValue;
             }
         }
 

@@ -101,6 +101,7 @@ class TemplateAnsiblePlaybooksSeeder extends Seeder
     {
         return [
             $this->awsDockerInstall(),
+            $this->localAkoflowInstall(),
         ];
     }
 
@@ -271,6 +272,423 @@ YAML,
                         ['name' => 'Upgrade all packages',      'module' => 'apt'],
                         ['name' => 'Check if reboot is required', 'module' => 'stat'],
                         ['name' => 'Print reboot status',       'module' => 'debug'],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LOCAL — AkôFlow Installer
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function localAkoflowInstall(): array
+    {
+        return [
+            'template_slug'    => 'akoflow-local-installer',
+            'template_version' => '1.0.0',
+            'provider_type'    => 'local',
+            'playbook_slug'    => 'local-akoflow-install',
+
+            // inventory is auto-generated from the ProvisionedResource created by Terraform
+            // (public_ip = host address output by null_resource.verify_host)
+            'inventory_template' => null,
+
+            'playbook_yaml' => <<<'YAML'
+- name: Install AkôFlow on remote host via Docker
+  hosts: all
+  become: false
+  environment:
+    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('') }}"
+  vars:
+    akoflow_port: "{{ akoflow_port | default('8080') }}"
+    akospace_dir: "{{ akospace_dir | default(ansible_env.HOME + '/akospace') }}"
+
+  tasks:
+    - name: Check Docker is installed
+      shell: docker --version
+      register: docker_check
+      changed_when: false
+      failed_when: docker_check.rc != 0
+
+    - name: Create akospace directory
+      file:
+        path: "{{ akospace_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create empty database file if not present
+      file:
+        path: "{{ akospace_dir }}/database.db"
+        state: touch
+        modification_time: preserve
+        access_time: preserve
+
+    - name: Create empty log file if not present
+      file:
+        path: "{{ akospace_dir }}/ako.log"
+        state: touch
+        modification_time: preserve
+        access_time: preserve
+
+    - name: Create .env file (skip if already exists)
+      copy:
+        dest: "{{ akospace_dir }}/.env"
+        content: |
+          AKOFLOW_ENV=dev
+          AKOFLOW_PORT={{ akoflow_port }}
+        force: no
+
+    - name: Get latest AkôFlow release tag
+      shell: >
+        curl -fsSL https://api.github.com/repos/UFFeScience/akoflow/releases/latest
+        | grep tag_name | cut -d '"' -f 4 | sed 's/^v//'
+      register: akoflow_tag
+      changed_when: false
+
+    - name: Detect host architecture
+      command: uname -m
+      register: host_arch
+      changed_when: false
+
+    - name: Set binary architecture
+      set_fact:
+        barch: "{{ 'arm64' if host_arch.stdout in ['aarch64', 'arm64'] else 'amd64' }}"
+
+    - name: Create Docker build directory
+      file:
+        path: /tmp/akoflow-build
+        state: directory
+        mode: '0755'
+
+    - name: Write Dockerfile
+      copy:
+        dest: /tmp/akoflow-build/Dockerfile
+        content: |
+          FROM debian:bookworm-slim
+
+          RUN apt-get update && apt-get install -y \
+              curl \
+              ca-certificates \
+              unzip \
+              sqlite3 \
+              ssh \
+              sshpass \
+              rsync \
+           && rm -rf /var/lib/apt/lists/*
+
+          WORKDIR /app
+
+          RUN set -eux; \
+              TAG={{ akoflow_tag.stdout }}; \
+              BARCH={{ barch }}; \
+              curl -fsSL -o /usr/local/bin/akoflow-server \
+                "https://github.com/UFFeScience/akoflow/releases/download/v${TAG}/akoflow-server_${TAG}_linux_${BARCH}"; \
+              curl -fsSL -o /usr/local/bin/akoflow \
+                "https://github.com/UFFeScience/akoflow/releases/download/v${TAG}/akoflow-client_${TAG}_linux_${BARCH}"; \
+              chmod +x /usr/local/bin/akoflow-server /usr/local/bin/akoflow; \
+              curl -fsSL -o source.zip \
+                "https://github.com/UFFeScience/akoflow/archive/refs/tags/v${TAG}.zip"; \
+              unzip -qq source.zip "akoflow-${TAG}/pkg/server/engine/httpserver/handlers/akoflow_admin_handler/*"; \
+              unzip -qq source.zip "akoflow-${TAG}/pkg/server/scripts/*"; \
+              mkdir -p /app/pkg/server/engine/httpserver/handlers; \
+              mv "akoflow-${TAG}/pkg/server/engine/httpserver/handlers/akoflow_admin_handler" \
+                /app/pkg/server/engine/httpserver/handlers/; \
+              mv "akoflow-${TAG}/pkg/server/scripts/" /app/pkg/server/; \
+              rm -rf "akoflow-${TAG}" source.zip; \
+              echo "${TAG}" > /app/AKOFLOW_VERSION
+
+          EXPOSE 8080
+
+          ENTRYPOINT ["/bin/sh", "-c", "exec akoflow-server"]
+
+    - name: Create temporary Docker config dir
+      file:
+        path: /tmp/docker-config-akoflow
+        state: directory
+        mode: '0700'
+
+    - name: Create temporary Docker config (disable keychain for non-interactive SSH)
+      copy:
+        dest: /tmp/docker-config-akoflow/config.json
+        content: '{"credsStore":""}'
+        mode: '0600'
+      vars:
+        ansible_become: false
+
+    - name: Build AkôFlow Docker image
+      shell: DOCKER_CONFIG=/tmp/docker-config-akoflow docker build -t akoflow-installer /tmp/akoflow-build --no-cache
+
+    - name: Stop existing AkôFlow container (if running)
+      shell: docker rm -f akoflow-installer 2>/dev/null || true
+      changed_when: false
+
+    - name: Run AkôFlow container
+      shell: |
+        docker run -d \
+          --name akoflow-installer \
+          --restart unless-stopped \
+          -p {{ akoflow_port }}:8080 \
+          -v "{{ akospace_dir }}/.env:/app/.env" \
+          -v "{{ akospace_dir }}/ako.log:/app/ako.log" \
+          -v "{{ akospace_dir }}/database.db:/storage/database.db" \
+          akoflow-installer
+
+    - name: Write ansible_outputs.json
+      copy:
+        dest: /tmp/ansible_outputs.json
+        content: |
+          {
+            "akoflow_version": "{{ akoflow_tag.stdout }}",
+            "akoflow_url": "http://localhost:{{ akoflow_port }}"
+          }
+YAML,
+
+            'vars_mapping_json' => [
+                'environment_configuration' => [
+                    'ssh_user'     => 'ansible_user',
+                    'akoflow_port' => 'akoflow_port',
+                    'akospace_dir' => 'akospace_dir',
+                ],
+            ],
+
+            'outputs_mapping_json' => [
+                'resources' => [
+                    [
+                        'name'                  => 'akoflow-host',
+                        'ansible_resource_type' => 'akoflow_install',
+                        'outputs'               => [
+                            'metadata' => [
+                                'akoflow_version' => 'akoflow_version',
+                                'akoflow_url'     => 'akoflow_url',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+
+            'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
+
+            'roles_json' => [],
+
+            'tasks' => [
+                ['name' => 'Check Docker is installed',           'module' => 'shell'],
+                ['name' => 'Create akospace directory',           'module' => 'file'],
+                ['name' => 'Create empty database file if not present', 'module' => 'file'],
+                ['name' => 'Create empty log file if not present', 'module' => 'file'],
+                ['name' => 'Create .env file (skip if already exists)', 'module' => 'copy'],
+                ['name' => 'Get latest AkôFlow release tag',      'module' => 'shell'],
+                ['name' => 'Detect host architecture',            'module' => 'command'],
+                ['name' => 'Set binary architecture',             'module' => 'set_fact'],
+                ['name' => 'Create Docker build directory',       'module' => 'file'],
+                ['name' => 'Write Dockerfile',                    'module' => 'copy'],
+                ['name' => 'Create temporary Docker config dir',   'module' => 'file'],
+                ['name' => 'Create temporary Docker config (disable keychain for non-interactive SSH)', 'module' => 'copy'],
+                ['name' => 'Build AkôFlow Docker image',          'module' => 'shell'],
+                ['name' => 'Stop existing AkôFlow container (if running)', 'module' => 'shell'],
+                ['name' => 'Run AkôFlow container',               'module' => 'shell'],
+                ['name' => 'Write ansible_outputs.json',          'module' => 'copy'],
+            ],
+
+            'runbooks' => [
+
+                // ── Restart container ─────────────────────────────────────────
+                [
+                    'name'        => 'Restart AkôFlow',
+                    'description' => 'Stops and restarts the akoflow-installer container on the host.',
+                    'position'    => 0,
+                    'playbook_yaml' => <<<'YAML'
+- name: Restart AkôFlow container
+  hosts: all
+  become: false
+  environment:
+    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('') }}"
+
+  tasks:
+    - name: Restart akoflow-installer container
+      shell: docker restart akoflow-installer
+YAML,
+                    'vars_mapping_json'   => ['environment_configuration' => ['ssh_user' => 'ansible_user']],
+                    'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
+                    'tasks' => [
+                        ['name' => 'Restart akoflow-installer container', 'module' => 'shell'],
+                    ],
+                ],
+
+                // ── Stop container ────────────────────────────────────────────
+                [
+                    'name'        => 'Stop AkôFlow',
+                    'description' => 'Stops the akoflow-installer container.',
+                    'position'    => 1,
+                    'playbook_yaml' => <<<'YAML'
+- name: Stop AkôFlow container
+  hosts: all
+  become: false
+  environment:
+    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('') }}"
+
+  tasks:
+    - name: Stop akoflow-installer container
+      shell: docker stop akoflow-installer || true
+YAML,
+                    'vars_mapping_json'   => ['environment_configuration' => ['ssh_user' => 'ansible_user']],
+                    'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
+                    'tasks' => [
+                        ['name' => 'Stop akoflow-installer container', 'module' => 'shell'],
+                    ],
+                ],
+
+                // ── View logs ─────────────────────────────────────────────────
+                [
+                    'name'        => 'View AkôFlow Logs',
+                    'description' => 'Tails the last 100 lines of the AkôFlow container logs.',
+                    'position'    => 2,
+                    'playbook_yaml' => <<<'YAML'
+- name: View AkôFlow logs
+  hosts: all
+  become: false
+  environment:
+    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('') }}"
+
+  tasks:
+    - name: Tail container logs
+      shell: docker logs --tail=100 akoflow-installer
+      register: container_logs
+      changed_when: false
+
+    - name: Print logs
+      debug:
+        msg: "{{ container_logs.stdout_lines }}"
+YAML,
+                    'vars_mapping_json'   => ['environment_configuration' => ['ssh_user' => 'ansible_user']],
+                    'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
+                    'tasks' => [
+                        ['name' => 'Tail container logs', 'module' => 'shell'],
+                        ['name' => 'Print logs',          'module' => 'debug'],
+                    ],
+                ],
+
+                // ── Update (rebuild + restart) ────────────────────────────────
+                [
+                    'name'        => 'Update AkôFlow',
+                    'description' => 'Downloads the latest AkôFlow release, rebuilds the Docker image and restarts the container.',
+                    'position'    => 3,
+                    'playbook_yaml' => <<<'YAML'
+- name: Update AkôFlow to latest release
+  hosts: all
+  become: false
+  environment:
+    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('') }}"
+  vars:
+    akoflow_port: "{{ akoflow_port | default('8080') }}"
+    akospace_dir: "{{ akospace_dir | default(ansible_env.HOME + '/akospace') }}"
+
+  tasks:
+    - name: Get latest AkôFlow release tag
+      shell: >
+        curl -fsSL https://api.github.com/repos/UFFeScience/akoflow/releases/latest
+        | grep tag_name | cut -d '"' -f 4 | sed 's/^v//'
+      register: akoflow_tag
+      changed_when: false
+
+    - name: Detect host architecture
+      command: uname -m
+      register: host_arch
+      changed_when: false
+
+    - name: Set binary architecture
+      set_fact:
+        barch: "{{ 'arm64' if host_arch.stdout in ['aarch64', 'arm64'] else 'amd64' }}"
+
+    - name: Write updated Dockerfile
+      copy:
+        dest: /tmp/akoflow-build/Dockerfile
+        content: |
+          FROM debian:bookworm-slim
+
+          RUN apt-get update && apt-get install -y \
+              curl \
+              ca-certificates \
+              unzip \
+              sqlite3 \
+              ssh \
+              sshpass \
+              rsync \
+           && rm -rf /var/lib/apt/lists/*
+
+          WORKDIR /app
+
+          RUN set -eux; \
+              TAG={{ akoflow_tag.stdout }}; \
+              BARCH={{ barch }}; \
+              curl -fsSL -o /usr/local/bin/akoflow-server \
+                "https://github.com/UFFeScience/akoflow/releases/download/v${TAG}/akoflow-server_${TAG}_linux_${BARCH}"; \
+              curl -fsSL -o /usr/local/bin/akoflow \
+                "https://github.com/UFFeScience/akoflow/releases/download/v${TAG}/akoflow-client_${TAG}_linux_${BARCH}"; \
+              chmod +x /usr/local/bin/akoflow-server /usr/local/bin/akoflow; \
+              curl -fsSL -o source.zip \
+                "https://github.com/UFFeScience/akoflow/archive/refs/tags/v${TAG}.zip"; \
+              unzip -qq source.zip "akoflow-${TAG}/pkg/server/engine/httpserver/handlers/akoflow_admin_handler/*"; \
+              unzip -qq source.zip "akoflow-${TAG}/pkg/server/scripts/*"; \
+              mkdir -p /app/pkg/server/engine/httpserver/handlers; \
+              mv "akoflow-${TAG}/pkg/server/engine/httpserver/handlers/akoflow_admin_handler" \
+                /app/pkg/server/engine/httpserver/handlers/; \
+              mv "akoflow-${TAG}/pkg/server/scripts/" /app/pkg/server/; \
+              rm -rf "akoflow-${TAG}" source.zip; \
+              echo "${TAG}" > /app/AKOFLOW_VERSION
+
+          EXPOSE 8080
+
+          ENTRYPOINT ["/bin/sh", "-c", "exec akoflow-server"]
+
+    - name: Create temporary Docker config dir
+      file:
+        path: /tmp/docker-config-akoflow
+        state: directory
+        mode: '0700'
+
+    - name: Create temporary Docker config (disable keychain)
+      copy:
+        dest: /tmp/docker-config-akoflow/config.json
+        content: '{"credsStore":""}'
+        mode: '0600'
+
+    - name: Rebuild AkôFlow Docker image
+      shell: DOCKER_CONFIG=/tmp/docker-config-akoflow docker build -t akoflow-installer /tmp/akoflow-build --no-cache
+
+    - name: Stop existing container
+      shell: docker rm -f akoflow-installer 2>/dev/null || true
+      changed_when: false
+
+    - name: Start updated container
+      shell: |
+        docker run -d \
+          --name akoflow-installer \
+          --restart unless-stopped \
+          -p {{ akoflow_port }}:8080 \
+          -v "{{ akospace_dir }}/.env:/app/.env" \
+          -v "{{ akospace_dir }}/ako.log:/app/ako.log" \
+          -v "{{ akospace_dir }}/database.db:/storage/database.db" \
+          akoflow-installer
+YAML,
+                    'vars_mapping_json' => [
+                        'environment_configuration' => [
+                            'ssh_user'     => 'ansible_user',
+                            'akoflow_port' => 'akoflow_port',
+                            'akospace_dir' => 'akospace_dir',
+                        ],
+                    ],
+                    'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
+                    'tasks' => [
+                        ['name' => 'Get latest AkôFlow release tag',  'module' => 'shell'],
+                        ['name' => 'Detect host architecture',         'module' => 'command'],
+                        ['name' => 'Set binary architecture',          'module' => 'set_fact'],
+                        ['name' => 'Write updated Dockerfile',         'module' => 'copy'],
+                        ['name' => 'Create temporary Docker config dir', 'module' => 'file'],
+                        ['name' => 'Create temporary Docker config (disable keychain)', 'module' => 'copy'],
+                        ['name' => 'Rebuild AkôFlow Docker image',     'module' => 'shell'],
+                        ['name' => 'Stop existing container',          'module' => 'shell'],
+                        ['name' => 'Start updated container',          'module' => 'shell'],
                     ],
                 ],
             ],

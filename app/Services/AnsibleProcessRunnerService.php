@@ -117,6 +117,12 @@ class AnsibleProcessRunnerService
             unset($credentialEnv['SSH_PRIVATE_KEY']);
         }
 
+        if (isset($credentialEnv['SSH_PASSWORD']) && $credentialEnv['SSH_PASSWORD'] !== '') {
+            // Inject ansible_ssh_pass into extra_vars.json so Ansible uses password auth.
+            $this->injectExtraVar($workspacePath, 'ansible_ssh_pass', $credentialEnv['SSH_PASSWORD']);
+            unset($credentialEnv['SSH_PASSWORD']);
+        }
+
         foreach ($credentialEnv as $key => $value) {
             $env[$key] = $value;
         }
@@ -151,6 +157,26 @@ class AnsibleProcessRunnerService
             $workspacePath,
             $env,
             $run,
+        );
+    }
+
+    /**
+     * Merges a single key-value pair into extra_vars.json.
+     * Called before the Ansible process starts to inject credential-derived vars
+     * (e.g. ansible_ssh_pass) that cannot be set via process-level env vars.
+     */
+    private function injectExtraVar(string $workspacePath, string $key, string $value): void
+    {
+        $extraVarsFile = $workspacePath . '/extra_vars.json';
+        $data = file_exists($extraVarsFile)
+            ? (json_decode((string) file_get_contents($extraVarsFile), true) ?? [])
+            : [];
+
+        $data[$key] = $value;
+
+        file_put_contents(
+            $extraVarsFile,
+            json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
         );
     }
 

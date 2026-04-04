@@ -65,6 +65,7 @@ class TemplateTerraformModulesSeeder extends Seeder
             // $this->gcpUbuntuDockerGke(),
             $this->akoflowMulticloud(),
             $this->awsDockerAnsible(),
+            $this->localAkoflowInstaller(),
         ];
     }
 
@@ -285,6 +286,49 @@ class TemplateTerraformModulesSeeder extends Seeder
                             'metadata'             => [
                                 'security_group_id' => 'security_group_id',
                                 'resolved_ami'      => 'resolved_ami',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private function localAkoflowInstaller(): array
+    {
+        return [
+            'template_slug'    => 'akoflow-local-installer',
+            'template_version' => '1.0.0',
+            'provider_type'    => 'local',
+            'module_slug'      => 'akoflow-local-installer',
+            'main_tf'          => $this->readTerraformFile('akoflow_local_installer/main.tf'),
+            'variables_tf'     => $this->readTerraformFile('akoflow_local_installer/variables.tf'),
+            'outputs_tf'       => $this->readTerraformFile('akoflow_local_installer/outputs.tf'),
+
+            // akoflow_port comes from environment config; host/user/ssh_* come from
+            // credential env vars (TF_VAR_host, TF_VAR_user, TF_VAR_ssh_password,
+            // TF_VAR_ssh_private_key) injected by ProviderCredentialResolverService.
+            'tfvars_mapping_json' => [
+                'environment_configuration' => [
+                    'akoflow_port' => 'akoflow_port',
+                ],
+                'instance_configurations' => [],
+            ],
+
+            'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
+
+            'outputs_mapping_json' => [
+                'resources' => [
+                    [
+                        'name'           => 'akoflow-host',
+                        'terraform_type' => 'null_resource',
+                        'outputs'        => [
+                            'provider_resource_id' => 'host',
+                            'public_ip'            => 'host',
+                            'private_ip'           => 'host',
+                            'iframe_url'           => 'akoflow_url',
+                            'metadata'             => [
+                                'akoflow_url' => 'akoflow_url',
                             ],
                         ],
                     ],

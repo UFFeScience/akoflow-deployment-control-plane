@@ -6,6 +6,7 @@ use App\Models\EnvironmentTemplate;
 use App\Models\EnvironmentTemplateVersion;
 use App\Models\Organization;
 use Database\Seeders\Development\TemplateDefinitions\AkoFlowEngineK8sDefinition;
+use Database\Seeders\Development\TemplateDefinitions\AkoflowLocalInstallerDefinition;
 use Database\Seeders\Development\TemplateDefinitions\AkoflowMulticloudDefinition;
 use Database\Seeders\Development\TemplateDefinitions\AwsDockerAnsibleDefinition;
 use Database\Seeders\Development\TemplateDefinitions\AwsUbuntuDockerEksDefinition;
@@ -51,6 +52,17 @@ class TemplatesSeeder extends Seeder
                 'owner_organization_id' => $organizationId,
                 'version'               => '1.0.0',
                 'definition'            => AwsDockerAnsibleDefinition::get(),
+            ],
+            [
+                'slug'                  => 'akoflow-local-installer',
+                'name'                  => 'AkôFlow Local Installer (SSH)',
+                'description'           => 'Connects to an existing host via SSH, verifies Docker is installed, '
+                    . 'builds the AkôFlow Docker image and runs it on the configured port. '
+                    . 'Supports password or private-key SSH authentication.',
+                'is_public'             => true,
+                'owner_organization_id' => $organizationId,
+                'version'               => '1.0.0',
+                'definition'            => AkoflowLocalInstallerDefinition::get(),
             ],
         ];
     }
