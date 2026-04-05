@@ -22,7 +22,7 @@ use RuntimeException;
 class TerraformHealthCheckRunnerService
 {
     private const BASE_DIR  = 'terraform/health-check';
-    private const CACHE_DIR = 'terraform/.plugin-cache';
+    private const CACHE_DIR = '.terraform-plugin-cache';
 
     /**
      * @param  string                         $providerId
@@ -77,7 +77,7 @@ class TerraformHealthCheckRunnerService
 
     private function executeCheck(string $workspaceDir, array $credentialEnv): array
     {
-        $env = $this->buildProcessEnv($credentialEnv);
+        $env = $this->buildProcessEnv($workspaceDir, $credentialEnv);
 
         // Step 1: terraform init (downloads providers into plugin cache)
         [$initLog, $initCode] = $this->runTerraformCommand(
@@ -124,9 +124,9 @@ class TerraformHealthCheckRunnerService
      * @param  array<string, string>  $credentialEnv
      * @return array<string, string>
      */
-    private function buildProcessEnv(array $credentialEnv): array
+    private function buildProcessEnv(string $workspaceDir, array $credentialEnv): array
     {
-        $cacheDir = storage_path('app/' . self::CACHE_DIR);
+        $cacheDir = $workspaceDir . '/' . self::CACHE_DIR;
         if (!is_dir($cacheDir)) {
             mkdir($cacheDir, 0755, true);
         }

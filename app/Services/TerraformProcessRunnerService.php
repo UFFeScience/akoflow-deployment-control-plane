@@ -17,7 +17,7 @@ use RuntimeException;
  */
 class TerraformProcessRunnerService
 {
-    private const CACHE_DIR = 'terraform/.plugin-cache';
+    private const CACHE_DIR = '.terraform-plugin-cache';
 
     /**
      * @param  string                 $workspacePath  Absolute path to the Terraform workspace.
@@ -30,7 +30,7 @@ class TerraformProcessRunnerService
      */
     public function run(string $workspacePath, string $action, array $credentialEnv, TerraformRun $run): int
     {
-        $env = $this->buildProcessEnv($credentialEnv);
+        $env = $this->buildProcessEnv($workspacePath, $credentialEnv);
 
         if ($action === TerraformRun::ACTION_DESTROY) {
             $this->refreshProviderInodes($workspacePath, $run);
@@ -53,7 +53,7 @@ class TerraformProcessRunnerService
     {
         $run->appendLog('[akocloud] Capturing terraform outputs...');
 
-        $env     = $this->buildProcessEnv($credentialEnv);
+        $env     = $this->buildProcessEnv($workspacePath, $credentialEnv);
         $process = proc_open(
             'terraform output -json',
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
@@ -261,9 +261,9 @@ class TerraformProcessRunnerService
      * @param  array<string, string>  $credentialEnv
      * @return array<string, string>
      */
-    private function buildProcessEnv(array $credentialEnv): array
+    private function buildProcessEnv(string $workspacePath, array $credentialEnv): array
     {
-        $cacheDir = storage_path('app/' . self::CACHE_DIR);
+        $cacheDir = $workspacePath . '/' . self::CACHE_DIR;
         if (!is_dir($cacheDir)) {
             mkdir($cacheDir, 0755, true);
         }
