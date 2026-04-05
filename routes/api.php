@@ -74,6 +74,7 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     // Provider credentials
     Route::get('/organizations/{organizationId}/providers/{providerId}/credentials', [ProviderCredentialController::class, 'index']);
     Route::post('/organizations/{organizationId}/providers/{providerId}/credentials', [ProviderCredentialController::class, 'store']);
+    Route::patch('/organizations/{organizationId}/providers/{providerId}/credentials/{credentialId}', [ProviderCredentialController::class, 'update']);
     Route::delete('/organizations/{organizationId}/providers/{providerId}/credentials/{credentialId}', [ProviderCredentialController::class, 'destroy']);
     Route::post('/organizations/{organizationId}/providers/{providerId}/credentials/{credentialId}/health/check', [ProviderCredentialController::class, 'runHealthCheck']);
     Route::get('/organizations/{organizationId}/providers/{providerId}/credentials/{credentialId}/health/logs', [ProviderCredentialController::class, 'healthLogs']);

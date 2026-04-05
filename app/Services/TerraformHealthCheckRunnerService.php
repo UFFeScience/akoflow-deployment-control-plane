@@ -89,7 +89,7 @@ class TerraformHealthCheckRunnerService
         if ($initCode !== 0) {
             return [
                 'healthy' => false,
-                'message' => 'Terraform init failed: ' . $this->extractError($initLog),
+                'message' => $initLog,
             ];
         }
 
@@ -113,7 +113,7 @@ class TerraformHealthCheckRunnerService
 
         return [
             'healthy' => false,
-            'message' => 'Terraform health check failed: ' . $this->extractError($applyLog),
+            'message' => $applyLog,
         ];
     }
 
@@ -145,6 +145,8 @@ class TerraformHealthCheckRunnerService
 
     /**
      * Runs a Terraform command in the given directory with the specified environment.
+     * Uses non-blocking I/O with stream_select to prevent deadlocks from full pipe buffers
+     * and enforces a hard timeout to prevent infinite hangs (e.g. SSH waiting forever).
      *
      * @param  string[]             $cmd
      * @param  array<string,string> $env
@@ -165,8 +167,53 @@ class TerraformHealthCheckRunnerService
         }
 
         fclose($pipes[0]);
-        $stdout   = stream_get_contents($pipes[1]);
-        $stderr   = stream_get_contents($pipes[2]);
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+
+        $stdout   = '';
+        $stderr   = '';
+        $deadline = time() + 30; // 30-second hard timeout
+
+        while (true) {
+            $read    = [$pipes[1], $pipes[2]];
+            $write   = null;
+            $except  = null;
+            $changed = stream_select($read, $write, $except, 1);
+
+            if ($changed === false) {
+                break;
+            }
+
+            foreach ($read as $stream) {
+                $chunk = fread($stream, 8192);
+                if ($chunk !== false && $chunk !== '') {
+                    if ($stream === $pipes[1]) {
+                        $stdout .= $chunk;
+                    } else {
+                        $stderr .= $chunk;
+                    }
+                }
+            }
+
+            // Check if both pipes are exhausted
+            if (feof($pipes[1]) && feof($pipes[2])) {
+                break;
+            }
+
+            // Hard timeout: kill process if it runs too long
+            if (time() >= $deadline) {
+                proc_terminate($process, 9);
+                fclose($pipes[1]);
+                fclose($pipes[2]);
+                proc_close($process);
+
+                return [
+                    $stdout . "\n" . $stderr . "\nError: Terraform process timed out after 30 seconds.",
+                    1,
+                ];
+            }
+        }
+
         fclose($pipes[1]);
         fclose($pipes[2]);
         $exitCode = proc_close($process);

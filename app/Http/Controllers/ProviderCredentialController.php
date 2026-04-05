@@ -12,6 +12,7 @@ use App\Services\CheckCredentialHealthService;
 use App\Services\CreateProviderCredentialService;
 use App\Services\DeleteProviderCredentialService;
 use App\Services\ListProviderCredentialsService;
+use App\Services\UpdateProviderCredentialService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -20,6 +21,7 @@ class ProviderCredentialController extends Controller
     public function __construct(
         protected ListProviderCredentialsService      $listService,
         protected CreateProviderCredentialService     $createService,
+        protected UpdateProviderCredentialService     $updateService,
         protected DeleteProviderCredentialService     $deleteService,
         protected CheckCredentialHealthService        $checkHealthService,
         protected ProviderCredentialRepository        $credentialRepository,
@@ -36,6 +38,13 @@ class ProviderCredentialController extends Controller
     {
         $credential = $this->createService->handle($providerId, $request->validated());
         return new ProviderCredentialResource($credential);
+    }
+
+    public function update(string $organizationId, string $providerId, string $credentialId, CreateProviderCredentialRequest $request): ProviderCredentialResource
+    {
+        $credential = $this->credentialRepository->findByProviderAndIdOrFail($providerId, $credentialId);
+        $updated    = $this->updateService->handle($credential, $request->validated());
+        return new ProviderCredentialResource($updated);
     }
 
     public function destroy(string $organizationId, string $providerId, string $credentialId): JsonResponse

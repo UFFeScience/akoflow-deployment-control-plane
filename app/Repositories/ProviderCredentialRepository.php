@@ -41,6 +41,33 @@ class ProviderCredentialRepository extends BaseRepository
         return $credential->load('values');
     }
 
+    /**
+     * Update a credential's top-level fields and upsert its values.
+     * Sensitive fields that arrive as empty strings are skipped — the existing
+     * DB row is preserved so that masked API responses don't overwrite real secrets.
+     */
+    public function updateWithValues(ProviderCredential $credential, array $credentialData, array $values): ProviderCredential
+    {
+        $credential->update(array_filter($credentialData, fn ($v) => $v !== null));
+
+        foreach ($values as $fieldKey => $fieldValue) {
+            // Skip empty sensitive values — user likely didn't retype a masked field
+            if ($fieldValue === '' || $fieldValue === null) {
+                $existingRow = $credential->values()->where('field_key', $fieldKey)->first();
+                if ($existingRow && (string) $existingRow->field_value !== '') {
+                    continue;
+                }
+            }
+
+            $credential->values()->updateOrCreate(
+                ['field_key' => $fieldKey],
+                ['field_value' => $fieldValue],
+            );
+        }
+
+        return $credential->load('values');
+    }
+
     public function findByProviderAndId(string $providerId, string $credentialId): ?ProviderCredential
     {
         return $this->model
