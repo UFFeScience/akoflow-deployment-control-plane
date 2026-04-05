@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\AnsibleRun;
 use App\Models\Deployment;
 use App\Models\Environment;
 use App\Models\TerraformRun;
+use App\Repositories\AnsibleRunRepository;
 use App\Repositories\DeploymentRepository;
 use App\Repositories\EnvironmentRepository;
 use App\Repositories\ProvisionedResourceRepository;
@@ -21,6 +23,9 @@ class DestroyEnvironmentService
         private ProviderCredentialResolverService    $credentialResolver,
         private TerraformProcessRunnerService        $processRunner,
         private ProvisionedResourceRepository        $provisionedResources,
+        private AnsibleWorkspaceService              $ansibleWorkspace,
+        private AnsibleProcessRunnerService          $ansibleRunner,
+        private AnsibleRunRepository                 $ansibleRunRepository,
     ) {}
 
     public function handle(int $environmentId, ?int $deploymentId = null): ?TerraformRun
@@ -67,6 +72,10 @@ class DestroyEnvironmentService
             $provider    = $this->providerResolver->resolveFromDeployment($deployment);
             $credentials = $this->credentialResolver->resolve($deployment);
 
+            // ── Phase 1: Ansible teardown (optional) ──────────────────────────
+            $this->runAnsibleTeardown($environment, $deployment, $provider->type, $credentials, $run);
+
+            // ── Phase 2: Terraform destroy ────────────────────────────────────
             $run->appendLog("[akocloud] Destroying workspace: {$run->workspace_path}");
             $run->appendLog("[akocloud] Provider: {$provider->name} (slug: {$provider->slug})");
 
@@ -118,5 +127,59 @@ class DestroyEnvironmentService
         }
 
         return $run->fresh();
+    }
+
+    private function runAnsibleTeardown(
+        Environment $environment,
+        Deployment  $deployment,
+        string      $providerType,
+        array       $credentials,
+        TerraformRun $terraformRun,
+    ): void {
+        try {
+            $workspace = $this->ansibleWorkspace->buildForTeardown($environment, $deployment, $providerType);
+        } catch (\Throwable $e) {
+            $terraformRun->appendLog('[akocloud] No teardown Ansible playbook configured — skipping.');
+            return;
+        }
+
+        if ($workspace === null) {
+            $terraformRun->appendLog('[akocloud] No teardown Ansible playbook configured — skipping.');
+            return;
+        }
+
+        $terraformRun->appendLog('[akocloud] ── Ansible teardown starting ──');
+
+        $ansibleRun = $this->ansibleRunRepository->create([
+            'deployment_id' => $deployment->id,
+            'action'        => AnsibleRun::ACTION_TEARDOWN,
+            'status'        => AnsibleRun::STATUS_RUNNING,
+            'provider_type' => $providerType,
+            'workspace_path' => $workspace['workspace_path'],
+            'extra_vars_json' => $workspace['extra_vars'],
+            'inventory_ini'   => $workspace['inventory_ini'],
+            'started_at'      => now(),
+        ]);
+
+        try {
+            $exitCode = $this->ansibleRunner->run($workspace['workspace_path'], $credentials, $ansibleRun);
+
+            if ($exitCode !== 0) {
+                throw new \RuntimeException("Ansible teardown exited with code {$exitCode}.");
+            }
+
+            $ansibleRun->update(['status' => AnsibleRun::STATUS_COMPLETED, 'finished_at' => now()]);
+            $terraformRun->appendLog('[akocloud] Ansible teardown completed successfully.');
+        } catch (\Throwable $e) {
+            $ansibleRun->update(['status' => AnsibleRun::STATUS_FAILED, 'finished_at' => now()]);
+            // Log but do NOT abort the Terraform destroy — teardown failure is non-fatal
+            $terraformRun->appendLog('[akocloud][WARN] Ansible teardown failed: ' . $e->getMessage());
+            $terraformRun->appendLog('[akocloud][WARN] Continuing with Terraform destroy.');
+            Log::warning('Ansible teardown failed during destroy', [
+                'environment_id' => $environment->id,
+                'deployment_id'  => $deployment->id,
+                'error'          => $e->getMessage(),
+            ]);
+        }
     }
 }

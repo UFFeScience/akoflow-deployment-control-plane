@@ -32,7 +32,7 @@ class TemplateAnsiblePlaybooksSeeder extends Seeder
             );
 
             $playbook = EnvironmentTemplateAnsiblePlaybook::updateOrCreate(
-                ['provider_configuration_id' => $config->id],
+                ['provider_configuration_id' => $config->id, 'phase' => 'provision'],
                 [
                     'playbook_slug'        => $entry['playbook_slug'],
                     'playbook_yaml'        => $entry['playbook_yaml'],
@@ -43,6 +43,22 @@ class TemplateAnsiblePlaybooksSeeder extends Seeder
                     'roles_json'           => $entry['roles_json'] ?? [],
                 ],
             );
+
+            // Seed optional teardown playbook
+            if (!empty($entry['teardown_playbook_yaml'])) {
+                EnvironmentTemplateAnsiblePlaybook::updateOrCreate(
+                    ['provider_configuration_id' => $config->id, 'phase' => 'teardown'],
+                    [
+                        'playbook_slug'        => ($entry['playbook_slug'] ?? '') . '-teardown',
+                        'playbook_yaml'        => $entry['teardown_playbook_yaml'],
+                        'inventory_template'   => $entry['teardown_inventory_template'] ?? $entry['inventory_template'] ?? null,
+                        'vars_mapping_json'    => $entry['teardown_vars_mapping_json'] ?? $entry['vars_mapping_json'],
+                        'outputs_mapping_json' => [],
+                        'credential_env_keys'  => $entry['credential_env_keys'],
+                        'roles_json'           => $entry['teardown_roles_json'] ?? [],
+                    ],
+                );
+            }
 
             // Seed structured tasks for this playbook (idempotent: clear + re-insert)
             if (!empty($entry['tasks'])) {
@@ -470,6 +486,33 @@ YAML,
             'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
 
             'roles_json' => [],
+
+            'teardown_playbook_yaml' => <<<'YAML'
+- name: Teardown AkôFlow on remote host
+  hosts: all
+  become: false
+  environment:
+    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('') }}"
+
+  tasks:
+    - name: Stop AkôFlow container
+      shell: docker stop akoflow-installer 2>/dev/null || true
+      changed_when: false
+
+    - name: Remove AkôFlow container
+      shell: docker rm akoflow-installer 2>/dev/null || true
+      changed_when: false
+
+    - name: Remove AkôFlow Docker image
+      shell: docker rmi akoflow-installer 2>/dev/null || true
+      changed_when: false
+YAML,
+
+            'teardown_vars_mapping_json' => [
+                'environment_configuration' => [
+                    'ssh_user' => 'ansible_user',
+                ],
+            ],
 
             'tasks' => [
                 ['name' => 'Check Docker is installed',           'module' => 'shell'],

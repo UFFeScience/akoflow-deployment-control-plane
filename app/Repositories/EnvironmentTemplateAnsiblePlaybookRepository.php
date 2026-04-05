@@ -12,17 +12,20 @@ class EnvironmentTemplateAnsiblePlaybookRepository extends BaseRepository
         parent::__construct(new EnvironmentTemplateAnsiblePlaybook());
     }
 
-    public function findByConfigurationId(string $configId): ?EnvironmentTemplateAnsiblePlaybook
+    public function findByConfigurationId(string $configId, string $phase = 'provision'): ?EnvironmentTemplateAnsiblePlaybook
     {
-        return EnvironmentTemplateAnsiblePlaybook::where('provider_configuration_id', $configId)->first();
+        return EnvironmentTemplateAnsiblePlaybook::where('provider_configuration_id', $configId)
+            ->where('phase', $phase)
+            ->first();
     }
 
-    public function upsertForConfiguration(string $configId, array $data): EnvironmentTemplateAnsiblePlaybook
+    public function upsertForConfiguration(string $configId, array $data, string $phase = 'provision'): EnvironmentTemplateAnsiblePlaybook
     {
         $data['provider_configuration_id'] = $configId;
+        $data['phase']                     = $phase;
 
         return EnvironmentTemplateAnsiblePlaybook::updateOrCreate(
-            ['provider_configuration_id' => $configId],
+            ['provider_configuration_id' => $configId, 'phase' => $phase],
             $data,
         );
     }

@@ -25,7 +25,7 @@ class EnvironmentTemplateProviderConfigurationController extends Controller
     public function store(string $templateId, string $versionId, Request $request): JsonResponse
     {
         $config = $this->upsertService->createConfig($versionId, $request->all());
-        $config->load(['terraformModule', 'ansiblePlaybook']);
+        $config->load(['terraformModule', 'ansiblePlaybook', 'teardownPlaybook']);
         return response()->json(new TemplateProviderConfigurationResource($config), 201);
     }
 
@@ -71,7 +71,7 @@ class EnvironmentTemplateProviderConfigurationController extends Controller
             return response()->json(['message' => 'Provider configuration not found.'], 404);
         }
         $this->upsertService->upsertAnsible($configId, $request->all());
-        $config->load(['terraformModule', 'ansiblePlaybook']);
+        $config->load(['terraformModule', 'ansiblePlaybook', 'teardownPlaybook']);
         return response()->json(new TemplateProviderConfigurationResource($config));
     }
 }

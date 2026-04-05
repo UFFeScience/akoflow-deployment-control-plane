@@ -52,7 +52,53 @@ class AnsibleWorkspaceService
      */
     public function build(Environment $environment, Deployment $deployment, string $providerType): array
     {
-        $playbook = $this->loadPlaybook($environment, $providerType);
+        return $this->buildForPhase($environment, $deployment, $providerType, EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION);
+    }
+
+    /**
+     * Build the workspace for the teardown phase (Ansible destroy phase).
+     * Returns null when no teardown playbook is configured — callers should skip Ansible in that case.
+     *
+     * @return array{workspace_path: string, provider_type: string, extra_vars: array, inventory_ini: string}|null
+     */
+    public function buildForTeardown(Environment $environment, Deployment $deployment, string $providerType): ?array
+    {
+        $playbook = $this->loadPlaybook($environment, $providerType, EnvironmentTemplateAnsiblePlaybook::PHASE_TEARDOWN);
+        if (!$playbook) {
+            return null;
+        }
+
+        $workspacePath = $this->workspaceAbsolutePath($deployment) . '/teardown';
+        if (!is_dir($workspacePath)) {
+            mkdir($workspacePath, 0755, true);
+        }
+
+        file_put_contents($workspacePath . '/playbook.yml', $playbook->playbook_yaml);
+        $extraVars = $this->buildExtraVars($environment, $playbook);
+        file_put_contents($workspacePath . '/extra_vars.json', json_encode($extraVars, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $inventoryIni = $this->buildInventory($environment, $deployment, $playbook, $extraVars);
+        file_put_contents($workspacePath . '/inventory.ini', $inventoryIni);
+        if (!empty($playbook->roles_json)) {
+            $this->writeRequirements($workspacePath, $playbook->roles_json);
+        }
+
+        return [
+            'workspace_path' => $workspacePath,
+            'provider_type'  => $providerType,
+            'extra_vars'     => $extraVars,
+            'inventory_ini'  => $inventoryIni,
+        ];
+    }
+
+    private function buildForPhase(Environment $environment, Deployment $deployment, string $providerType, string $phase): array
+    {
+        $playbook = $this->loadPlaybook($environment, $providerType, $phase);
+        if (!$playbook) {
+            throw new RuntimeException(
+                "Template version #{$environment->environment_template_version_id} " .
+                "has no AnsiblePlaybook configured for provider '{$providerType}' (phase: {$phase}).",
+            );
+        }
 
         $workspacePath = $this->workspaceAbsolutePath($deployment);
         if (!is_dir($workspacePath)) {
@@ -90,51 +136,54 @@ class AnsibleWorkspaceService
     // Playbook loading
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function loadPlaybook(Environment $environment, string $providerType): EnvironmentTemplateAnsiblePlaybook
+    private function loadPlaybook(Environment $environment, string $providerType, string $phase = EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION): ?EnvironmentTemplateAnsiblePlaybook
     {
         if (empty($environment->environment_template_version_id)) {
-            throw new RuntimeException(
-                "Environment {$environment->id} has no template version assigned.",
-            );
+            if ($phase === EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION) {
+                throw new RuntimeException("Environment {$environment->id} has no template version assigned.");
+            }
+            return null;
         }
 
+        $relation = $phase === EnvironmentTemplateAnsiblePlaybook::PHASE_TEARDOWN
+            ? 'providerConfigurations.teardownPlaybook'
+            : 'providerConfigurations.ansiblePlaybook';
+
         $version = $environment->templateVersion()
-            ->with('providerConfigurations.ansiblePlaybook')
+            ->with($relation)
             ->first();
 
-        $playbook = $this->resolvePlaybookFromConfigs(
-            $version?->providerConfigurations ?? collect(),
-            $providerType,
-        );
+        $configs = $version?->providerConfigurations ?? collect();
+        $playbook = $this->resolvePlaybookFromConfigs($configs, $providerType, $phase);
 
-        if (!$playbook) {
+        if (!$playbook && $phase === EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION) {
             throw new RuntimeException(
                 "Template version #{$environment->environment_template_version_id} " .
                 "has no AnsiblePlaybook configured for provider '{$providerType}'.",
             );
         }
 
-        if (empty($playbook->playbook_yaml)) {
-            throw new RuntimeException(
-                "AnsiblePlaybook #{$playbook->id} has no playbook_yaml content.",
-            );
+        if ($playbook && empty($playbook->playbook_yaml) && $phase === EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION) {
+            throw new RuntimeException("AnsiblePlaybook #{$playbook->id} has no playbook_yaml content.");
         }
 
-        return $playbook;
+        return $playbook && !empty($playbook->playbook_yaml) ? $playbook : null;
     }
 
-    private function resolvePlaybookFromConfigs(Collection $configs, string $providerType): ?EnvironmentTemplateAnsiblePlaybook
+    private function resolvePlaybookFromConfigs(Collection $configs, string $providerType, string $phase = EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION): ?EnvironmentTemplateAnsiblePlaybook
     {
-        $upper  = strtoupper($providerType);
+        $relation = $phase === EnvironmentTemplateAnsiblePlaybook::PHASE_TEARDOWN ? 'teardownPlaybook' : 'ansiblePlaybook';
+        $upper    = strtoupper($providerType);
+
         $config = $configs->first(function (EnvironmentTemplateProviderConfiguration $c) use ($upper) {
             return in_array($upper, array_map('strtoupper', $c->applies_to_providers ?? []), true);
         });
-        if ($config?->ansiblePlaybook) {
-            return $config->ansiblePlaybook;
+        if ($config?->{$relation}) {
+            return $config->{$relation};
         }
 
         $default = $configs->first(fn(EnvironmentTemplateProviderConfiguration $c) => empty($c->applies_to_providers));
-        return $default?->ansiblePlaybook;
+        return $default?->{$relation};
     }
 
     // ─────────────────────────────────────────────────────────────────────────

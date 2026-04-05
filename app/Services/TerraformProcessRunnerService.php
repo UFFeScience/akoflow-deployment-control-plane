@@ -32,6 +32,10 @@ class TerraformProcessRunnerService
     {
         $env = $this->buildProcessEnv($credentialEnv);
 
+        if ($action === TerraformRun::ACTION_DESTROY) {
+            $this->refreshProviderInodes($workspacePath, $run);
+        }
+
         $this->terraformInit($workspacePath, $env, $run);
 
         return $this->terraformAction($workspacePath, $action, $env, $run);
@@ -91,6 +95,74 @@ class TerraformProcessRunnerService
     // ─────────────────────────────────────────────────────────────────────────
     // Terraform steps
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Prepares provider binaries for a destroy run to avoid ETXTBSY.
+     *
+     * Root cause: `terraform apply` hardlinks provider binaries between the
+     * plugin cache and `.terraform/providers/`. When any process still has
+     * an inode mapped (exec'd), Linux returns ETXTBSY on any subsequent
+     * write/exec to the SAME inode. Copying each file to a fresh inode
+     * (copy + rename) in BOTH the cache and the workspace breaks all stale
+     * hardlinks without touching directory structure.
+     */
+    private function refreshProviderInodes(string $workspacePath, TerraformRun $run): void
+    {
+        $run->appendLog('[akocloud] Refreshing provider binary inodes (ETXTBSY workaround)...');
+
+        $total = 0;
+
+        // Refresh plugin cache inodes
+        $cacheDir = storage_path('app/' . self::CACHE_DIR);
+        if (is_dir($cacheDir)) {
+            $total += $this->refreshDirInodes($cacheDir, $run);
+        }
+
+        // Refresh workspace provider inodes
+        $providersDir = $workspacePath . '/.terraform/providers';
+        if (is_dir($providersDir)) {
+            $total += $this->refreshDirInodes($providersDir, $run);
+        }
+
+        $run->appendLog("[akocloud] Provider inodes refreshed ({$total} files).");
+    }
+
+    /**
+     * Copy every file in $dir to a new inode (copy + rename), breaking any
+     * hardlinks that may point to a busy (exec'd) inode.
+     */
+    private function refreshDirInodes(string $dir, TerraformRun $run): int
+    {
+        $count    = 0;
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            /** @var \SplFileInfo $file */
+            if (!$file->isFile()) {
+                continue;
+            }
+
+            $path  = $file->getPathname();
+            $tmp   = $path . '.inode_refresh';
+            $perms = fileperms($path) & 0777;
+
+            if (copy($path, $tmp)) {
+                chmod($tmp, $perms ?: 0755);
+                if (rename($tmp, $path)) {
+                    $count++;
+                } else {
+                    @unlink($tmp);
+                    $run->appendLog("[akocloud][warn] Could not rename refreshed inode for: {$path}");
+                }
+            } else {
+                $run->appendLog("[akocloud][warn] Could not copy for inode refresh: {$path}");
+            }
+        }
+
+        return $count;
+    }
 
     private function terraformInit(string $workspacePath, array $env, TerraformRun $run): void
     {

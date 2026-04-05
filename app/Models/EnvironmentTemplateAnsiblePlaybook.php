@@ -9,8 +9,12 @@ class EnvironmentTemplateAnsiblePlaybook extends Model
 {
     protected $table = 'environment_template_ansible_playbooks';
 
+    public const PHASE_PROVISION = 'provision';
+    public const PHASE_TEARDOWN  = 'teardown';
+
     protected $fillable = [
         'provider_configuration_id',
+        'phase',
         'playbook_slug',
         'playbook_yaml',
         'inventory_template',

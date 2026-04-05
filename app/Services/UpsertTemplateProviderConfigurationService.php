@@ -44,7 +44,8 @@ class UpsertTemplateProviderConfigurationService
 
     public function upsertAnsible(string $configId, array $data): void
     {
-        unset($data['provider_configuration_id']);
-        $this->ansibleRepository->upsertForConfiguration($configId, $data);
+        $phase = $data['phase'] ?? 'provision';
+        unset($data['provider_configuration_id'], $data['phase']);
+        $this->ansibleRepository->upsertForConfiguration($configId, $data, $phase);
     }
 }

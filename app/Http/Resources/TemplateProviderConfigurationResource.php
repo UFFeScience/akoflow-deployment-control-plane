@@ -23,6 +23,11 @@ class TemplateProviderConfigurationResource extends JsonResource
                     ? (new TemplateAnsiblePlaybookResource($this->ansiblePlaybook))->toArray(request())
                     : null;
             }),
+            'teardown_playbook'    => $this->whenLoaded('teardownPlaybook', function () {
+                return $this->teardownPlaybook
+                    ? (new TemplateAnsiblePlaybookResource($this->teardownPlaybook))->toArray(request())
+                    : null;
+            }),
             'runbooks'             => RunbookResource::collection(
                 $this->whenLoaded('runbooks'),
             ),

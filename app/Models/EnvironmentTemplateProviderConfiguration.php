@@ -37,7 +37,19 @@ class EnvironmentTemplateProviderConfiguration extends Model
 
     public function ansiblePlaybook(): HasOne
     {
-        return $this->hasOne(EnvironmentTemplateAnsiblePlaybook::class, 'provider_configuration_id');
+        return $this->hasOne(EnvironmentTemplateAnsiblePlaybook::class, 'provider_configuration_id')
+            ->where('phase', EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION);
+    }
+
+    public function teardownPlaybook(): HasOne
+    {
+        return $this->hasOne(EnvironmentTemplateAnsiblePlaybook::class, 'provider_configuration_id')
+            ->where('phase', EnvironmentTemplateAnsiblePlaybook::PHASE_TEARDOWN);
+    }
+
+    public function ansiblePlaybooks(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(EnvironmentTemplateAnsiblePlaybook::class, 'provider_configuration_id');
     }
 
     public function runbooks(): \Illuminate\Database\Eloquent\Relations\HasMany
