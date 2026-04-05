@@ -315,7 +315,7 @@ YAML,
   hosts: all
   become: false
   environment:
-    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('') }}"
+    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH | default('') }}"
   vars:
     akoflow_port: "{{ akoflow_port | default('8080') }}"
     akospace_dir: "{{ akospace_dir | default(ansible_env.HOME + '/akospace') }}"
@@ -450,6 +450,135 @@ YAML,
           -v "{{ akospace_dir | expanduser }}/database.db:/storage/database.db" \
           akoflow-installer
 
+    - name: Install kubectl if missing
+      shell: |
+        if command -v kubectl >/dev/null 2>&1; then
+          exit 0
+        fi
+
+        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+        ARCH="$(uname -m)"
+        case "$ARCH" in
+          x86_64) KARCH="amd64" ;;
+          arm64|aarch64) KARCH="arm64" ;;
+          *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+
+        KUBE_VERSION="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
+        curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/${KUBE_VERSION}/bin/${OS}/${KARCH}/kubectl"
+        chmod +x /tmp/kubectl
+
+        if [ -w /usr/local/bin ]; then
+          mv /tmp/kubectl /usr/local/bin/kubectl
+        else
+          mkdir -p "$HOME/.local/bin"
+          mv /tmp/kubectl "$HOME/.local/bin/kubectl"
+        fi
+
+    - name: Install kind if missing
+      shell: |
+        if command -v kind >/dev/null 2>&1; then
+          exit 0
+        fi
+
+        OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+        ARCH="$(uname -m)"
+        case "$ARCH" in
+          x86_64) KARCH="amd64" ;;
+          arm64|aarch64) KARCH="arm64" ;;
+          *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+
+        curl -fsSLo /tmp/kind "https://kind.sigs.k8s.io/dl/v0.23.0/kind-${OS}-${KARCH}"
+        chmod +x /tmp/kind
+
+        if [ -w /usr/local/bin ]; then
+          mv /tmp/kind /usr/local/bin/kind
+        else
+          mkdir -p "$HOME/.local/bin"
+          mv /tmp/kind "$HOME/.local/bin/kind"
+        fi
+
+    - name: Create kind cluster
+      shell: |
+        if kind get clusters 2>/dev/null | grep -qx akoflow-cluster; then
+          echo "cluster exists"
+        else
+          kind create cluster --name akoflow-cluster
+        fi
+      register: kind_cluster_create
+      changed_when: "'cluster exists' not in kind_cluster_create.stdout"
+
+    - name: Check Kubernetes API server endpoint
+      shell: kubectl cluster-info --context kind-akoflow-cluster
+      register: kind_cluster_info
+      changed_when: false
+
+    - name: Extract Kubernetes API port from kind cluster
+      shell: |
+        echo "{{ kind_cluster_info.stdout }}" \
+          | grep 'Kubernetes control plane is running at' \
+          | sed -E 's|.*:([0-9]+).*|\1|'
+      register: k8s_api_server_port
+      changed_when: false
+      failed_when: (k8s_api_server_port.stdout | trim) == ''
+
+    - name: Install AkôFlow resources in kind cluster
+      shell: >
+        kubectl apply
+        -f https://raw.githubusercontent.com/UFFeScience/akoflow/main/pkg/server/resource/akoflow-dev-dockerdesktop.yaml
+        --context kind-akoflow-cluster
+      register: akoflow_apply
+      retries: 5
+      delay: 15
+      until: akoflow_apply.rc == 0
+
+    - name: Wait for akoflow-server-sa service account
+      shell: kubectl get serviceaccount akoflow-server-sa --namespace=akoflow --context kind-akoflow-cluster
+      register: akoflow_service_account
+      changed_when: false
+      retries: 30
+      delay: 10
+      until: akoflow_service_account.rc == 0
+
+    - name: Create token for akoflow-server-sa
+      shell: kubectl create token akoflow-server-sa --duration=800h --namespace=akoflow --context kind-akoflow-cluster
+      register: akoflow_cluster_token
+      changed_when: false
+      no_log: true
+
+    - name: Set Kubernetes API host in .env
+      lineinfile:
+        path: "{{ akospace_dir }}/.env"
+        regexp: '^K8S_API_SERVER_HOST='
+        line: "K8S_API_SERVER_HOST=host.docker.internal:{{ k8s_api_server_port.stdout | trim }}"
+        create: true
+
+    - name: Set Kubernetes API token in .env
+      lineinfile:
+        path: "{{ akospace_dir }}/.env"
+        regexp: '^K8S_API_SERVER_TOKEN='
+        line: "K8S_API_SERVER_TOKEN={{ akoflow_cluster_token.stdout | trim }}"
+        create: true
+      no_log: true
+
+    - name: Set AkôFlow service host in .env
+      lineinfile:
+        path: "{{ akospace_dir }}/.env"
+        regexp: '^AKOFLOW_SERVER_SERVICE_SERVICE_HOST='
+        line: 'AKOFLOW_SERVER_SERVICE_SERVICE_HOST=host.docker.internal'
+        create: true
+
+    - name: Set AkôFlow service port in .env
+      lineinfile:
+        path: "{{ akospace_dir }}/.env"
+        regexp: '^AKOFLOW_SERVER_SERVICE_SERVICE_PORT='
+        line: 'AKOFLOW_SERVER_SERVICE_SERVICE_PORT=8080'
+        create: true
+
+    - name: Restart AkôFlow container
+      shell: docker restart akoflow-installer
+
     - name: Write ansible_outputs.json
       copy:
         dest: /tmp/ansible_outputs.json
@@ -492,7 +621,7 @@ YAML,
   hosts: all
   become: false
   environment:
-    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.PATH | default('') }}"
+    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH | default('') }}"
 
   tasks:
     - name: Stop AkôFlow container
@@ -505,6 +634,18 @@ YAML,
 
     - name: Remove AkôFlow Docker image
       shell: docker rmi akoflow-installer 2>/dev/null || true
+      changed_when: false
+
+    - name: Delete kind cluster
+      shell: kind delete cluster --name akoflow-cluster 2>/dev/null || true
+      changed_when: false
+
+    - name: Remove temporary build directories
+      shell: rm -rf /tmp/akoflow-build /tmp/docker-config-akoflow
+      changed_when: false
+
+    - name: Remove akocloud directories created by installer
+      shell: rm -rf "{{ ansible_env.HOME }}/akocloud" /akocloud
       changed_when: false
 YAML,
 
@@ -530,6 +671,20 @@ YAML,
                 ['name' => 'Build AkôFlow Docker image',          'module' => 'shell'],
                 ['name' => 'Stop existing AkôFlow container (if running)', 'module' => 'shell'],
                 ['name' => 'Run AkôFlow container',               'module' => 'shell'],
+                ['name' => 'Install kubectl if missing',          'module' => 'shell'],
+                ['name' => 'Install kind if missing',             'module' => 'shell'],
+                ['name' => 'Create kind cluster',                 'module' => 'shell'],
+                ['name' => 'Check Kubernetes API server endpoint', 'module' => 'shell'],
+                ['name' => 'Extract Kubernetes API port from kind cluster', 'module' => 'shell'],
+                ['name' => 'Install AkôFlow resources in kind cluster', 'module' => 'shell'],
+                ['name' => 'Wait for akoflow-server-sa service account', 'module' => 'shell'],
+                ['name' => 'Create token for akoflow-server-sa',  'module' => 'shell'],
+                ['name' => 'Set Kubernetes API host in .env',     'module' => 'lineinfile'],
+                ['name' => 'Set Kubernetes API token in .env',    'module' => 'lineinfile'],
+                ['name' => 'Set AkôFlow service host in .env',    'module' => 'lineinfile'],
+                ['name' => 'Set AkôFlow service port in .env',    'module' => 'lineinfile'],
+                ['name' => 'Restart AkôFlow container',           'module' => 'shell'],
+                ['name' => 'Run AkôFlow installer script again',  'module' => 'shell'],
                 ['name' => 'Write ansible_outputs.json',          'module' => 'copy'],
             ],
 
