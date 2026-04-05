@@ -61,7 +61,7 @@ class AkoflowLocalInstallerDefinition
                                 'label'       => 'AkoSpace Directory',
                                 'type'        => 'string',
                                 'required'    => false,
-                                'default'     => '~/akospace',
+                                'default'     => '/Users/<username>/akospace',
                                 'description' => 'Directory on the host where AkôFlow stores its .env, database and logs.',
                             ],
                         ],

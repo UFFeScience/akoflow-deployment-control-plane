@@ -429,9 +429,9 @@ YAML,
           --name akoflow-installer \
           --restart unless-stopped \
           -p {{ akoflow_port }}:8080 \
-          -v "{{ akospace_dir }}/.env:/app/.env" \
-          -v "{{ akospace_dir }}/ako.log:/app/ako.log" \
-          -v "{{ akospace_dir }}/database.db:/storage/database.db" \
+          -v "{{ akospace_dir | expanduser }}/.env:/app/.env" \
+          -v "{{ akospace_dir | expanduser }}/ako.log:/app/ako.log" \
+          -v "{{ akospace_dir | expanduser }}/database.db:/storage/database.db" \
           akoflow-installer
 
     - name: Write ansible_outputs.json
@@ -666,9 +666,9 @@ YAML,
           --name akoflow-installer \
           --restart unless-stopped \
           -p {{ akoflow_port }}:8080 \
-          -v "{{ akospace_dir }}/.env:/app/.env" \
-          -v "{{ akospace_dir }}/ako.log:/app/ako.log" \
-          -v "{{ akospace_dir }}/database.db:/storage/database.db" \
+          -v "{{ akospace_dir | expanduser }}/.env:/app/.env" \
+          -v "{{ akospace_dir | expanduser }}/ako.log:/app/ako.log" \
+          -v "{{ akospace_dir | expanduser }}/database.db:/storage/database.db" \
           akoflow-installer
 YAML,
                     'vars_mapping_json' => [
