@@ -24,7 +24,7 @@ class AnsibleProcessRunnerService
      *
      * @param  string                 $workspacePath  Absolute path to the Ansible workspace.
      * @param  array<string, string>  $credentialEnv  Provider credentials to inject as env vars.
-     * @param  AnsibleRun             $run            Log target; updated in real time.
+    * @param  HasRunLog              $run            Log target; updated in real time.
      * @return int  The ansible-playbook exit code (0 = success).
      *
      * @throws RuntimeException when the process cannot be started.
@@ -101,7 +101,13 @@ class AnsibleProcessRunnerService
         unset($env['argv'], $env['argc']);
 
         if (isset($credentialEnv['SSH_PRIVATE_KEY'])) {
-            $tempKeyFile = tempnam(sys_get_temp_dir(), 'ako_ssh_');
+            $tempDir = storage_path('app/ansible/tmp');
+
+            if (!is_dir($tempDir)) {
+                mkdir($tempDir, 0755, true);
+            }
+
+            $tempKeyFile = tempnam($tempDir, 'ako_ssh_');
             chmod($tempKeyFile, 0600);
 
             // Normalize the key: replace literal \n escape sequences with real newlines
