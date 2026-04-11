@@ -59,6 +59,18 @@ class ProviderSchemasSeeder extends Seeder
                     ]),
                     'default_value' => 'us-central1',
                 ],
+                [
+                    'section'       => 'ssh',
+                    'name'          => 'ssh_private_key',
+                    'label'         => 'SSH Private Key',
+                    'description'   => 'PEM private key used by Ansible to SSH into GCP instances.',
+                    'type'          => 'textarea',
+                    'required'      => false,
+                    'is_sensitive'  => true,
+                    'position'      => 4,
+                    'options_json'  => null,
+                    'default_value' => null,
+                ],
             ],
 
             // ─── AWS ──────────────────────────────────────────────────────────

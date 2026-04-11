@@ -16,11 +16,9 @@ use App\Http\Controllers\DeploymentController;
 use App\Http\Controllers\ProvisionedResourceController;
 use App\Http\Controllers\TerraformRunController;
 use App\Http\Controllers\EnvironmentTemplateTerraformModuleController;
-use App\Http\Controllers\EnvironmentTemplateAnsiblePlaybookController;
 use App\Http\Controllers\EnvironmentTemplateProviderConfigurationController;
-use App\Http\Controllers\AnsibleRunController;
-use App\Http\Controllers\RunbookController;
-use App\Http\Controllers\RunbookRunController;
+use App\Http\Controllers\AnsiblePlaybookController;
+use App\Http\Controllers\AnsiblePlaybookRunController;
 use App\Http\Middleware\AuthMiddleware;
 
 
@@ -123,20 +121,6 @@ Route::middleware([AuthMiddleware::class])->group(function () {
         [EnvironmentTemplateTerraformModuleController::class, 'upsert']
     )->name('template-versions.terraform-modules.upsert');
 
-    // Ansible playbooks for a template version (one per provider)
-    Route::get(
-        '/environment-templates/{templateId}/versions/{versionId}/ansible-playbooks',
-        [EnvironmentTemplateAnsiblePlaybookController::class, 'index']
-    )->name('template-versions.ansible-playbooks.index');
-    Route::get(
-        '/environment-templates/{templateId}/versions/{versionId}/ansible-playbooks/{providerType}',
-        [EnvironmentTemplateAnsiblePlaybookController::class, 'show']
-    )->name('template-versions.ansible-playbooks.show');
-    Route::put(
-        '/environment-templates/{templateId}/versions/{versionId}/ansible-playbooks/{providerType}',
-        [EnvironmentTemplateAnsiblePlaybookController::class, 'upsert']
-    )->name('template-versions.ansible-playbooks.upsert');
-
     // Provider configurations — unified HCL + Ansible configuration per provider set
     Route::get(
         '/environment-templates/{templateId}/versions/{versionId}/provider-configurations',
@@ -162,42 +146,32 @@ Route::middleware([AuthMiddleware::class])->group(function () {
         '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/terraform',
         [EnvironmentTemplateProviderConfigurationController::class, 'upsertTerraform']
     )->name('template-versions.provider-configurations.terraform');
-    Route::put(
-        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/ansible',
-        [EnvironmentTemplateProviderConfigurationController::class, 'upsertAnsible']
-    )->name('template-versions.provider-configurations.ansible');
 
-    // Runbooks — standalone on-demand playbooks per provider configuration
+    // Ansible playbooks — unified trigger-based playbooks per provider configuration
     Route::get(
-        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks',
-        [RunbookController::class, 'index']
-    )->name('template-versions.provider-configurations.runbooks.index');
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/playbooks',
+        [AnsiblePlaybookController::class, 'index']
+    )->name('template-versions.provider-configurations.playbooks.index');
     Route::post(
-        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks',
-        [RunbookController::class, 'store']
-    )->name('template-versions.provider-configurations.runbooks.store');
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/playbooks',
+        [AnsiblePlaybookController::class, 'store']
+    )->name('template-versions.provider-configurations.playbooks.store');
     Route::get(
-        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks/{runbookId}',
-        [RunbookController::class, 'show']
-    )->name('template-versions.provider-configurations.runbooks.show');
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/playbooks/{playbookId}',
+        [AnsiblePlaybookController::class, 'show']
+    )->name('template-versions.provider-configurations.playbooks.show');
     Route::put(
-        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks/{runbookId}',
-        [RunbookController::class, 'update']
-    )->name('template-versions.provider-configurations.runbooks.update');
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/playbooks/{playbookId}',
+        [AnsiblePlaybookController::class, 'update']
+    )->name('template-versions.provider-configurations.playbooks.update');
     Route::delete(
-        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks/{runbookId}',
-        [RunbookController::class, 'destroy']
-    )->name('template-versions.provider-configurations.runbooks.destroy');
-    // Sync task list for a runbook
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/playbooks/{playbookId}',
+        [AnsiblePlaybookController::class, 'destroy']
+    )->name('template-versions.provider-configurations.playbooks.destroy');
     Route::put(
-        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/runbooks/{runbookId}/tasks',
-        [RunbookController::class, 'syncTasks']
-    )->name('template-versions.provider-configurations.runbooks.tasks.sync');
-    // Sync task list for the configure playbook
-    Route::put(
-        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/ansible/tasks',
-        [RunbookController::class, 'syncPlaybookTasks']
-    )->name('template-versions.provider-configurations.ansible.tasks.sync');
+        '/environment-templates/{templateId}/versions/{versionId}/provider-configurations/{configId}/playbooks/{playbookId}/tasks',
+        [AnsiblePlaybookController::class, 'syncTasks']
+    )->name('template-versions.provider-configurations.playbooks.tasks.sync');
 
     Route::get('/projects/{projectId}/environments', [EnvironmentController::class, 'index']);
     Route::post('/projects/{projectId}/environments', [EnvironmentController::class, 'store']);
@@ -212,18 +186,12 @@ Route::middleware([AuthMiddleware::class])->group(function () {
     Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}', [TerraformRunController::class, 'show']);
     Route::get('/projects/{projectId}/environments/{environmentId}/terraform-runs/{runId}/logs', [TerraformRunController::class, 'logs']);
 
-    // Ansible provisioning runs
-    Route::get('/projects/{projectId}/environments/{environmentId}/ansible-runs', [AnsibleRunController::class, 'index']);
-    Route::post('/projects/{projectId}/environments/{environmentId}/ansible-runs', [AnsibleRunController::class, 'store']);
-    Route::get('/projects/{projectId}/environments/{environmentId}/ansible-runs/{runId}', [AnsibleRunController::class, 'show']);
-    Route::get('/projects/{projectId}/environments/{environmentId}/ansible-runs/{runId}/logs', [AnsibleRunController::class, 'logs']);
-
-    // Runbook runs — on-demand execution per deployment
-    Route::get('/projects/{projectId}/environments/{environmentId}/runbook-runs', [RunbookRunController::class, 'index']);
-    Route::post('/projects/{projectId}/environments/{environmentId}/runbook-runs', [RunbookRunController::class, 'store']);
-    Route::get('/projects/{projectId}/environments/{environmentId}/runbook-runs/{runId}', [RunbookRunController::class, 'show']);
-    Route::get('/projects/{projectId}/environments/{environmentId}/runbook-runs/{runId}/logs', [RunbookRunController::class, 'logs']);
-    Route::get('/projects/{projectId}/environments/{environmentId}/deployments/{deploymentId}/runbook-runs', [RunbookRunController::class, 'indexByDeployment']);
+    // Ansible activity runs — unified run history and manual trigger
+    Route::get('/projects/{projectId}/environments/{environmentId}/playbook-runs', [AnsiblePlaybookRunController::class, 'index']);
+    Route::post('/projects/{projectId}/environments/{environmentId}/playbook-runs', [AnsiblePlaybookRunController::class, 'store']);
+    Route::get('/projects/{projectId}/environments/{environmentId}/playbook-runs/{runId}', [AnsiblePlaybookRunController::class, 'show']);
+    Route::get('/projects/{projectId}/environments/{environmentId}/playbook-runs/{runId}/logs', [AnsiblePlaybookRunController::class, 'logs']);
+    Route::get('/projects/{projectId}/environments/{environmentId}/deployments/{deploymentId}/playbook-runs', [AnsiblePlaybookRunController::class, 'indexByDeployment']);
 
     Route::get('/environments/{id}/deployments', [DeploymentController::class, 'index']);
     Route::post('/environments/{id}/deployments', [DeploymentController::class, 'store']);

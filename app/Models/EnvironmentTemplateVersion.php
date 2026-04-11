@@ -31,7 +31,7 @@ class EnvironmentTemplateVersion extends Model
         return $this->hasMany(EnvironmentTemplateProviderConfiguration::class, 'template_version_id');
     }
 
-    public function terraformModules(): HasManyThrough
+    public function terraformModules()
     {
         return $this->hasManyThrough(
             EnvironmentTemplateTerraformModule::class,
@@ -41,13 +41,4 @@ class EnvironmentTemplateVersion extends Model
         );
     }
 
-    public function ansiblePlaybooks(): HasManyThrough
-    {
-        return $this->hasManyThrough(
-            EnvironmentTemplateAnsiblePlaybook::class,
-            EnvironmentTemplateProviderConfiguration::class,
-            'template_version_id',
-            'provider_configuration_id',
-        );
-    }
 }

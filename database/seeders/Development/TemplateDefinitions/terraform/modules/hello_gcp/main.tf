@@ -16,111 +16,14 @@ provider "google" {
 locals {
   resource_name  = var.environment_id != "" ? "env-${var.environment_id}-nginx" : "micro-nginx"
   resolved_image = var.image_gcp != "" ? var.image_gcp : data.google_compute_image.default.self_link
+  ssh_key_entry  = trimspace(var.ssh_public_key) == "" ? "" : (length(regexall("^[^:]+:", trimspace(var.ssh_public_key))) > 0 ? trimspace(var.ssh_public_key) : "${var.ssh_user}:${trimspace(var.ssh_public_key)}")
 
   startup_script = <<-EOF
     #!/bin/bash
     set -eux
 
-    # Install Docker
-    apt-get update -y
-    apt-get install -y docker.io
-
-    systemctl enable docker
-    systemctl start docker
-
-    # Create directories for NGINX config and HTML content
-    mkdir -p /opt/nginx/html
-
-    # Write nginx.conf with user-defined settings
-    cat > /opt/nginx/nginx.conf <<'NGINXEOF'
-user nginx;
-worker_processes ${var.nginx_worker_processes};
-
-events {
-    worker_connections ${var.nginx_worker_connections};
-}
-
-http {
-    include       /etc/nginx/mime.types;
-    default_type  application/octet-stream;
-
-    sendfile        on;
-    keepalive_timeout ${var.nginx_keepalive_timeout};
-    client_max_body_size ${var.nginx_client_max_body_size};
-
-    gzip ${var.nginx_gzip};
-
-    server {
-        listen 80;
-        server_name ${var.nginx_server_name};
-
-        root /usr/share/nginx/html;
-        index index.html;
-
-        location / {
-            try_files $uri $uri/ =404;
-        }
-    }
-}
-NGINXEOF
-
-    # Write default index.html
-    cat > /opt/nginx/html/index.html <<'HTMLEOF'
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${var.html_page_title}</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f0f2f5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-    .card {
-      background: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
-      padding: 3rem 4rem;
-      text-align: center;
-      max-width: 520px;
-      width: 90%;
-    }
-    .card h1 { font-size: 2rem; color: #1a1a2e; margin-bottom: 1rem; }
-    .card p  { font-size: 1.1rem; color: #555; line-height: 1.6; }
-    .badge {
-      display: inline-block;
-      margin-top: 1.5rem;
-      padding: 0.3rem 0.9rem;
-      border-radius: 999px;
-      background: #e8f5e9;
-      color: #2e7d32;
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>${var.html_page_title}</h1>
-    <p>${var.html_page_body}</p>
-    <span class="badge">&#10003; NGINX is running</span>
-  </div>
-</body>
-</html>
-HTMLEOF
-
-    # Run NGINX mounting the custom config and HTML directory
-    docker run -d --name nginx --restart always \
-      -p ${var.nginx_port}:80 \
-      -v /opt/nginx/nginx.conf:/etc/nginx/nginx.conf:ro \
-      -v /opt/nginx/html:/usr/share/nginx/html:ro \
-      nginx:latest
+    # Keep bootstrap minimal. Docker + NGINX are configured by after_provision Ansible playbooks.
+    echo "akocloud bootstrap ready" > /var/log/akocloud-bootstrap.log
   EOF
 }
 
@@ -141,7 +44,7 @@ resource "google_compute_firewall" "nginx" {
 }
 
 resource "google_compute_firewall" "ssh" {
-  count   = var.ssh_public_key != "" ? 1 : 0
+  count   = 1
   name    = "${local.resource_name}-ssh-fw"
   network = var.network_gcp
 
@@ -172,7 +75,7 @@ resource "google_compute_instance" "nginx" {
     access_config {}
   }
 
-  metadata = var.ssh_public_key != "" ? { "ssh-keys" = var.ssh_public_key } : {}
+  metadata = var.ssh_public_key != "" ? { "ssh-keys" = local.ssh_key_entry } : {}
 
   metadata_startup_script = local.startup_script
 

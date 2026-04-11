@@ -121,7 +121,13 @@ variable "html_page_body" {
 # ── SSH Access ────────────────────────────────────────────────────────────────
 
 variable "ssh_public_key" {
-  description = "SSH public key in 'user:ssh-rsa AAAA...' format added to instance metadata. Leave empty to disable SSH (port 22 will not be opened)."
+  description = "SSH public key added to instance metadata. You can provide either 'user:ssh-rsa AAAA...' or only the key; when username is omitted, ssh_user is used."
   type        = string
   default     = ""
+}
+
+variable "ssh_user" {
+  description = "Linux SSH username used for metadata SSH key entry when username is not embedded in ssh_public_key."
+  type        = string
+  default     = "ubuntu"
 }

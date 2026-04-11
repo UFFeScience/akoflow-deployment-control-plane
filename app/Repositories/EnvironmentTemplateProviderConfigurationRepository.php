@@ -15,7 +15,7 @@ class EnvironmentTemplateProviderConfigurationRepository extends BaseRepository
     public function findAllByVersionId(string $versionId): Collection
     {
         return EnvironmentTemplateProviderConfiguration::where('template_version_id', $versionId)
-            ->with(['terraformModule', 'ansiblePlaybook', 'teardownPlaybook', 'runbooks'])
+            ->with(['terraformModule', 'playbooks'])
             ->orderBy('id')
             ->get();
     }
@@ -24,7 +24,7 @@ class EnvironmentTemplateProviderConfigurationRepository extends BaseRepository
     {
         return EnvironmentTemplateProviderConfiguration::where('template_version_id', $versionId)
             ->where('id', $configId)
-            ->with(['terraformModule', 'ansiblePlaybook', 'teardownPlaybook', 'runbooks'])
+            ->with(['terraformModule', 'playbooks'])
             ->first();
     }
 
@@ -40,7 +40,7 @@ class EnvironmentTemplateProviderConfigurationRepository extends BaseRepository
         if (!$config) return null;
         $config->fill($data);
         $config->save();
-        return $config->fresh(['terraformModule', 'ansiblePlaybook', 'teardownPlaybook']);
+        return $config->fresh(['terraformModule', 'playbooks']);
     }
 
     public function deleteConfig(string $configId): bool

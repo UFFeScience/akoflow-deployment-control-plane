@@ -22,7 +22,15 @@ class ProviderController extends Controller
         protected CreateProviderService $createService,
         protected UpdateProviderHealthService $healthService,
         protected CheckProviderHealthService $checkHealthService,
-    ) {}
+    ) {
+        error_log('ProviderController initialized with services: ' . implode(', ', [
+            get_class($listService),
+            get_class($showService),
+            get_class($createService),
+            get_class($healthService),
+            get_class($checkHealthService),
+        ]));
+    }
 
     public function index(string $organizationId): AnonymousResourceCollection
     {

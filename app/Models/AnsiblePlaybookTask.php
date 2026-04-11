@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AnsiblePlaybookTask extends Model
 {
@@ -12,7 +11,6 @@ class AnsiblePlaybookTask extends Model
 
     protected $fillable = [
         'ansible_playbook_id',
-        'runbook_id',
         'position',
         'name',
         'module',
@@ -33,16 +31,6 @@ class AnsiblePlaybookTask extends Model
 
     public function ansiblePlaybook(): BelongsTo
     {
-        return $this->belongsTo(EnvironmentTemplateAnsiblePlaybook::class, 'ansible_playbook_id');
-    }
-
-    public function runbook(): BelongsTo
-    {
-        return $this->belongsTo(EnvironmentTemplateRunbook::class, 'runbook_id');
-    }
-
-    public function taskRuns(): HasMany
-    {
-        return $this->hasMany(AnsibleTaskRun::class, 'playbook_task_id');
+        return $this->belongsTo(AnsiblePlaybook::class, 'ansible_playbook_id');
     }
 }

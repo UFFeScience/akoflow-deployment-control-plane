@@ -14,14 +14,9 @@ class ListRunLogsService
         return $this->logs->listByRun($runId, $afterId);
     }
 
-    public function handleByAnsibleRun(string $runId, ?int $afterId = null): Collection
+    public function handleByPlaybookRun(string $runId, ?int $afterId = null): Collection
     {
-        return $this->logs->listByAnsibleRun($runId, $afterId);
-    }
-
-    public function handleByRunbookRun(string $runId, ?int $afterId = null): Collection
-    {
-        return $this->logs->listByRunbookRun($runId, $afterId);
+        return $this->logs->listByActivityRun($runId, $afterId);
     }
 
     public function handleByResource(string $resourceId, ?int $afterId = null): Collection

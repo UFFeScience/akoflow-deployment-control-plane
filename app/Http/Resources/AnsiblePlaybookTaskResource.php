@@ -11,7 +11,6 @@ class AnsiblePlaybookTaskResource extends JsonResource
         return [
             'id'                  => $this->id,
             'ansible_playbook_id' => $this->ansible_playbook_id,
-            'runbook_id'          => $this->runbook_id,
             'position'            => $this->position,
             'name'                => $this->name,
             'module'              => $this->module,

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EnvironmentTemplateProviderConfiguration extends Model
@@ -35,25 +36,17 @@ class EnvironmentTemplateProviderConfiguration extends Model
         return $this->hasOne(EnvironmentTemplateTerraformModule::class, 'provider_configuration_id');
     }
 
-    public function ansiblePlaybook(): HasOne
+    /**
+     * Unified activity list for this provider configuration.
+     * Ordered by position for deterministic display and default execution order.
+     */
+    public function playbooks(): HasMany
     {
-        return $this->hasOne(EnvironmentTemplateAnsiblePlaybook::class, 'provider_configuration_id')
-            ->where('phase', EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION);
+        return $this->hasMany(AnsiblePlaybook::class, 'provider_configuration_id')->orderBy('position');
     }
 
-    public function teardownPlaybook(): HasOne
+    public function playbooksForTrigger(string $trigger): HasMany
     {
-        return $this->hasOne(EnvironmentTemplateAnsiblePlaybook::class, 'provider_configuration_id')
-            ->where('phase', EnvironmentTemplateAnsiblePlaybook::PHASE_TEARDOWN);
-    }
-
-    public function ansiblePlaybooks(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(EnvironmentTemplateAnsiblePlaybook::class, 'provider_configuration_id');
-    }
-
-    public function runbooks(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(EnvironmentTemplateRunbook::class, 'provider_configuration_id')->orderBy('position');
+        return $this->playbooks()->where('trigger', $trigger)->where('enabled', true);
     }
 }

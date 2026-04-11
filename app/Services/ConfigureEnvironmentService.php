@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\AnsibleRun;
+use App\Models\AnsiblePlaybook;
+use App\Models\AnsiblePlaybookRun;
 use App\Models\Deployment;
 use App\Models\Environment;
-use App\Repositories\AnsibleRunRepository;
 use App\Repositories\DeploymentRepository;
 use App\Repositories\EnvironmentRepository;
 use Illuminate\Support\Facades\Log;
@@ -17,15 +17,21 @@ class ConfigureEnvironmentService
     public function __construct(
         private EnvironmentRepository                    $environmentRepository,
         private DeploymentRepository                     $deploymentRepository,
-        private AnsibleRunRepository                     $runRepository,
         private EnvironmentDeploymentProviderService     $providerResolver,
         private ProviderCredentialResolverService        $credentialResolver,
+        private AnsiblePlaybookResolverService           $activityResolver,
         private AnsibleWorkspaceService                  $workspaceService,
         private AnsibleProcessRunnerService              $processRunner,
         private CreateAnsibleProvisionedResourcesService $createResources,
     ) {}
 
-    public function handle(int $deploymentId): AnsibleRun
+    /**
+     * Run all AnsiblePlaybook records with trigger=after_provision for the
+     * deployment's provider, in dependency order.
+     *
+     * @return AnsiblePlaybookRun[]  One run record per executed activity.
+     */
+    public function handle(int $deploymentId): array
     {
         /** @var Deployment $deployment */
         $deployment = $this->deploymentRepository->find((string) $deploymentId);
@@ -41,84 +47,99 @@ class ConfigureEnvironmentService
             throw new RuntimeException("Environment {$deployment->environment_id} not found.");
         }
 
-        /** @var AnsibleRun $run */
-        $run = $this->runRepository->create([
+        $provider    = $this->providerResolver->resolveFromDeployment($deployment);
+        $credentials = $this->credentialResolver->resolve($deployment);
+
+        $playbooks = $this->activityResolver->resolve(
+            (int) $environment->environment_template_version_id,
+            $provider->type,
+            AnsiblePlaybook::TRIGGER_AFTER_PROVISION,
+        );
+
+        if (empty($playbooks)) {
+            // No playbooks configured — mark immediately as running
+            $this->markEnvironmentRunning($deployment, $environment);
+            return [];
+        }
+
+        $runs = [];
+
+        foreach ($playbooks as $activity) {
+            $run = $this->executeActivity($activity, $deployment, $environment, $provider, $credentials);
+            $runs[] = $run;
+        }
+
+        // All playbooks succeeded — mark environment as running
+        $this->markEnvironmentRunning($deployment, $environment);
+
+        return $runs;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private function executeActivity(
+        AnsiblePlaybook $activity,
+        Deployment      $deployment,
+        Environment     $environment,
+        mixed           $provider,
+        array           $credentials,
+    ): AnsiblePlaybookRun {
+        /** @var AnsiblePlaybookRun $run */
+        $run = AnsiblePlaybookRun::create([
             'deployment_id' => $deployment->id,
-            'action'        => AnsibleRun::ACTION_CONFIGURE,
-            'status'        => AnsibleRun::STATUS_INITIALIZING,
+            'playbook_id'   => $activity->id,
+            'playbook_name' => $activity->name,
+            'trigger'       => AnsiblePlaybook::TRIGGER_AFTER_PROVISION,
+            'status'        => AnsiblePlaybookRun::STATUS_INITIALIZING,
+            'provider_type' => $provider->type,
+            'triggered_by'  => 'system',
             'started_at'    => now(),
         ]);
 
         try {
-            // 1. Resolve provider and credentials from the deployment
-            $provider    = $this->providerResolver->resolveFromDeployment($deployment);
-            $credentials = $this->credentialResolver->resolve($deployment);
-
+            $run->appendLog("[akocloud] Activity: {$activity->name}");
             $run->appendLog("[akocloud] Provider: {$provider->name} (type: {$provider->type})");
 
-            $run->update([
-                'provider_type' => $provider->type,
-                'status'        => AnsibleRun::STATUS_RUNNING,
-            ]);
+            $run->update(['status' => AnsiblePlaybookRun::STATUS_RUNNING]);
 
-            // 2. Build workspace files (playbook.yml, inventory.ini, extra_vars.json)
-            $workspace = $this->workspaceService->build($environment, $deployment, $provider->type);
+            $workspace = $this->workspaceService->buildForActivity($environment, $deployment, $provider->type, $activity);
 
             $run->update([
-                'workspace_path' => $workspace['workspace_path'],
+                'workspace_path'  => $workspace['workspace_path'],
                 'extra_vars_json' => $workspace['extra_vars'],
-                'inventory_ini'  => $workspace['inventory_ini'],
+                'inventory_ini'   => $workspace['inventory_ini'],
             ]);
 
             $run->appendLog("[akocloud] Workspace built at: {$workspace['workspace_path']}");
 
-            // 3. Run ansible-galaxy + ansible-playbook, injecting credentials as process env vars
-            $exitCode = $this->processRunner->run(
-                $workspace['workspace_path'],
-                $credentials,
-                $run,
-            );
+            $exitCode = $this->processRunner->run($workspace['workspace_path'], $credentials, $run);
 
-            // 4. Check exit code
             if ($exitCode !== 0) {
                 throw new RuntimeException("ansible-playbook exited with code {$exitCode}.");
             }
 
-            // 5. Capture outputs from ansible_outputs.json written by the playbook
-            $outputJson = $this->processRunner->captureOutputs(
-                $workspace['workspace_path'],
-                $run,
-            );
+            $outputJson = $this->processRunner->captureOutputs($workspace['workspace_path'], $run);
 
-            // 6. Mark success
             $run->update([
-                'status'      => AnsibleRun::STATUS_COMPLETED,
+                'status'      => AnsiblePlaybookRun::STATUS_COMPLETED,
                 'output_json' => $outputJson,
                 'finished_at' => now(),
             ]);
 
-            $run->appendLog('[akocloud] Configuration completed successfully.');
+            $run->appendLog("[akocloud] Activity '{$activity->name}' completed successfully.");
 
-            // 7. Create ProvisionedResource records from ansible outputs
             if ($outputJson) {
                 $this->createResources->handle($deployment, $run->fresh());
-                $run->appendLog('[akocloud] Provisioned resources created from ansible output.');
+                $run->appendLog('[akocloud] Provisioned resources created from activity output.');
             }
-
-            $this->deploymentRepository->update((string) $deployment->id, [
-                'status' => Deployment::STATUS_RUNNING,
-            ]);
-
-            $this->environmentRepository->update((string) $environment->id, ['status' => 'RUNNING']);
 
         } catch (Throwable $e) {
             $run->update([
-                'status'      => AnsibleRun::STATUS_FAILED,
+                'status'      => AnsiblePlaybookRun::STATUS_FAILED,
                 'finished_at' => now(),
             ]);
 
-            $errorMessage = "Deployment: {$deployment->name} (id: {$deployment->id})"
-                . " | {$e->getMessage()}";
+            $errorMessage = "Activity: {$activity->name} | Deployment: {$deployment->name} (id: {$deployment->id}) | {$e->getMessage()}";
 
             $run->appendLog('[akocloud][ERROR] ' . $errorMessage);
 
@@ -126,13 +147,20 @@ class ConfigureEnvironmentService
                 'status' => Deployment::STATUS_ERROR,
             ]);
 
-            Log::error('[ConfigureEnvironmentService] ' . $errorMessage, [
-                'exception' => $e,
-            ]);
+            Log::error('[ConfigureEnvironmentService] ' . $errorMessage, ['exception' => $e]);
 
             throw $e;
         }
 
-        return $run;
+        return $run->fresh();
+    }
+
+    private function markEnvironmentRunning(Deployment $deployment, Environment $environment): void
+    {
+        $this->deploymentRepository->update((string) $deployment->id, [
+            'status' => Deployment::STATUS_RUNNING,
+        ]);
+
+        $this->environmentRepository->update((string) $environment->id, ['status' => 'RUNNING']);
     }
 }

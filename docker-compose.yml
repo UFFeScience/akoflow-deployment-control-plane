@@ -17,20 +17,6 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       - db
-  worker:
-    build:
-      context: .
-      dockerfile: ./docker/dev.Dockerfile
-    container_name: akocloud_worker
-    command: ["php", "artisan", "queue:work", "--timeout=3600"]
-    depends_on:
-      - db
-    volumes:
-      - ./:/var/www/html
-      - /var/run/docker.sock:/var/run/docker.sock
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    restart: unless-stopped
 
   healthcheck-loop:
     build:

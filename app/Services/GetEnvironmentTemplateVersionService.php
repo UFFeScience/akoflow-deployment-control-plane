@@ -12,13 +12,13 @@ class GetEnvironmentTemplateVersionService
     public function handle(string $templateId, string $versionId): ?EnvironmentTemplateVersion
     {
         return EnvironmentTemplateVersion::where('template_id', $templateId)
-            ->with(['providerConfigurations.terraformModule', 'providerConfigurations.ansiblePlaybook'])
+            ->with(['providerConfigurations.terraformModule', 'providerConfigurations.playbooks'])
             ->find($versionId);
     }
 
     public function findById(string $versionId): ?EnvironmentTemplateVersion
     {
-        return EnvironmentTemplateVersion::with(['providerConfigurations.terraformModule', 'providerConfigurations.ansiblePlaybook'])
+        return EnvironmentTemplateVersion::with(['providerConfigurations.terraformModule', 'providerConfigurations.playbooks'])
             ->find($versionId);
     }
 }

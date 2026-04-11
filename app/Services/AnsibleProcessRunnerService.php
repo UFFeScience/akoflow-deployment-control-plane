@@ -9,7 +9,7 @@ use RuntimeException;
  * Low-level Ansible executor.
  *
  * Runs `ansible-galaxy install` (when requirements.yml is present) followed by
- * `ansible-playbook`, streaming every output line into the AnsibleRun log in
+ * `ansible-playbook`, streaming every output line into the activity run log in
  * real time.
  *
  * SSH credentials are injected as process environment variables — the private

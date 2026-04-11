@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\AnsiblePlaybook;
+use App\Models\EnvironmentTemplateVersion;
 use App\Repositories\EnvironmentTemplateVersionRepository;
 use App\Repositories\EnvironmentTemplateProviderConfigurationRepository;
 use App\Repositories\EnvironmentTemplateTerraformModuleRepository;
-use App\Repositories\EnvironmentTemplateAnsiblePlaybookRepository;
-use App\Models\EnvironmentTemplateVersion;
 
 class AddEnvironmentTemplateVersionService
 {
@@ -14,7 +14,6 @@ class AddEnvironmentTemplateVersionService
         private EnvironmentTemplateVersionRepository               $versions,
         private EnvironmentTemplateProviderConfigurationRepository $configRepository,
         private EnvironmentTemplateTerraformModuleRepository       $terraformRepository,
-        private EnvironmentTemplateAnsiblePlaybookRepository       $ansibleRepository,
     ) {}
 
     public function handle(string $templateId, array $data): EnvironmentTemplateVersion
@@ -58,16 +57,21 @@ class AddEnvironmentTemplateVersionService
                 ]);
             }
 
-            if ($config->ansiblePlaybook) {
-                $ans = $config->ansiblePlaybook;
-                $this->ansibleRepository->upsertForConfiguration((string) $newConfig->id, [
-                    'playbook_slug'       => $ans->playbook_slug,
-                    'playbook_yaml'       => $ans->playbook_yaml,
-                    'inventory_template'  => $ans->inventory_template,
-                    'credential_env_keys' => $ans->credential_env_keys,
-                    'vars_mapping_json'   => $ans->vars_mapping_json,
-                    'outputs_mapping_json'=> $ans->outputs_mapping_json,
-                    'roles_json'          => $ans->roles_json,
+            foreach ($config->playbooks as $activity) {
+                AnsiblePlaybook::create([
+                    'provider_configuration_id' => $newConfig->id,
+                    'name'                      => $activity->name,
+                    'description'               => $activity->description,
+                    'trigger'                   => $activity->trigger,
+                    'playbook_slug'             => $activity->playbook_slug,
+                    'playbook_yaml'             => $activity->playbook_yaml,
+                    'inventory_template'        => $activity->inventory_template,
+                    'vars_mapping_json'         => $activity->vars_mapping_json,
+                    'outputs_mapping_json'      => $activity->outputs_mapping_json,
+                    'credential_env_keys'       => $activity->credential_env_keys,
+                    'roles_json'                => $activity->roles_json,
+                    'position'                  => $activity->position,
+                    'enabled'                   => $activity->enabled,
                 ]);
             }
         }

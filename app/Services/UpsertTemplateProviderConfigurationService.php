@@ -5,14 +5,12 @@ namespace App\Services;
 use App\Models\EnvironmentTemplateProviderConfiguration;
 use App\Repositories\EnvironmentTemplateProviderConfigurationRepository;
 use App\Repositories\EnvironmentTemplateTerraformModuleRepository;
-use App\Repositories\EnvironmentTemplateAnsiblePlaybookRepository;
 
 class UpsertTemplateProviderConfigurationService
 {
     public function __construct(
         private EnvironmentTemplateProviderConfigurationRepository $configRepository,
         private EnvironmentTemplateTerraformModuleRepository       $terraformRepository,
-        private EnvironmentTemplateAnsiblePlaybookRepository       $ansibleRepository,
     ) {}
 
     public function createConfig(string $versionId, array $data): EnvironmentTemplateProviderConfiguration
@@ -40,12 +38,5 @@ class UpsertTemplateProviderConfigurationService
     {
         unset($data['provider_configuration_id']);
         $this->terraformRepository->upsertForConfiguration($configId, $data);
-    }
-
-    public function upsertAnsible(string $configId, array $data): void
-    {
-        $phase = $data['phase'] ?? 'provision';
-        unset($data['provider_configuration_id'], $data['phase']);
-        $this->ansibleRepository->upsertForConfiguration($configId, $data, $phase);
     }
 }

@@ -10,13 +10,7 @@ return new class extends Migration {
         Schema::create('ansible_playbook_tasks', function (Blueprint $table) {
             $table->id();
 
-            // One of these is set (mutually exclusive)
-            $table->foreignId('ansible_playbook_id')
-                ->nullable()
-                ->constrained('environment_template_ansible_playbooks')
-                ->cascadeOnDelete();
-
-            $table->unsignedBigInteger('runbook_id')->nullable(); // FK added after runbooks table
+            $table->unsignedBigInteger('ansible_playbook_id');
 
             $table->unsignedInteger('position')->default(0);
             $table->string('name', 500);
@@ -29,7 +23,6 @@ return new class extends Migration {
             $table->timestamps();
 
             $table->index('ansible_playbook_id');
-            $table->index('runbook_id');
             $table->index(['ansible_playbook_id', 'position']);
         });
     }

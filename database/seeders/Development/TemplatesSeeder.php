@@ -12,6 +12,7 @@ use Database\Seeders\Development\TemplateDefinitions\AwsDockerAnsibleDefinition;
 use Database\Seeders\Development\TemplateDefinitions\AwsUbuntuDockerEksDefinition;
 use Database\Seeders\Development\TemplateDefinitions\GcpUbuntuDockerGkeDefinition;
 use Database\Seeders\Development\TemplateDefinitions\MicroNginxDefinition;
+use Database\Seeders\Development\TemplateDefinitions\Sscad2025FedLearningDefinition;
 use Illuminate\Database\Seeder;
 
 class TemplatesSeeder extends Seeder
@@ -63,6 +64,15 @@ class TemplatesSeeder extends Seeder
                 'owner_organization_id' => $organizationId,
                 'version'               => '1.0.0',
                 'definition'            => AkoflowLocalInstallerDefinition::get(),
+            ],
+            [
+                'slug'                  => 'sscad-2025-fed-learning',
+                'name'                  => 'SSCAD 2025 Federated Learning (GCP)',
+                'description'           => 'Seeds the SSCAD 2025 federated-learning environment on GCP with minimal VM bootstrap and trigger-aware Ansible playbooks.',
+                'is_public'             => true,
+                'owner_organization_id' => $organizationId,
+                'version'               => '1.0.0',
+                'definition'            => Sscad2025FedLearningDefinition::get(),
             ],
         ];
     }

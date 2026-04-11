@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\AnsiblePlaybookResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class TemplateProviderConfigurationResource extends JsonResource
@@ -18,18 +19,8 @@ class TemplateProviderConfigurationResource extends JsonResource
                     ? (new TemplateTerraformModuleResource($this->terraformModule))->toArray(request())
                     : null;
             }),
-            'ansible_playbook'     => $this->whenLoaded('ansiblePlaybook', function () {
-                return $this->ansiblePlaybook
-                    ? (new TemplateAnsiblePlaybookResource($this->ansiblePlaybook))->toArray(request())
-                    : null;
-            }),
-            'teardown_playbook'    => $this->whenLoaded('teardownPlaybook', function () {
-                return $this->teardownPlaybook
-                    ? (new TemplateAnsiblePlaybookResource($this->teardownPlaybook))->toArray(request())
-                    : null;
-            }),
-            'runbooks'             => RunbookResource::collection(
-                $this->whenLoaded('runbooks'),
+            'playbooks'           => AnsiblePlaybookResource::collection(
+                $this->whenLoaded('playbooks'),
             ),
             'created_at'           => $this->created_at,
             'updated_at'           => $this->updated_at,

@@ -2,16 +2,15 @@
 
 namespace App\Services;
 
-use App\Models\AnsibleRun;
+use App\Models\AnsiblePlaybookRun;
 use App\Models\Deployment;
-use App\Models\EnvironmentTemplateAnsiblePlaybook;
 use App\Models\ProvisionedResourceType;
 use App\Repositories\ProvisionedResourceRepository;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Maps ansible_outputs.json values to ProvisionedResource records using the
- * outputs_mapping_json defined on the EnvironmentTemplateAnsiblePlaybook.
+ * outputs_mapping_json defined on the executed AnsiblePlaybook.
  *
  * ── outputs_mapping_json format ──────────────────────────────────────────────
  * Identical schema to the Terraform equivalent, but output values are resolved
@@ -44,7 +43,7 @@ class CreateAnsibleProvisionedResourcesService
         private ProvisionedResourceRepository $resources,
     ) {}
 
-    public function handle(Deployment $deployment, AnsibleRun $run): void
+    public function handle(Deployment $deployment, AnsiblePlaybookRun $run): void
     {
         $outputJson = $run->output_json;
 
@@ -56,16 +55,13 @@ class CreateAnsibleProvisionedResourcesService
             return;
         }
 
-        // Load outputs_mapping_json from the playbook used for this run
-        $playbook = $this->resolvePlaybook($deployment, $run);
-
-        $resourceMappings = $playbook?->outputs_mapping_json['resources'] ?? [];
+        $resourceMappings = $run->activity?->outputs_mapping_json['resources'] ?? [];
 
         if (empty($resourceMappings)) {
-            Log::info('[CreateAnsibleProvisionedResourcesService] No outputs_mapping_json on playbook — skipping', [
+            Log::info('[CreateAnsibleProvisionedResourcesService] No outputs_mapping_json on activity — skipping', [
                 'deployment_id' => $deployment->id,
                 'run_id'        => $run->id,
-                'provider_type' => $run->provider_type,
+                'playbook_id'   => $run->playbook_id,
             ]);
             return;
         }
@@ -76,18 +72,6 @@ class CreateAnsibleProvisionedResourcesService
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-
-    private function resolvePlaybook(Deployment $deployment, AnsibleRun $run): ?EnvironmentTemplateAnsiblePlaybook
-    {
-        $environment = $deployment->environment ?? $deployment->load('environment')->environment;
-
-        return $environment
-            ->templateVersion()
-            ->with('ansiblePlaybooks')
-            ->first()
-            ?->ansiblePlaybooks
-            ->firstWhere('provider_type', $run->provider_type);
-    }
 
     private function createResource(Deployment $deployment, array $mapping, array $outputJson): void
     {

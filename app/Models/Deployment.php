@@ -57,9 +57,4 @@ class Deployment extends Model
     {
         return $this->hasMany(DeploymentProviderCredential::class, 'deployment_id');
     }
-
-    public function ansibleRuns(): HasMany
-    {
-        return $this->hasMany(AnsibleRun::class, 'deployment_id');
-    }
 }

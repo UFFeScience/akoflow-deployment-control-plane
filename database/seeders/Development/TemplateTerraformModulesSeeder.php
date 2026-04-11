@@ -63,6 +63,7 @@ class TemplateTerraformModulesSeeder extends Seeder
             $this->gcpMicroNginx(),
             // $this->awsUbuntuDockerEks(),
             // $this->gcpUbuntuDockerGke(),
+            $this->sscad2025FedLearning(),
             $this->akoflowMulticloud(),
             $this->awsDockerAnsible(),
             $this->localAkoflowInstaller(),
@@ -138,6 +139,7 @@ class TemplateTerraformModulesSeeder extends Seeder
                     'machine_type'   => 'machine_type',
                     'nginx_port'     => 'nginx_port',
                     'ssh_public_key' => 'ssh_public_key',
+                    'ssh_user'       => 'ssh_user',
                 ],
                 'instance_configurations' => ['single-vm' => []],
             ],
@@ -158,6 +160,90 @@ class TemplateTerraformModulesSeeder extends Seeder
                         ],
                     ],
                 ]],
+            ],
+        ];
+    }
+
+    private function sscad2025FedLearning(): array
+    {
+        $siteResources = [];
+        for ($i = 1; $i <= 10; $i++) {
+            $siteResources[] = [
+                'name'           => "site-{$i}",
+                'terraform_type' => 'google_compute_instance',
+                'outputs'        => [
+                    'provider_resource_id' => "site_{$i}_name",
+                    'public_ip'            => "site_{$i}_public_ip",
+                    'private_ip'           => "site_{$i}_private_ip",
+                    'metadata'             => [
+                        'role' => 'site',
+                    ],
+                ],
+            ];
+        }
+
+        return [
+            'template_slug'    => 'sscad-2025-fed-learning',
+            'template_version' => '1.0.0',
+            'provider_type'    => 'gcp',
+            'module_slug'      => 'sscad-2025-fed-learning-gcp',
+            'main_tf'          => $this->readTerraformFile('sscad_2025_fed_learning_gcp/main.tf'),
+            'variables_tf'     => $this->readTerraformFile('sscad_2025_fed_learning_gcp/variables.tf'),
+            'outputs_tf'       => $this->readTerraformFile('sscad_2025_fed_learning_gcp/outputs.tf'),
+            'tfvars_mapping_json' => [
+                'environment_configuration' => [
+                    'project_id'           => 'project_id',
+                    'region'               => 'region',
+                    'zone'                 => 'zone',
+                    'network_name'         => 'network_name',
+                    'subnet_name'          => 'subnet_name',
+                    'image_id'             => 'image_id',
+                    'ssh_public_key'       => 'ssh_public_key',
+                    'ssh_user'             => 'ssh_user',
+                    'experiment_name'      => 'experiment_name',
+                    'description'          => 'description',
+                    'algorithm'            => 'algorithm',
+                    'clients'              => 'clients',
+                    'dataset_folder_key'   => 'dataset_folder_key',
+                    'site_folder_url'      => 'site_folder_url',
+                    'dfanalyse_machine_type' => 'dfanalyse_machine_type',
+                    'overseer_machine_type' => 'overseer_machine_type',
+                    'server_machine_type'  => 'server_machine_type',
+                    'site_machine_type'    => 'site_machine_type',
+                ],
+                'instance_configurations' => [],
+            ],
+            'credential_env_keys'  => [],
+            'outputs_mapping_json' => [
+                'resources' => array_merge([
+                    [
+                        'name'           => 'dfanalyse',
+                        'terraform_type' => 'google_compute_instance',
+                        'outputs'        => [
+                            'provider_resource_id' => 'dfanalyse_name',
+                            'public_ip'            => 'dfanalyse_public_ip',
+                            'private_ip'           => 'dfanalyse_private_ip',
+                        ],
+                    ],
+                    [
+                        'name'           => 'overseer',
+                        'terraform_type' => 'google_compute_instance',
+                        'outputs'        => [
+                            'provider_resource_id' => 'overseer_name',
+                            'public_ip'            => 'overseer_public_ip',
+                            'private_ip'           => 'overseer_private_ip',
+                        ],
+                    ],
+                    [
+                        'name'           => 'server',
+                        'terraform_type' => 'google_compute_instance',
+                        'outputs'        => [
+                            'provider_resource_id' => 'server_name',
+                            'public_ip'            => 'server_public_ip',
+                            'private_ip'           => 'server_private_ip',
+                        ],
+                    ],
+                ], $siteResources),
             ],
         ];
     }

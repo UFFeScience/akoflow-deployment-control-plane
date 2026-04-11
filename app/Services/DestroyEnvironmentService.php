@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\AnsibleRun;
+use App\Models\AnsiblePlaybook;
+use App\Models\AnsiblePlaybookRun;
 use App\Models\Deployment;
 use App\Models\Environment;
 use App\Models\TerraformRun;
-use App\Repositories\AnsibleRunRepository;
 use App\Repositories\DeploymentRepository;
 use App\Repositories\EnvironmentRepository;
 use App\Repositories\ProvisionedResourceRepository;
@@ -25,7 +25,7 @@ class DestroyEnvironmentService
         private ProvisionedResourceRepository        $provisionedResources,
         private AnsibleWorkspaceService              $ansibleWorkspace,
         private AnsibleProcessRunnerService          $ansibleRunner,
-        private AnsibleRunRepository                 $ansibleRunRepository,
+        private AnsiblePlaybookResolverService       $activityResolver,
     ) {}
 
     public function handle(int $environmentId, ?int $deploymentId = null): ?TerraformRun
@@ -130,56 +130,68 @@ class DestroyEnvironmentService
     }
 
     private function runAnsibleTeardown(
-        Environment $environment,
-        Deployment  $deployment,
-        string      $providerType,
-        array       $credentials,
+        Environment  $environment,
+        Deployment   $deployment,
+        string       $providerType,
+        array        $credentials,
         TerraformRun $terraformRun,
     ): void {
-        try {
-            $workspace = $this->ansibleWorkspace->buildForTeardown($environment, $deployment, $providerType);
-        } catch (\Throwable $e) {
-            $terraformRun->appendLog('[akocloud] No teardown Ansible playbook configured — skipping.');
-            return;
-        }
+        $playbooks = $this->activityResolver->resolve(
+            (int) $environment->environment_template_version_id,
+            $providerType,
+            AnsiblePlaybook::TRIGGER_BEFORE_TEARDOWN,
+        );
 
-        if ($workspace === null) {
-            $terraformRun->appendLog('[akocloud] No teardown Ansible playbook configured — skipping.');
+        if (empty($playbooks)) {
+            $terraformRun->appendLog('[akocloud] No teardown playbooks configured — skipping.');
             return;
         }
 
         $terraformRun->appendLog('[akocloud] ── Ansible teardown starting ──');
 
-        $ansibleRun = $this->ansibleRunRepository->create([
-            'deployment_id' => $deployment->id,
-            'action'        => AnsibleRun::ACTION_TEARDOWN,
-            'status'        => AnsibleRun::STATUS_RUNNING,
-            'provider_type' => $providerType,
-            'workspace_path' => $workspace['workspace_path'],
-            'extra_vars_json' => $workspace['extra_vars'],
-            'inventory_ini'   => $workspace['inventory_ini'],
-            'started_at'      => now(),
-        ]);
-
-        try {
-            $exitCode = $this->ansibleRunner->run($workspace['workspace_path'], $credentials, $ansibleRun);
-
-            if ($exitCode !== 0) {
-                throw new \RuntimeException("Ansible teardown exited with code {$exitCode}.");
-            }
-
-            $ansibleRun->update(['status' => AnsibleRun::STATUS_COMPLETED, 'finished_at' => now()]);
-            $terraformRun->appendLog('[akocloud] Ansible teardown completed successfully.');
-        } catch (\Throwable $e) {
-            $ansibleRun->update(['status' => AnsibleRun::STATUS_FAILED, 'finished_at' => now()]);
-            // Log but do NOT abort the Terraform destroy — teardown failure is non-fatal
-            $terraformRun->appendLog('[akocloud][WARN] Ansible teardown failed: ' . $e->getMessage());
-            $terraformRun->appendLog('[akocloud][WARN] Continuing with Terraform destroy.');
-            Log::warning('Ansible teardown failed during destroy', [
-                'environment_id' => $environment->id,
-                'deployment_id'  => $deployment->id,
-                'error'          => $e->getMessage(),
+        foreach ($playbooks as $activity) {
+            /** @var AnsiblePlaybookRun $run */
+            $run = AnsiblePlaybookRun::create([
+                'deployment_id' => $deployment->id,
+                'playbook_id'   => $activity->id,
+                'playbook_name' => $activity->name,
+                'trigger'       => AnsiblePlaybook::TRIGGER_BEFORE_TEARDOWN,
+                'status'        => AnsiblePlaybookRun::STATUS_RUNNING,
+                'provider_type' => $providerType,
+                'triggered_by'  => 'system',
+                'started_at'    => now(),
             ]);
+
+            try {
+                $workspace = $this->ansibleWorkspace->buildForActivity($environment, $deployment, $providerType, $activity);
+
+                $run->update([
+                    'workspace_path'  => $workspace['workspace_path'],
+                    'extra_vars_json' => $workspace['extra_vars'],
+                    'inventory_ini'   => $workspace['inventory_ini'],
+                ]);
+
+                $exitCode = $this->ansibleRunner->run($workspace['workspace_path'], $credentials, $run);
+
+                if ($exitCode !== 0) {
+                    throw new \RuntimeException("Ansible teardown activity '{$activity->name}' exited with code {$exitCode}.");
+                }
+
+                $run->update(['status' => AnsiblePlaybookRun::STATUS_COMPLETED, 'finished_at' => now()]);
+                $terraformRun->appendLog("[akocloud] Teardown activity '{$activity->name}' completed.");
+
+            } catch (\Throwable $e) {
+                $run->update(['status' => AnsiblePlaybookRun::STATUS_FAILED, 'finished_at' => now()]);
+                // Non-fatal: log and continue to the next activity / Terraform destroy
+                $terraformRun->appendLog("[akocloud][WARN] Teardown activity '{$activity->name}' failed: " . $e->getMessage());
+                $terraformRun->appendLog('[akocloud][WARN] Continuing with Terraform destroy.');
+                Log::warning('Ansible teardown activity failed during destroy', [
+                    'environment_id' => $environment->id,
+                    'deployment_id'  => $deployment->id,
+                    'activity'       => $activity->name,
+                    'error'          => $e->getMessage(),
+                ]);
+            }
         }
     }
 }

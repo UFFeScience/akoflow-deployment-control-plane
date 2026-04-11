@@ -2,39 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\AnsibleRun;
+use App\Models\AnsiblePlaybook;
 use App\Models\Deployment;
 use App\Models\Environment;
-use App\Models\EnvironmentTemplateAnsiblePlaybook;
-use App\Models\EnvironmentTemplateProviderConfiguration;
-use App\Models\EnvironmentTemplateRunbook;
 use App\Models\ProvisionedResource;
 use Illuminate\Database\Eloquent\Collection;
 use RuntimeException;
 
-/**
- * Builds the Ansible workspace directory for a given Deployment.
- *
- * Directory layout (storage/app/ansible/{deployment_id}/):
- *   playbook.yml       — from EnvironmentTemplateAnsiblePlaybook.playbook_yaml
- *   inventory.ini      — generated from inventory_template + config OR from ProvisionedResources
- *   requirements.yml   — from roles_json (when present)
- *   extra_vars.json    — produced by applying vars_mapping_json to environment.configuration_json
- *
- * ── vars_mapping_json format ──────────────────────────────────────────────────
- * Same semantics as TerraformWorkspaceService::tfvars_mapping_json.
- * Each leaf may be:
- *   a) a plain string  → Ansible variable name, value passed as-is
- *   b) an object       → { "ansible_var": "var_name", "cast": "int|float|bool|string|json" }
- *
- * ── inventory_template placeholders ──────────────────────────────────────────
- * Simple {{ key }} substitution against environment_configuration values.
- * When inventory_template is null in a Cloud environment, the inventory is
- * auto-generated from the ProvisionedResource records (IPs from Terraform).
- *
- * Credentials are NOT stored here — injected as process env vars by
- * AnsibleProcessRunnerService.
- */
 class AnsibleWorkspaceService
 {
     private const BASE_DIR = 'ansible';
@@ -45,83 +19,51 @@ class AnsibleWorkspaceService
     }
 
     /**
-     * Build the workspace directory and write all Ansible files from DB.
+     * Build a workspace for a single AnsiblePlaybook execution.
      *
      * @return array{workspace_path: string, provider_type: string, extra_vars: array, inventory_ini: string}
-     * @throws RuntimeException when no playbook is registered for the template version.
      */
-    public function build(Environment $environment, Deployment $deployment, string $providerType): array
-    {
-        return $this->buildForPhase($environment, $deployment, $providerType, EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION);
-    }
+    public function buildForActivity(
+        Environment $environment,
+        Deployment $deployment,
+        string $providerType,
+        AnsiblePlaybook $activity,
+    ): array {
+        $workspacePath = storage_path(
+            'app/ansible/' . $deployment->id . '/playbooks/' . $activity->id . '-' . uniqid('', true),
+        );
 
-    /**
-     * Build the workspace for the teardown phase (Ansible destroy phase).
-     * Returns null when no teardown playbook is configured — callers should skip Ansible in that case.
-     *
-     * @return array{workspace_path: string, provider_type: string, extra_vars: array, inventory_ini: string}|null
-     */
-    public function buildForTeardown(Environment $environment, Deployment $deployment, string $providerType): ?array
-    {
-        $playbook = $this->loadPlaybook($environment, $providerType, EnvironmentTemplateAnsiblePlaybook::PHASE_TEARDOWN);
-        if (!$playbook) {
-            return null;
-        }
-
-        $workspacePath = $this->workspaceAbsolutePath($deployment) . '/teardown';
         if (!is_dir($workspacePath)) {
             mkdir($workspacePath, 0755, true);
         }
 
-        file_put_contents($workspacePath . '/playbook.yml', $playbook->playbook_yaml);
-        $extraVars = $this->buildExtraVars($environment, $playbook);
-        file_put_contents($workspacePath . '/extra_vars.json', json_encode($extraVars, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        $inventoryIni = $this->buildInventory($environment, $deployment, $playbook, $extraVars);
-        file_put_contents($workspacePath . '/inventory.ini', $inventoryIni);
-        if (!empty($playbook->roles_json)) {
-            $this->writeRequirements($workspacePath, $playbook->roles_json);
-        }
-
-        return [
-            'workspace_path' => $workspacePath,
-            'provider_type'  => $providerType,
-            'extra_vars'     => $extraVars,
-            'inventory_ini'  => $inventoryIni,
-        ];
-    }
-
-    private function buildForPhase(Environment $environment, Deployment $deployment, string $providerType, string $phase): array
-    {
-        $playbook = $this->loadPlaybook($environment, $providerType, $phase);
-        if (!$playbook) {
+        if (empty($activity->playbook_yaml)) {
             throw new RuntimeException(
-                "Template version #{$environment->environment_template_version_id} " .
-                "has no AnsiblePlaybook configured for provider '{$providerType}' (phase: {$phase}).",
+                "AnsiblePlaybook #{$activity->id} '{$activity->name}' has no playbook_yaml."
             );
         }
 
-        $workspacePath = $this->workspaceAbsolutePath($deployment);
-        if (!is_dir($workspacePath)) {
-            mkdir($workspacePath, 0755, true);
+        file_put_contents($workspacePath . '/playbook.yml', $activity->playbook_yaml);
+
+        $extraVars = ['environment_id' => (string) $environment->id];
+        if (!empty($activity->vars_mapping_json)) {
+            $extraVars += $this->applyMapping(
+                $environment->configuration_json ?? [],
+                $activity->vars_mapping_json,
+            );
         }
 
-        // 1. Write playbook.yml
-        file_put_contents($workspacePath . '/playbook.yml', $playbook->playbook_yaml);
-
-        // 2. Build and write extra_vars.json
-        $extraVars = $this->buildExtraVars($environment, $playbook);
         file_put_contents(
             $workspacePath . '/extra_vars.json',
             json_encode($extraVars, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
         );
 
-        // 3. Build and write inventory.ini
-        $inventoryIni = $this->buildInventory($environment, $deployment, $playbook, $extraVars);
+        $sshUser = $extraVars['ansible_user'] ?? null;
+        $inventoryIni = $this->buildInventoryFromResources($deployment, $sshUser);
         file_put_contents($workspacePath . '/inventory.ini', $inventoryIni);
 
-        // 4. Write requirements.yml if roles are defined
-        if (!empty($playbook->roles_json)) {
-            $this->writeRequirements($workspacePath, $playbook->roles_json);
+        if (!empty($activity->roles_json)) {
+            $this->writeRequirements($workspacePath, $activity->roles_json);
         }
 
         return [
@@ -130,83 +72,12 @@ class AnsibleWorkspaceService
             'extra_vars'     => $extraVars,
             'inventory_ini'  => $inventoryIni,
         ];
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Playbook loading
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private function loadPlaybook(Environment $environment, string $providerType, string $phase = EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION): ?EnvironmentTemplateAnsiblePlaybook
-    {
-        if (empty($environment->environment_template_version_id)) {
-            if ($phase === EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION) {
-                throw new RuntimeException("Environment {$environment->id} has no template version assigned.");
-            }
-            return null;
-        }
-
-        $relation = $phase === EnvironmentTemplateAnsiblePlaybook::PHASE_TEARDOWN
-            ? 'providerConfigurations.teardownPlaybook'
-            : 'providerConfigurations.ansiblePlaybook';
-
-        $version = $environment->templateVersion()
-            ->with($relation)
-            ->first();
-
-        $configs = $version?->providerConfigurations ?? collect();
-        $playbook = $this->resolvePlaybookFromConfigs($configs, $providerType, $phase);
-
-        if (!$playbook && $phase === EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION) {
-            throw new RuntimeException(
-                "Template version #{$environment->environment_template_version_id} " .
-                "has no AnsiblePlaybook configured for provider '{$providerType}'.",
-            );
-        }
-
-        if ($playbook && empty($playbook->playbook_yaml) && $phase === EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION) {
-            throw new RuntimeException("AnsiblePlaybook #{$playbook->id} has no playbook_yaml content.");
-        }
-
-        return $playbook && !empty($playbook->playbook_yaml) ? $playbook : null;
-    }
-
-    private function resolvePlaybookFromConfigs(Collection $configs, string $providerType, string $phase = EnvironmentTemplateAnsiblePlaybook::PHASE_PROVISION): ?EnvironmentTemplateAnsiblePlaybook
-    {
-        $relation = $phase === EnvironmentTemplateAnsiblePlaybook::PHASE_TEARDOWN ? 'teardownPlaybook' : 'ansiblePlaybook';
-        $upper    = strtoupper($providerType);
-
-        $config = $configs->first(function (EnvironmentTemplateProviderConfiguration $c) use ($upper) {
-            return in_array($upper, array_map('strtoupper', $c->applies_to_providers ?? []), true);
-        });
-        if ($config?->{$relation}) {
-            return $config->{$relation};
-        }
-
-        $default = $configs->first(fn(EnvironmentTemplateProviderConfiguration $c) => empty($c->applies_to_providers));
-        return $default?->{$relation};
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // extra_vars building — driven by vars_mapping_json
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private function buildExtraVars(Environment $environment, EnvironmentTemplateAnsiblePlaybook $playbook): array
-    {
-        $base    = ['environment_id' => (string) $environment->id];
-        $mapping = $playbook->vars_mapping_json ?? [];
-
-        if (empty($mapping)) {
-            return $base;
-        }
-
-        return $base + $this->applyMapping($environment->configuration_json ?? [], $mapping);
     }
 
     private function applyMapping(array $config, array $mapping): array
     {
         $vars = [];
 
-        // ── environment_configuration fields ─────────────────────────────
         $expCfg      = $config['environment_configuration'] ?? [];
         $expMappings = $mapping['environment_configuration'] ?? [];
 
@@ -217,7 +88,6 @@ class AnsibleWorkspaceService
             }
         }
 
-        // ── instance_configurations fields ───────────────────────────────
         $instCfgs     = $config['instance_configurations'] ?? [];
         $instMappings = $mapping['instance_configurations'] ?? [];
 
@@ -255,43 +125,7 @@ class AnsibleWorkspaceService
         };
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Inventory building — two modes
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private function buildInventory(
-        Environment $environment,
-        Deployment $deployment,
-        EnvironmentTemplateAnsiblePlaybook $playbook,
-        array $extraVars = [],
-    ): string {
-        // Mode 1: use template from DB (HPC/ON_PREM — machines pre-exist)
-        if (!empty($playbook->inventory_template)) {
-            return $this->renderInventoryTemplate(
-                $playbook->inventory_template,
-                $environment->configuration_json['environment_configuration'] ?? [],
-            );
-        }
-
-        // Mode 2: auto-generate from ProvisionedResource rows (post-Terraform Cloud)
-        // ansible_user can be overridden by the extra_vars resolved from environment config
-        $sshUser = $extraVars['ansible_user'] ?? null;
-        return $this->generateInventoryFromResources($deployment, $sshUser);
-    }
-
-    /**
-     * Simple {{ key }} substitution against a flat values array.
-     */
-    private function renderInventoryTemplate(string $template, array $values): string
-    {
-        foreach ($values as $key => $value) {
-            $template = str_replace('{{ ' . $key . ' }}', (string) $value, $template);
-            $template = str_replace('{{' . $key . '}}', (string) $value, $template);
-        }
-        return $template;
-    }
-
-    private function generateInventoryFromResources(Deployment $deployment, ?string $sshUser = null): string
+    private function buildInventoryFromResources(Deployment $deployment, ?string $sshUser = null): string
     {
         $resources = ProvisionedResource::where('deployment_id', $deployment->id)
             ->whereNotNull('public_ip')
@@ -304,91 +138,83 @@ class AnsibleWorkspaceService
 
         $lines = ['[provisioned]'];
         foreach ($resources as $resource) {
-            // Priority: caller-supplied > resource metadata > fallback 'ubuntu'
-            $user   = $sshUser ?? $resource->metadata_json['ssh_user'] ?? 'ubuntu';
-            $lines[] = "{$resource->public_ip} ansible_user={$user}";
+            $user = $sshUser ?? $resource->metadata_json['ssh_user'] ?? 'ubuntu';
+            $hostName = $resource->name ?: $resource->public_ip;
+            $lines[] = "{$hostName} ansible_host={$resource->public_ip} ansible_user={$user}";
         }
 
         return implode("\n", $lines) . "\n";
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Runbook workspace — uses the runbook's own playbook_yaml + vars_mapping
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Build a workspace for a standalone Runbook execution.
-     *
-     * @return array{workspace_path: string, provider_type: string, extra_vars: array, inventory_ini: string}
-     */
-    public function buildForRunbook(
-        Environment $environment,
-        Deployment $deployment,
-        string $providerType,
-        EnvironmentTemplateRunbook $runbook,
-    ): array {
-        // Use a sub-directory to avoid colliding with configure workspaces
-        $workspacePath = storage_path('app/ansible/' . $deployment->id . '/runbooks/' . $runbook->id);
-        if (!is_dir($workspacePath)) {
-            mkdir($workspacePath, 0755, true);
-        }
-
-        $playbookYaml = $runbook->playbook_yaml;
-        if (empty($playbookYaml)) {
-            throw new RuntimeException("Runbook #{$runbook->id} '{$runbook->name}' has no playbook_yaml.");
-        }
-
-        file_put_contents($workspacePath . '/playbook.yml', $playbookYaml);
-
-        // Reuse env-config mapping if the runbook defines vars_mapping_json
-        $extraVars = ['environment_id' => (string) $environment->id];
-        if (!empty($runbook->vars_mapping_json)) {
-            $extraVars += $this->applyMapping(
-                $environment->configuration_json ?? [],
-                $runbook->vars_mapping_json,
-            );
-        }
-
-        file_put_contents(
-            $workspacePath . '/extra_vars.json',
-            json_encode($extraVars, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
-        );
-
-        $sshUser     = $extraVars['ansible_user'] ?? null;
-        $inventoryIni = $this->generateInventoryFromResources($deployment, $sshUser);
-        file_put_contents($workspacePath . '/inventory.ini', $inventoryIni);
-
-        if (!empty($runbook->roles_json)) {
-            $this->writeRequirements($workspacePath, $runbook->roles_json);
-        }
-
-        return [
-            'workspace_path' => $workspacePath,
-            'provider_type'  => $providerType,
-            'extra_vars'     => $extraVars,
-            'inventory_ini'  => $inventoryIni,
-        ];
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // requirements.yml
-    // ─────────────────────────────────────────────────────────────────────────
-
     private function writeRequirements(string $workspacePath, array $roles): void
     {
-        $lines = ['roles:'];
+        $requirements = [];
+
         foreach ($roles as $role) {
-            if (is_string($role)) {
-                $lines[] = "  - name: {$role}";
-            } else {
-                $line = "  - name: {$role['name']}";
-                if (!empty($role['version'])) {
-                    $line .= "\n    version: {$role['version']}";
-                }
-                $lines[] = $line;
+            if (is_string($role) && $role !== '') {
+                $requirements[] = ['name' => $role];
+            } elseif (is_array($role) && !empty($role['name'])) {
+                $requirements[] = $role;
             }
         }
 
-        file_put_contents($workspacePath . '/requirements.yml', implode("\n", $lines) . "\n");
+        if (!empty($requirements)) {
+            file_put_contents($workspacePath . '/requirements.yml', $this->formatRequirementsYaml($requirements));
+        }
+    }
+
+    private function formatRequirementsYaml(array $requirements): string
+    {
+        $lines = [];
+
+        foreach ($requirements as $requirement) {
+            $lines[] = '- name: ' . ($requirement['name'] ?? '');
+
+            foreach ($requirement as $key => $value) {
+                if ($key === 'name') {
+                    continue;
+                }
+
+                if (is_array($value)) {
+                    $lines[] = '  ' . $key . ':';
+                    foreach ($value as $nestedKey => $nestedValue) {
+                        $lines[] = '    ' . $nestedKey . ': ' . $this->stringifyYamlValue($nestedValue);
+                    }
+                    continue;
+                }
+
+                $lines[] = '  ' . $key . ': ' . $this->stringifyYamlValue($value);
+            }
+        }
+
+        return implode("\n", $lines) . "\n";
+    }
+
+    private function stringifyYamlValue(mixed $value): string
+    {
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if ($value === null) {
+            return 'null';
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        if (is_array($value)) {
+            return json_encode($value, JSON_UNESCAPED_SLASHES);
+        }
+
+        $stringValue = (string) $value;
+
+        if ($stringValue === '' || preg_match('/[:#\n\r\t\-]|^\s|\s$/', $stringValue)) {
+            return '"' . str_replace('"', '\\"', $stringValue) . '"';
+        }
+
+        return $stringValue;
     }
 }
+

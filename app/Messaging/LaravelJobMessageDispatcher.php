@@ -6,6 +6,7 @@ use App\Enums\Messages;
 use App\Jobs\CheckProviderHealthJob;
 use App\Jobs\ConfigureEnvironmentJob;
 use App\Jobs\DestroyEnvironmentJob;
+use App\Jobs\ExecuteAnsiblePlaybookJob;
 use App\Jobs\ExecuteRunbookJob;
 use App\Jobs\ProvisionEnvironmentJob;
 use App\Messaging\Contracts\MessageDispatcherInterface;
@@ -29,8 +30,9 @@ class LaravelJobMessageDispatcher implements MessageDispatcherInterface
         Messages::CONFIGURE_ENVIRONMENT->value  => ConfigureEnvironmentJob::class,
         Messages::DESTROY_ENVIRONMENT->value    => DestroyEnvironmentJob::class,
         Messages::DESTROY_DEPLOYMENT->value     => DestroyEnvironmentJob::class,
-        Messages::CHECK_PROVIDER_HEALTH->value  => CheckProviderHealthJob::class,
-        Messages::EXECUTE_RUNBOOK->value        => ExecuteRunbookJob::class,
+        Messages::CHECK_PROVIDER_HEALTH->value    => CheckProviderHealthJob::class,
+        Messages::EXECUTE_RUNBOOK->value          => ExecuteRunbookJob::class,
+        Messages::EXECUTE_ANSIBLE_PLAYBOOK->value => ExecuteAnsiblePlaybookJob::class,
     ];
 
     public function dispatch(Messages $message, array $payload = []): void
