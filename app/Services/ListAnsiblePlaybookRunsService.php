@@ -13,14 +13,18 @@ class ListAnsiblePlaybookRunsService
         $deploymentIds = Deployment::where('environment_id', $environmentId)
             ->pluck('id');
 
-        return AnsiblePlaybookRun::whereIn('deployment_id', $deploymentIds)
+        return AnsiblePlaybookRun::with('taskHostStatuses')
+            ->whereIn('deployment_id', $deploymentIds)
+            ->orderByDesc('updated_at')
             ->orderByDesc('created_at')
             ->get();
     }
 
     public function handleByDeployment(string $deploymentId): Collection
     {
-        return AnsiblePlaybookRun::where('deployment_id', $deploymentId)
+        return AnsiblePlaybookRun::with('taskHostStatuses')
+            ->where('deployment_id', $deploymentId)
+            ->orderByDesc('updated_at')
             ->orderByDesc('created_at')
             ->get();
     }

@@ -22,6 +22,7 @@ class AnsiblePlaybookRunResource extends JsonResource
             'workspace_path' => $this->workspace_path,
             'extra_vars'     => $this->extra_vars_json,
             'output'         => $this->output_json,
+            'task_host_statuses' => AnsiblePlaybookRunTaskHostResource::collection($this->whenLoaded('taskHostStatuses')),
             'started_at'     => $this->started_at,
             'finished_at'    => $this->finished_at,
             'created_at'     => $this->created_at,

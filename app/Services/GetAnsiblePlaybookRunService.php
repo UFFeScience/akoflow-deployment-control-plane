@@ -8,6 +8,6 @@ class GetAnsiblePlaybookRunService
 {
     public function handle(string $runId): AnsiblePlaybookRun
     {
-        return AnsiblePlaybookRun::findOrFail($runId);
+        return AnsiblePlaybookRun::with('taskHostStatuses')->findOrFail($runId);
     }
 }

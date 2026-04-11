@@ -25,21 +25,22 @@ class AnsibleProcessRunnerService
      * @param  string                 $workspacePath  Absolute path to the Ansible workspace.
      * @param  array<string, string>  $credentialEnv  Provider credentials to inject as env vars.
     * @param  HasRunLog              $run            Log target; updated in real time.
-     * @return int  The ansible-playbook exit code (0 = success).
+    * @param  callable(string):void|null $onLogLine Optional callback for each streamed log line.
+    * @return int  The ansible-playbook exit code (0 = success).
      *
      * @throws RuntimeException when the process cannot be started.
      */
-    public function run(string $workspacePath, array $credentialEnv, HasRunLog $run): int
+    public function run(string $workspacePath, array $credentialEnv, HasRunLog $run, ?callable $onLogLine = null): int
     {
         $tempKeyFile = null;
         $env         = $this->buildProcessEnv($credentialEnv, $workspacePath, $tempKeyFile);
 
         try {
             if (file_exists($workspacePath . '/requirements.yml')) {
-                $this->installRoles($workspacePath, $env, $run);
+                $this->installRoles($workspacePath, $env, $run, $onLogLine);
             }
 
-            return $this->runPlaybook($workspacePath, $env, $run);
+            return $this->runPlaybook($workspacePath, $env, $run, $onLogLine);
         } finally {
             if ($tempKeyFile !== null && file_exists($tempKeyFile)) {
                 unlink($tempKeyFile);
@@ -136,7 +137,7 @@ class AnsibleProcessRunnerService
         return $env;
     }
 
-    private function installRoles(string $workspacePath, array $env, HasRunLog $run): void
+    private function installRoles(string $workspacePath, array $env, HasRunLog $run, ?callable $onLogLine = null): void
     {
         $run->appendLog('[akocloud] Installing Ansible roles from requirements.yml...');
 
@@ -145,6 +146,7 @@ class AnsibleProcessRunnerService
             $workspacePath,
             $env,
             $run,
+            $onLogLine,
         );
 
         if ($exitCode !== 0) {
@@ -154,7 +156,7 @@ class AnsibleProcessRunnerService
         }
     }
 
-    private function runPlaybook(string $workspacePath, array $env, HasRunLog $run): int
+    private function runPlaybook(string $workspacePath, array $env, HasRunLog $run, ?callable $onLogLine = null): int
     {
         $run->appendLog('[akocloud] Running ansible-playbook...');
 
@@ -163,6 +165,7 @@ class AnsibleProcessRunnerService
             $workspacePath,
             $env,
             $run,
+            $onLogLine,
         );
     }
 
@@ -190,7 +193,7 @@ class AnsibleProcessRunnerService
      * Opens a process, streams stdout+stderr line by line to the run log,
      * and returns the exit code.
      */
-    private function streamProcess(string $command, string $cwd, array $env, HasRunLog $run): int
+    private function streamProcess(string $command, string $cwd, array $env, HasRunLog $run, ?callable $onLogLine = null): int
     {
         $descriptors = [
             0 => ['pipe', 'r'],
@@ -221,6 +224,9 @@ class AnsibleProcessRunnerService
                     foreach (explode("\n", rtrim($chunk)) as $line) {
                         if ($line !== '') {
                             $run->appendLog($line);
+                            if ($onLogLine !== null) {
+                                $onLogLine($line);
+                            }
                         }
                     }
                 }

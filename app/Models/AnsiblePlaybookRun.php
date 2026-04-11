@@ -6,6 +6,7 @@ use App\Contracts\HasRunLog;
 use App\Repositories\RunLogRepository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AnsiblePlaybookRun extends Model implements HasRunLog
 {
@@ -50,6 +51,13 @@ class AnsiblePlaybookRun extends Model implements HasRunLog
     public function activity(): BelongsTo
     {
         return $this->belongsTo(AnsiblePlaybook::class, 'playbook_id');
+    }
+
+    public function taskHostStatuses(): HasMany
+    {
+        return $this->hasMany(AnsiblePlaybookRunTaskHost::class, 'ansible_playbook_run_id')
+            ->orderBy('position')
+            ->orderBy('host');
     }
 
     // ─── HasRunLog ────────────────────────────────────────────────────────────

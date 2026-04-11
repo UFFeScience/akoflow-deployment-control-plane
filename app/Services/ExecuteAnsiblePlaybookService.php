@@ -28,6 +28,7 @@ class ExecuteAnsiblePlaybookService
         private ProviderCredentialResolverService    $credentialResolver,
         private AnsibleWorkspaceService              $workspaceService,
         private AnsibleProcessRunnerService          $processRunner,
+        private AnsiblePlaybookTaskHostStatusService $taskHostStatusService,
     ) {}
 
     public function handle(
@@ -91,9 +92,16 @@ class ExecuteAnsiblePlaybookService
                 'inventory_ini'   => $workspace['inventory_ini'],
             ]);
 
+            $this->taskHostStatusService->initializePending($run->fresh());
+
             $run->appendLog("[akocloud] Workspace built at: {$workspace['workspace_path']}");
 
-            $exitCode = $this->processRunner->run($workspace['workspace_path'], $credentials, $run);
+            $exitCode = $this->processRunner->run(
+                $workspace['workspace_path'],
+                $credentials,
+                $run,
+                fn (string $line) => $this->taskHostStatusService->consumeLogLine($run, $line),
+            );
 
             if ($exitCode !== 0) {
                 throw new RuntimeException("ansible-playbook exited with code {$exitCode}.");
@@ -125,6 +133,8 @@ class ExecuteAnsiblePlaybookService
             ]);
         }
 
-        return $run->fresh();
+        $this->taskHostStatusService->syncFromLogs($run->fresh());
+
+        return $run->fresh()->load('taskHostStatuses');
     }
 }

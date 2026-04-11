@@ -163,7 +163,6 @@ class TemplateAnsiblePlaybooksSeeder extends Seeder
       apt:
         name:
           - docker.io
-          - docker-compose-plugin
         state: present
 
     - name: Enable and start Docker service
@@ -342,14 +341,12 @@ YAML,
         state: present
         update_cache: yes
 
-    - name: Install Docker Engine and Compose plugin
+    - name: Install Docker Engine
       apt:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
-          - docker-buildx-plugin
-          - docker-compose-plugin
         state: present
 
     - name: Start and enable Docker service
@@ -381,7 +378,7 @@ YAML,
                 ['name' => 'Install prerequisites', 'module' => 'apt'],
                 ['name' => 'Add Docker GPG key', 'module' => 'apt_key'],
                 ['name' => 'Add Docker APT repository', 'module' => 'apt_repository'],
-                ['name' => 'Install Docker Engine and Compose plugin', 'module' => 'apt'],
+                ['name' => 'Install Docker Engine', 'module' => 'apt'],
                 ['name' => 'Start and enable Docker service', 'module' => 'systemd'],
                 ['name' => 'Write ansible_outputs.json', 'module' => 'copy'],
             ],
