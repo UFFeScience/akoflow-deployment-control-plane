@@ -18,9 +18,9 @@ variable "ssh_private_key" {
   sensitive   = true
 }
 
-variable "akoflow_port" {
-  description = "Port to expose AkôFlow on the host"
-  default     = "8080"
+variable "akoflow_workflow_engine_host_port" {
+  description = "Port to expose the AkôFlow workflow engine on the host"
+  default     = "18080"
 }
 
 variable "environment_id" {

@@ -12,7 +12,7 @@ use Database\Seeders\Development\TemplateDefinitions\AwsDockerAnsibleDefinition;
 use Database\Seeders\Development\TemplateDefinitions\AwsUbuntuDockerEksDefinition;
 use Database\Seeders\Development\TemplateDefinitions\GcpUbuntuDockerGkeDefinition;
 use Database\Seeders\Development\TemplateDefinitions\MicroNginxDefinition;
-use Database\Seeders\Development\TemplateDefinitions\Sscad2025FedLearningDefinition;
+use Database\Seeders\Development\TemplateDefinitions\NvidiaFlareFederatedLearningDefinition;
 use Illuminate\Database\Seeder;
 
 class TemplatesSeeder extends Seeder
@@ -56,9 +56,9 @@ class TemplatesSeeder extends Seeder
             ],
             [
                 'slug'                  => 'akoflow-local-installer',
-                'name'                  => 'AkôFlow Local Installer (SSH)',
+                'name'                  => 'AkôFlow Workflow Engine Local Installer',
                 'description'           => 'Connects to an existing host via SSH, verifies Docker is installed, '
-                    . 'builds the AkôFlow Docker image and runs it on the configured port. '
+                    . 'and starts the AkôFlow workflow engine container on the configured port. '
                     . 'Supports password or private-key SSH authentication.',
                 'is_public'             => true,
                 'owner_organization_id' => $organizationId,
@@ -66,13 +66,13 @@ class TemplatesSeeder extends Seeder
                 'definition'            => AkoflowLocalInstallerDefinition::get(),
             ],
             [
-                'slug'                  => 'sscad-2025-fed-learning',
-                'name'                  => 'SSCAD 2025 Federated Learning (GCP)',
-                'description'           => 'Seeds the SSCAD 2025 federated-learning environment on GCP with minimal VM bootstrap and trigger-aware Ansible playbooks.',
+                'slug'                  => 'nvidia-flare-federated-learning',
+                'name'                  => 'NVIDIA Flare Federated Learning',
+                'description'           => 'Seeds the NVIDIA FLARE federated-learning environment on GCP with minimal VM bootstrap and trigger-aware Ansible playbooks.',
                 'is_public'             => true,
                 'owner_organization_id' => $organizationId,
                 'version'               => '1.0.0',
-                'definition'            => Sscad2025FedLearningDefinition::get(),
+                'definition'            => NvidiaFlareFederatedLearningDefinition::get(),
             ],
         ];
     }

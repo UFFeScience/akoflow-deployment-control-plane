@@ -63,7 +63,7 @@ class TemplateTerraformModulesSeeder extends Seeder
             $this->gcpMicroNginx(),
             // $this->awsUbuntuDockerEks(),
             // $this->gcpUbuntuDockerGke(),
-            $this->sscad2025FedLearning(),
+            $this->nvidiaFlareFederatedLearning(),
             $this->akoflowMulticloud(),
             $this->awsDockerAnsible(),
             $this->localAkoflowInstaller(),
@@ -164,7 +164,7 @@ class TemplateTerraformModulesSeeder extends Seeder
         ];
     }
 
-    private function sscad2025FedLearning(): array
+    private function nvidiaFlareFederatedLearning(): array
     {
         $siteResources = [];
         for ($i = 1; $i <= 10; $i++) {
@@ -183,10 +183,10 @@ class TemplateTerraformModulesSeeder extends Seeder
         }
 
         return [
-            'template_slug'    => 'sscad-2025-fed-learning',
+            'template_slug'    => 'nvidia-flare-federated-learning',
             'template_version' => '1.0.0',
             'provider_type'    => 'gcp',
-            'module_slug'      => 'sscad-2025-fed-learning-gcp',
+            'module_slug'      => 'nvidia-flare-federated-learning-gcp',
             'main_tf'          => $this->readTerraformFile('sscad_2025_fed_learning_gcp/main.tf'),
             'variables_tf'     => $this->readTerraformFile('sscad_2025_fed_learning_gcp/variables.tf'),
             'outputs_tf'       => $this->readTerraformFile('sscad_2025_fed_learning_gcp/outputs.tf'),
@@ -391,12 +391,12 @@ class TemplateTerraformModulesSeeder extends Seeder
             'variables_tf'     => $this->readTerraformFile('akoflow_local_installer/variables.tf'),
             'outputs_tf'       => $this->readTerraformFile('akoflow_local_installer/outputs.tf'),
 
-            // akoflow_port comes from environment config; host/user/ssh_* come from
+            // akoflow_workflow_engine_host_port comes from environment config; host/user/ssh_* come from
             // credential env vars (TF_VAR_host, TF_VAR_user, TF_VAR_ssh_password,
             // TF_VAR_ssh_private_key) injected by ProviderCredentialResolverService.
             'tfvars_mapping_json' => [
                 'environment_configuration' => [
-                    'akoflow_port' => 'akoflow_port',
+                    'akoflow_workflow_engine_host_port' => 'akoflow_workflow_engine_host_port',
                 ],
                 'instance_configurations' => [],
             ],

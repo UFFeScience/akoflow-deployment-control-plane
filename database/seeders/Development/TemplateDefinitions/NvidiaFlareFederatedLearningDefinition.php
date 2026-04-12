@@ -2,7 +2,7 @@
 
 namespace Database\Seeders\Development\TemplateDefinitions;
 
-class Sscad2025FedLearningDefinition
+class NvidiaFlareFederatedLearningDefinition
 {
     public static function get(): array
     {
@@ -11,8 +11,8 @@ class Sscad2025FedLearningDefinition
             'required_providers' => ['gcp'],
 
             'environment_configuration' => [
-                'label'       => 'SSCAD 2025 Federated Learning (GCP)',
-                'description' => 'Provisions the SSCAD 2025 federated-learning topology on GCP. Terraform handles the VMs and a minimal bootstrap, while trigger-aware Ansible playbooks handle startup and post-execution on the provisioned hosts.',
+                'label'       => 'NVIDIA Flare Federated Learning',
+                'description' => 'Provisions the NVIDIA FLARE federated-learning topology on GCP. Terraform handles the VMs and a minimal bootstrap, while trigger-aware Ansible playbooks handle startup and post-execution on the provisioned hosts.',
                 'type'        => 'environment',
 
                 'groups' => [
@@ -25,7 +25,7 @@ class Sscad2025FedLearningDefinition
                     [
                         'name'        => 'experiment',
                         'label'       => 'Experiment',
-                        'description' => 'Experiment metadata mirrored from the SSCAD reference file.',
+                        'description' => 'Experiment metadata mirrored from the NVIDIA FLARE reference file.',
                         'icon'        => 'settings',
                     ],
                     [
@@ -46,7 +46,7 @@ class Sscad2025FedLearningDefinition
                     [
                         'name'        => 'cloud',
                         'label'       => 'GCP Cloud',
-                        'description' => 'Project, region, zone, subnet and image for all SSCAD nodes.',
+                        'description' => 'Project, region, zone, subnet and image for all FLARE nodes.',
                         'group'       => 'cloud',
                         'fields'      => [
                             [
@@ -107,7 +107,7 @@ class Sscad2025FedLearningDefinition
                     [
                         'name'        => 'experiment',
                         'label'       => 'Experiment Metadata',
-                        'description' => 'Values that change between SSCAD experiments.',
+                        'description' => 'Values that change between FLARE experiments.',
                         'group'       => 'experiment',
                         'fields'      => [
                             [
@@ -160,14 +160,14 @@ class Sscad2025FedLearningDefinition
                                 'type'        => 'string',
                                 'required'    => true,
                                 'default'     => 'https://storage.googleapis.com/outliers-ccpe-2026/infra-sscad-2/prod_01.zip',
-                                'description' => 'Zip file with the NVFlare workspace used by the Sites.',
+                                'description' => 'Zip file with the NVIDIA FLARE workspace used by the Sites.',
                             ],
                         ],
                     ],
                     [
                         'name'        => 'instances',
                         'label'       => 'Machine Types',
-                        'description' => 'Machine sizes used by the SSCAD topology.',
+                        'description' => 'Machine sizes used by the FLARE topology.',
                         'group'       => 'instances',
                         'fields'      => [
                             [

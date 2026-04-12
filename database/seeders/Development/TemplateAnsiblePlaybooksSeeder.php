@@ -105,7 +105,7 @@ class TemplateAnsiblePlaybooksSeeder extends Seeder
             $this->awsDockerRestart(),
             $this->awsDockerShutdown(),
 
-            // ── SSCAD 2025 Federated Learning ──────────────────────────────
+            // ── NVIDIA Flare Federated Learning ────────────────────────────
             $this->sscad2025Bootstrap(),
 
             // ── AkôFlow Multicloud Demo ────────────────────────────────────
@@ -116,7 +116,10 @@ class TemplateAnsiblePlaybooksSeeder extends Seeder
 
             // ── AkôFlow Local Installer ────────────────────────────────────
             $this->localAkoflowInstall(),
+            $this->localAkoflowStart(),
             $this->localAkoflowRestart(),
+            $this->localAkoflowStop(),
+            $this->localAkoflowTeardown(),
         ];
     }
 
@@ -484,7 +487,7 @@ YAML,
         ];
     }
 
-    // ─── SSCAD 2025 ──────────────────────────────────────────────────────────
+    // ─── NVIDIA Flare Federated Learning ─────────────────────────────────────
 
     private function sscad2025Bootstrap(): array
     {
@@ -503,17 +506,17 @@ YAML,
         }
 
         return [
-            'template_slug'    => 'sscad-2025-fed-learning',
+            'template_slug'    => 'nvidia-flare-federated-learning',
             'template_version' => '1.0.0',
             'provider_type'    => 'gcp',
-            'name'             => 'SSCAD 2025 Bootstrap & Execution',
-            'description'      => 'Bootstraps all nodes, starts the NVFlare federation (DfAnalyse, Overseer, Server, Sites) and submits the experiment job once the environment is ready.',
+            'name'             => 'NVIDIA Flare Bootstrap & Execution',
+            'description'      => 'Bootstraps all nodes, starts the NVIDIA FLARE federation (DfAnalyse, Overseer, Server, Sites) and submits the experiment job once the environment is ready.',
             'trigger'          => AnsiblePlaybook::TRIGGER_AFTER_PROVISION,
             'position'         => 0,
-            'playbook_slug'    => 'sscad-gcp-bootstrap',
+            'playbook_slug'    => 'nvidia-flare-federated-learning-bootstrap',
             'inventory_template' => null,
             'playbook_yaml'    => <<<'YAML'
-- name: SSCAD 2025 bootstrap
+- name: NVIDIA Flare bootstrap
   hosts: all
   become: true
   gather_facts: false
@@ -592,7 +595,7 @@ YAML,
             "clients": "{{ clients }}"
           }
 
-- name: SSCAD 2025 startup DfAnalyse
+- name: NVIDIA Flare startup DfAnalyse
   hosts: dfanalyse
   become: true
   gather_facts: false
@@ -640,7 +643,7 @@ YAML,
         docker run --rm --name dfanalyzer -d -p 22000:22000 -e DFA_URL=http://0.0.0.0 -w /DfAnalyzer -v $(pwd)/save_results.sql:/DfAnalyzer/save_results.sql -v $(pwd)/data:/DfAnalyzer/data -v $(pwd)/results:/DfAnalyzer/results nymeria0042/dfanalyzer sh start-dfanalyzer.sh
       changed_when: false
 
-- name: SSCAD 2025 startup Overseer
+- name: NVIDIA Flare startup Overseer
   hosts: overseer
   become: true
   gather_facts: false
@@ -694,7 +697,7 @@ YAML,
         docker run -d --rm --name overseer --add-host overseer:$(hostname -I | awk '{print $1}') -p 8443:8443 -v $(pwd)/overseer:/workspace -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest ovvesley/nvflare-service:latest /workspace/startup/start.sh
       changed_when: false
 
-- name: SSCAD 2025 startup Server
+- name: NVIDIA Flare startup Server
   hosts: server
   become: true
   gather_facts: false
@@ -767,7 +770,7 @@ YAML,
         docker run -d --rm --name server1 -v $(pwd)/server1:/workspace -v nvflare_svc_persist:/tmp/nvflare/ --add-host overseer:{{ overseer_host }} --add-host server1:$(hostname -I | awk '{print $1}') -e DFA_URL=http://{{ dfa_host }}:22000 -p 8002:8002 -p 8003:8003 -e PYTHON_EXECUTABLE=python3 -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest -w /workspace/server1 ovvesley/nvflare-service:latest python -u -m nvflare.private.fed.app.server.server_train -m /workspace -s fed_server.json --set secure_train=true config_folder=config org=nvidia
       changed_when: false
 
-- name: SSCAD 2025 startup Sites
+- name: NVIDIA Flare startup Sites
   hosts: all
   become: true
   gather_facts: false
@@ -868,7 +871,7 @@ YAML,
       changed_when: false
       when: inventory_hostname is match('^site-')
 
-- name: SSCAD 2025 post execution on server
+- name: NVIDIA Flare post execution on server
   hosts: server
   become: true
   vars:
@@ -1001,7 +1004,7 @@ YAML,
             'template_version' => '1.0.0',
           'provider_type'    => 'custom',
             'name'             => 'AkôFlow Multicloud Bootstrap',
-            'description'      => 'Installs and starts the AkôFlow engine after Terraform provision, then writes the connection outputs.',
+            'description'      => 'Installs Kind, provisions AkôFlow resources, generates the cluster token and starts the workflow engine container on the remote host.',
             'trigger'          => AnsiblePlaybook::TRIGGER_AFTER_PROVISION,
             'position'         => 0,
             'playbook_slug'    => 'akoflow-multicloud-bootstrap',
@@ -1012,9 +1015,6 @@ YAML,
   gather_facts: false
 
   pre_tasks:
-    - name: Wait for SSH to become ready
-      wait_for_connection:
-        connect_timeout: 15
         delay: 10
         sleep: 10
         timeout: 600
@@ -1106,7 +1106,7 @@ YAML,
     - name: Apply AkôFlow manifests to both clusters
       shell: |
         set -eux
-        AKOFLOW_YAML="https://raw.githubusercontent.com/UFFeScience/akoflow/main/pkg/server/resource/akoflow-dev-dockerdesktop.yaml"
+        AKOFLOW_YAML="https://raw.githubusercontent.com/UFFeScience/akoflow-workflow-engine/main/pkg/server/resource/akoflow-dev-dockerdesktop.yaml"
 
         for i in 1 2 3 4 5; do
           KUBECONFIG=/home/ubuntu/.kube/config-eks kubectl apply -f "$AKOFLOW_YAML" && break
@@ -1365,65 +1365,219 @@ YAML,
             'template_slug'    => 'akoflow-local-installer',
             'template_version' => '1.0.0',
             'provider_type'    => 'local',
-            'name'             => 'Install AkôFlow',
-            'description'      => 'Installs and starts the AkôFlow container on the remote host via Docker.',
+            'name'             => 'Install AkôFlow Workflow Engine',
+            'description'      => 'Installs Kind, provisions AkôFlow resources, generates the cluster token and starts the workflow engine container on the remote host.',
             'trigger'          => AnsiblePlaybook::TRIGGER_AFTER_PROVISION,
             'position'         => 0,
             'playbook_yaml'    => <<<'YAML'
-- name: Install AkôFlow on remote host via Docker
+- name: Install AkôFlow workflow engine with Kind
   hosts: all
   become: false
-  environment:
-    PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH | default('') }}"
-  vars:
-    akoflow_port: "{{ akoflow_port | default('8080') }}"
-    akospace_dir: "{{ akospace_dir | default(ansible_env.HOME + '/akospace') }}"
 
   tasks:
     - name: Check Docker is installed
-      shell: docker --version
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        if [ -z "$DOCKER_BIN" ]; then
+          echo 'Docker is not installed on this host'
+          exit 1
+        fi
+        "$DOCKER_BIN" --version
       register: docker_check
       changed_when: false
       failed_when: docker_check.rc != 0
 
-    - name: Create akospace directory
-      file:
-        path: "{{ akospace_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Create .env file
-      copy:
-        dest: "{{ akospace_dir }}/.env"
-        content: |
-          AKOFLOW_ENV=dev
-          AKOFLOW_PORT={{ akoflow_port }}
-        force: no
-
-    - name: Run AkôFlow container
+    - name: Check Kind is installed
       shell: |
-        docker run -d \
-          --name akoflow-installer \
-          --restart unless-stopped \
-          -p {{ akoflow_port }}:8080 \
-          -v "{{ akospace_dir | expanduser }}/.env:/app/.env" \
-          -v "{{ akospace_dir | expanduser }}/ako.log:/app/ako.log" \
-          -v "{{ akospace_dir | expanduser }}/database.db:/storage/database.db" \
-          akoflow-installer
+        set -eux
+        KIND_BIN="$(command -v kind || ls /usr/local/bin/kind /usr/bin/kind /opt/homebrew/bin/kind 2>/dev/null | head -1 || true)"
+        if [ -z "$KIND_BIN" ]; then
+          KIND_VERSION="v0.27.0"
+          ARCH="$(uname -m)"
+          case "$ARCH" in
+            x86_64|amd64) KIND_ARCH="amd64" ;;
+            arm64|aarch64) KIND_ARCH="arm64" ;;
+            *)
+              echo "Unsupported architecture for Kind: $ARCH"
+              exit 1
+              ;;
+          esac
+          OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+          TMP_DIR="$(mktemp -d)"
+          curl -fsSL -o "$TMP_DIR/kind" "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-${OS}-${KIND_ARCH}"
+          chmod +x "$TMP_DIR/kind"
+          install -m 0755 "$TMP_DIR/kind" /usr/local/bin/kind
+          KIND_BIN=/usr/local/bin/kind
+        fi
+        "$KIND_BIN" version
+      register: kind_check
+      changed_when: false
+      failed_when: kind_check.rc != 0
+
+    - name: Check kubectl is installed
+      shell: |
+        set -eux
+        KUBECTL_BIN="$(command -v kubectl || ls /usr/local/bin/kubectl /usr/bin/kubectl /opt/homebrew/bin/kubectl 2>/dev/null | head -1 || true)"
+        if [ -z "$KUBECTL_BIN" ]; then
+          KUBECTL_VERSION="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
+          ARCH="$(uname -m)"
+          case "$ARCH" in
+            x86_64|amd64) KUBECTL_ARCH="amd64" ;;
+            arm64|aarch64) KUBECTL_ARCH="arm64" ;;
+            *)
+              echo "Unsupported architecture for kubectl: $ARCH"
+              exit 1
+              ;;
+          esac
+          OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+          TMP_DIR="$(mktemp -d)"
+          curl -fsSL -o "$TMP_DIR/kubectl" "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/${OS}/${KUBECTL_ARCH}/kubectl"
+          chmod +x "$TMP_DIR/kubectl"
+          install -m 0755 "$TMP_DIR/kubectl" /usr/local/bin/kubectl
+          KUBECTL_BIN=/usr/local/bin/kubectl
+        fi
+        "$KUBECTL_BIN" version --client
+      register: kubectl_check
+      changed_when: false
+      failed_when: kubectl_check.rc != 0
+
+    - name: Prepare AkôFlow workspace directory
+      shell: |
+        set -eux
+        WORKSPACE_DIR="{{ akoflow_workflow_engine_workspace_dir | default('/Users/<username>/akospace') }}"
+        if [ "$WORKSPACE_DIR" = '/Users/<username>/akospace' ]; then
+          WORKSPACE_DIR="${HOME}/akospace"
+        fi
+        mkdir -p "$WORKSPACE_DIR"
+      changed_when: false
+
+    - name: Create Kind cluster, install AkôFlow resources and generate .env
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        KIND_BIN="$(command -v kind || ls /usr/local/bin/kind /usr/bin/kind /opt/homebrew/bin/kind 2>/dev/null | head -1 || true)"
+        KUBECTL_BIN="$(command -v kubectl || ls /usr/local/bin/kubectl /usr/bin/kubectl /opt/homebrew/bin/kubectl 2>/dev/null | head -1 || true)"
+
+        if [ -z "$DOCKER_BIN" ] || [ -z "$KIND_BIN" ] || [ -z "$KUBECTL_BIN" ]; then
+          echo 'Docker, Kind or kubectl is not installed on this host'
+          exit 1
+        fi
+
+        export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+
+        WORKSPACE_DIR="{{ akoflow_workflow_engine_workspace_dir | default('/Users/<username>/akospace') }}"
+        if [ "$WORKSPACE_DIR" = '/Users/<username>/akospace' ]; then
+          WORKSPACE_DIR="${HOME}/akospace"
+        fi
+        ENV_FILE_PATH="$WORKSPACE_DIR/.env"
+
+        CLUSTER_NAME="{{ akoflow_kind_cluster_name | default('akoflow-cluster') }}"
+
+        if "$KIND_BIN" get clusters | grep -qx "$CLUSTER_NAME"; then
+          KUBE_CONTEXT="kind-${CLUSTER_NAME}"
+          if ! "$KUBECTL_BIN" --context "$KUBE_CONTEXT" version --request-timeout=10s >/dev/null 2>&1; then
+            "$KIND_BIN" delete cluster --name "$CLUSTER_NAME"
+            "$KIND_BIN" create cluster --name "$CLUSTER_NAME"
+          fi
+        else
+          "$KIND_BIN" create cluster --name "$CLUSTER_NAME"
+        fi
+
+        KUBE_CONTEXT="kind-${CLUSTER_NAME}"
+        CLUSTER_INFO="$("$KUBECTL_BIN" --context "$KUBE_CONTEXT" cluster-info)"
+        API_SERVER_URL="$(printf '%s\n' "$CLUSTER_INFO" | awk '/Kubernetes control plane is running at/ {print $7; exit}')"
+
+        if [ -z "$API_SERVER_URL" ]; then
+          echo 'Could not determine the Kubernetes API server endpoint from kind cluster-info'
+          exit 1
+        fi
+
+        API_SERVER_HOST_PORT="${API_SERVER_URL#https://}"
+        API_SERVER_HOST_PORT="${API_SERVER_HOST_PORT#http://}"
+
+        API_SERVER_HOST="host.docker.internal"
+        API_SERVER_PORT="${API_SERVER_HOST_PORT##*:}"
+        if [ -z "$API_SERVER_PORT" ] || [ "$API_SERVER_PORT" = "$API_SERVER_HOST_PORT" ]; then
+          echo 'Could not parse the Kubernetes API server port from kind cluster-info'
+          exit 1
+        fi
+
+        "$KUBECTL_BIN" --context "$KUBE_CONTEXT" apply -f https://raw.githubusercontent.com/UFFeScience/akoflow-workflow-engine/main/pkg/server/resource/akoflow-dev-dockerdesktop.yaml
+
+        for i in $(seq 1 30); do
+          if "$KUBECTL_BIN" --context "$KUBE_CONTEXT" get serviceaccount akoflow-server-sa -n akoflow >/dev/null 2>&1; then
+            break
+          fi
+          echo "Waiting for akoflow-server-sa... ($i/30)"
+          sleep 10
+        done
+
+        TOKEN="$("$KUBECTL_BIN" --context "$KUBE_CONTEXT" create token akoflow-server-sa --duration=800h --namespace=akoflow)"
+
+        printf '%s\n' \
+          "K8S_API_SERVER_HOST=${API_SERVER_HOST}:${API_SERVER_PORT}" \
+          "K8S_API_SERVER_TOKEN=${TOKEN}" \
+          "AKOFLOW_SERVER_SERVICE_SERVICE_HOST=host.docker.internal" \
+          "AKOFLOW_SERVER_SERVICE_SERVICE_PORT=8080" \
+          > "$ENV_FILE_PATH"
+      changed_when: false
+
+    - name: Remove existing AkôFlow workflow engine container if present
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        if [ -z "$DOCKER_BIN" ]; then
+          echo 'Docker is not installed on this host'
+          exit 1
+        fi
+        export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+        "$DOCKER_BIN" rm -f "{{ akoflow_workflow_engine_container_name }}" >/dev/null 2>&1 || true
+      changed_when: false
+
+    - name: Start AkôFlow workflow engine container
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        if [ -z "$DOCKER_BIN" ]; then
+          echo 'Docker is not installed on this host'
+          exit 1
+        fi
+        WORKSPACE_DIR="{{ akoflow_workflow_engine_workspace_dir | default('/Users/<username>/akospace') }}"
+        if [ "$WORKSPACE_DIR" = '/Users/<username>/akospace' ]; then
+          WORKSPACE_DIR="${HOME}/akospace"
+        fi
+        ENV_FILE_PATH="$WORKSPACE_DIR/.env"
+        export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+
+        if ! "$DOCKER_BIN" image inspect akoflow/akoflow-workflow-engine:latest >/dev/null 2>&1; then
+          TEMP_DOCKER_CONFIG="$(mktemp -d)"
+          printf '{}' > "$TEMP_DOCKER_CONFIG/config.json"
+          DOCKER_CONFIG="$TEMP_DOCKER_CONFIG" "$DOCKER_BIN" pull akoflow/akoflow-workflow-engine:latest
+          rm -rf "$TEMP_DOCKER_CONFIG"
+        fi
+
+        "$DOCKER_BIN" run -d --rm \
+          --name "{{ akoflow_workflow_engine_container_name }}" \
+          -p "{{ akoflow_workflow_engine_host_port }}:8080" \
+          --add-host host.docker.internal:host-gateway \
+          -v "$ENV_FILE_PATH:/app/.env:ro" \
+          akoflow/akoflow-workflow-engine:latest
 
     - name: Write ansible_outputs.json
       copy:
         dest: /tmp/ansible_outputs.json
         content: |
           {
-            "akoflow_url": "http://localhost:{{ akoflow_port }}"
+            "akoflow_url": "http://localhost:{{ akoflow_workflow_engine_host_port }}"
           }
 YAML,
             'vars_mapping_json'    => [
                 'environment_configuration' => [
-                    'ssh_user'     => 'ansible_user',
-                    'akoflow_port' => 'akoflow_port',
-                    'akospace_dir' => 'akospace_dir',
+                    'ssh_user'                               => 'ansible_user',
+                    'akoflow_workflow_engine_container_name' => 'akoflow_workflow_engine_container_name',
+                    'akoflow_workflow_engine_host_port'      => 'akoflow_workflow_engine_host_port',
+                'akoflow_workflow_engine_workspace_dir'  => 'akoflow_workflow_engine_workspace_dir',
                 ],
             ],
             'outputs_mapping_json' => [
@@ -1437,9 +1591,12 @@ YAML,
             'roles_json'          => [],
             'tasks'               => [
                 ['name' => 'Check Docker is installed', 'module' => 'shell'],
-                ['name' => 'Create akospace directory', 'module' => 'file'],
-                ['name' => 'Create .env file', 'module' => 'copy'],
-                ['name' => 'Run AkôFlow container', 'module' => 'shell'],
+              ['name' => 'Check Kind is installed', 'module' => 'shell'],
+              ['name' => 'Check kubectl is installed', 'module' => 'shell'],
+              ['name' => 'Prepare AkôFlow workspace directory', 'module' => 'shell'],
+              ['name' => 'Create Kind cluster, install AkôFlow resources and generate .env', 'module' => 'shell'],
+                ['name' => 'Remove existing AkôFlow workflow engine container if present', 'module' => 'shell'],
+                ['name' => 'Start AkôFlow workflow engine container', 'module' => 'shell'],
                 ['name' => 'Write ansible_outputs.json', 'module' => 'copy'],
             ],
         ];
@@ -1451,23 +1608,366 @@ YAML,
             'template_slug'    => 'akoflow-local-installer',
             'template_version' => '1.0.0',
             'provider_type'    => 'local',
-            'name'             => 'Restart AkôFlow',
-            'description'      => 'Restarts the akoflow-installer container on the host.',
+            'name'             => 'Restart AkôFlow Workflow Engine',
+            'description'      => 'Recreates the AkôFlow workflow engine container on the host using Docker.',
             'trigger'          => AnsiblePlaybook::TRIGGER_MANUAL,
-            'position'         => 0,
+            'position'         => 2,
             'playbook_yaml'    => <<<'YAML'
-- name: Restart AkôFlow container
+- name: Restart AkôFlow workflow engine container
   hosts: all
   become: false
+
   tasks:
-    - name: Restart akoflow-installer container
-      shell: docker restart akoflow-installer
+    - name: Remove existing AkôFlow workflow engine container if present
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        if [ -z "$DOCKER_BIN" ]; then
+          echo 'Docker is not installed on this host'
+          exit 1
+        fi
+        export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+        "$DOCKER_BIN" rm -f "{{ akoflow_workflow_engine_container_name }}" >/dev/null 2>&1 || true
+
+    - name: Delete existing Kind cluster if present
+      shell: |
+        set -eux
+        KIND_BIN="$(command -v kind || ls /usr/local/bin/kind /usr/bin/kind /opt/homebrew/bin/kind 2>/dev/null | head -1 || true)"
+        if [ -z "$KIND_BIN" ]; then
+          echo 'Kind is not installed on this host'
+          exit 1
+        fi
+        CLUSTER_NAME="{{ akoflow_kind_cluster_name | default('akoflow-cluster') }}"
+        if "$KIND_BIN" get clusters | grep -qx "$CLUSTER_NAME"; then
+          "$KIND_BIN" delete cluster --name "$CLUSTER_NAME"
+        fi
+      changed_when: false
+
+    - name: Recreate Kind cluster, install AkôFlow resources and regenerate .env
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        KIND_BIN="$(command -v kind || ls /usr/local/bin/kind /usr/bin/kind /opt/homebrew/bin/kind 2>/dev/null | head -1 || true)"
+        KUBECTL_BIN="$(command -v kubectl || ls /usr/local/bin/kubectl /usr/bin/kubectl /opt/homebrew/bin/kubectl 2>/dev/null | head -1 || true)"
+
+        if [ -z "$DOCKER_BIN" ] || [ -z "$KIND_BIN" ] || [ -z "$KUBECTL_BIN" ]; then
+          echo 'Docker, Kind or kubectl is not installed on this host'
+          exit 1
+        fi
+
+        export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+
+        WORKSPACE_DIR="{{ akoflow_workflow_engine_workspace_dir | default('/Users/<username>/akospace') }}"
+        if [ "$WORKSPACE_DIR" = '/Users/<username>/akospace' ]; then
+          WORKSPACE_DIR="${HOME}/akospace"
+        fi
+        mkdir -p "$WORKSPACE_DIR"
+        ENV_FILE_PATH="$WORKSPACE_DIR/.env"
+
+        CLUSTER_NAME="{{ akoflow_kind_cluster_name | default('akoflow-cluster') }}"
+        "$KIND_BIN" create cluster --name "$CLUSTER_NAME"
+
+        KUBE_CONTEXT="kind-${CLUSTER_NAME}"
+        CLUSTER_INFO="$("$KUBECTL_BIN" --context "$KUBE_CONTEXT" cluster-info)"
+        API_SERVER_URL="$(printf '%s\n' "$CLUSTER_INFO" | awk '/Kubernetes control plane is running at/ {print $7; exit}')"
+
+        if [ -z "$API_SERVER_URL" ]; then
+          echo 'Could not determine the Kubernetes API server endpoint from kind cluster-info'
+          exit 1
+        fi
+
+        API_SERVER_HOST_PORT="${API_SERVER_URL#https://}"
+        API_SERVER_HOST_PORT="${API_SERVER_HOST_PORT#http://}"
+
+        API_SERVER_HOST="host.docker.internal"
+        API_SERVER_PORT="${API_SERVER_HOST_PORT##*:}"
+        if [ -z "$API_SERVER_PORT" ] || [ "$API_SERVER_PORT" = "$API_SERVER_HOST_PORT" ]; then
+          echo 'Could not parse the Kubernetes API server port from kind cluster-info'
+          exit 1
+        fi
+
+        "$KUBECTL_BIN" --context "$KUBE_CONTEXT" apply -f https://raw.githubusercontent.com/UFFeScience/akoflow-workflow-engine/main/pkg/server/resource/akoflow-dev-dockerdesktop.yaml
+
+        for i in $(seq 1 30); do
+          if "$KUBECTL_BIN" --context "$KUBE_CONTEXT" get serviceaccount akoflow-server-sa -n akoflow >/dev/null 2>&1; then
+            break
+          fi
+          echo "Waiting for akoflow-server-sa... ($i/30)"
+          sleep 10
+        done
+
+        TOKEN="$("$KUBECTL_BIN" --context "$KUBE_CONTEXT" create token akoflow-server-sa --duration=800h --namespace=akoflow)"
+
+        printf '%s\n' \
+          "K8S_API_SERVER_HOST=${API_SERVER_HOST}:${API_SERVER_PORT}" \
+          "K8S_API_SERVER_TOKEN=${TOKEN}" \
+          "AKOFLOW_SERVER_SERVICE_SERVICE_HOST=host.docker.internal" \
+          "AKOFLOW_SERVER_SERVICE_SERVICE_PORT=8080" \
+          > "$ENV_FILE_PATH"
+      changed_when: false
+
+    - name: Restart AkôFlow workflow engine container
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        if [ -z "$DOCKER_BIN" ]; then
+          echo 'Docker is not installed on this host'
+          exit 1
+        fi
+        export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+        WORKSPACE_DIR="{{ akoflow_workflow_engine_workspace_dir | default('/Users/<username>/akospace') }}"
+        if [ "$WORKSPACE_DIR" = '/Users/<username>/akospace' ]; then
+          WORKSPACE_DIR="${HOME}/akospace"
+        fi
+        ENV_FILE_PATH="$WORKSPACE_DIR/.env"
+
+        if ! "$DOCKER_BIN" image inspect akoflow/akoflow-workflow-engine:latest >/dev/null 2>&1; then
+          TEMP_DOCKER_CONFIG="$(mktemp -d)"
+          printf '{}' > "$TEMP_DOCKER_CONFIG/config.json"
+          DOCKER_CONFIG="$TEMP_DOCKER_CONFIG" "$DOCKER_BIN" pull akoflow/akoflow-workflow-engine:latest
+          rm -rf "$TEMP_DOCKER_CONFIG"
+        fi
+
+        "$DOCKER_BIN" run -d --rm \
+          --name "{{ akoflow_workflow_engine_container_name }}" \
+          -p "{{ akoflow_workflow_engine_host_port }}:8080" \
+          --add-host host.docker.internal:host-gateway \
+          -v "$ENV_FILE_PATH:/app/.env:ro" \
+          akoflow/akoflow-workflow-engine:latest
 YAML,
-            'vars_mapping_json'   => ['environment_configuration' => ['ssh_user' => 'ansible_user']],
+            'vars_mapping_json'   => ['environment_configuration' => ['ssh_user' => 'ansible_user', 'akoflow_workflow_engine_container_name' => 'akoflow_workflow_engine_container_name', 'akoflow_workflow_engine_host_port' => 'akoflow_workflow_engine_host_port', 'akoflow_workflow_engine_workspace_dir' => 'akoflow_workflow_engine_workspace_dir', 'akoflow_kind_cluster_name' => 'akoflow_kind_cluster_name']],
             'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
             'roles_json'          => [],
             'tasks'               => [
-                ['name' => 'Restart akoflow-installer container', 'module' => 'shell'],
+                ['name' => 'Remove existing AkôFlow workflow engine container if present', 'module' => 'shell'],
+                ['name' => 'Delete existing Kind cluster if present', 'module' => 'shell'],
+                ['name' => 'Recreate Kind cluster, install AkôFlow resources and regenerate .env', 'module' => 'shell'],
+                ['name' => 'Restart AkôFlow workflow engine container', 'module' => 'shell'],
+            ],
+        ];
+    }
+
+    private function localAkoflowStart(): array
+    {
+        return [
+            'template_slug'    => 'akoflow-local-installer',
+            'template_version' => '1.0.0',
+            'provider_type'    => 'local',
+            'name'             => 'Start AkôFlow Workflow Engine',
+            'description'      => 'Starts the AkôFlow workflow engine container on the host using Docker.',
+            'trigger'          => AnsiblePlaybook::TRIGGER_MANUAL,
+            'position'         => 1,
+            'playbook_yaml'    => <<<'YAML'
+- name: Start AkôFlow workflow engine container
+  hosts: all
+  become: false
+
+  tasks:
+    - name: Start AkôFlow workflow engine container
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        if [ -z "$DOCKER_BIN" ]; then
+          echo 'Docker is not installed on this host'
+          exit 1
+        fi
+        export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+        WORKSPACE_DIR="{{ akoflow_workflow_engine_workspace_dir | default('/Users/<username>/akospace') }}"
+        if [ "$WORKSPACE_DIR" = '/Users/<username>/akospace' ]; then
+          WORKSPACE_DIR="${HOME}/akospace"
+        fi
+        ENV_FILE_PATH="$WORKSPACE_DIR/.env"
+
+        if ! "$DOCKER_BIN" image inspect akoflow/akoflow-workflow-engine:latest >/dev/null 2>&1; then
+          TEMP_DOCKER_CONFIG="$(mktemp -d)"
+          printf '{}' > "$TEMP_DOCKER_CONFIG/config.json"
+          DOCKER_CONFIG="$TEMP_DOCKER_CONFIG" "$DOCKER_BIN" pull akoflow/akoflow-workflow-engine:latest
+          rm -rf "$TEMP_DOCKER_CONFIG"
+        fi
+
+        "$DOCKER_BIN" run -d --rm \
+          --name "{{ akoflow_workflow_engine_container_name }}" \
+          -p "{{ akoflow_workflow_engine_host_port }}:8080" \
+          --add-host host.docker.internal:host-gateway \
+          -v "$ENV_FILE_PATH:/app/.env:ro" \
+          akoflow/akoflow-workflow-engine:latest
+
+    - name: Write ansible_outputs.json
+      copy:
+        dest: /tmp/ansible_outputs.json
+        content: |
+          {
+            "akoflow_status": "running",
+            "akoflow_url": "http://localhost:{{ akoflow_workflow_engine_host_port }}"
+          }
+YAML,
+            'vars_mapping_json'   => ['environment_configuration' => ['ssh_user' => 'ansible_user', 'akoflow_workflow_engine_container_name' => 'akoflow_workflow_engine_container_name', 'akoflow_workflow_engine_host_port' => 'akoflow_workflow_engine_host_port', 'akoflow_workflow_engine_workspace_dir' => 'akoflow_workflow_engine_workspace_dir']],
+            'outputs_mapping_json' => [
+                'resources' => [[
+                    'name'                  => 'akoflow-host',
+                    'ansible_resource_type' => 'akoflow_install',
+                    'outputs'               => ['metadata' => ['akoflow_status' => 'akoflow_status', 'akoflow_url' => 'akoflow_url']],
+                ]],
+            ],
+            'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
+            'roles_json'          => [],
+            'tasks'               => [
+                ['name' => 'Start AkôFlow workflow engine container', 'module' => 'shell'],
+                ['name' => 'Write ansible_outputs.json', 'module' => 'copy'],
+            ],
+        ];
+    }
+
+    private function localAkoflowStop(): array
+    {
+        return [
+            'template_slug'    => 'akoflow-local-installer',
+            'template_version' => '1.0.0',
+            'provider_type'    => 'local',
+            'name'             => 'Stop AkôFlow Workflow Engine',
+            'description'      => 'Stops the AkôFlow workflow engine container on the host.',
+            'trigger'          => AnsiblePlaybook::TRIGGER_MANUAL,
+            'position'         => 3,
+            'playbook_yaml'    => <<<'YAML'
+- name: Stop AkôFlow workflow engine container
+  hosts: all
+  become: false
+
+  tasks:
+    - name: Stop AkôFlow workflow engine container
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        if [ -z "$DOCKER_BIN" ]; then
+          echo 'Docker is not installed on this host'
+          exit 1
+        fi
+        export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+        "$DOCKER_BIN" rm -f "{{ akoflow_workflow_engine_container_name }}" >/dev/null 2>&1 || true
+
+    - name: Delete Kind cluster created for AkôFlow if present
+      shell: |
+        set -eux
+        KIND_BIN="$(command -v kind || ls /usr/local/bin/kind /usr/bin/kind /opt/homebrew/bin/kind 2>/dev/null | head -1 || true)"
+        if [ -z "$KIND_BIN" ]; then
+          echo 'Kind is not installed on this host'
+          exit 1
+        fi
+        CLUSTER_NAME="{{ akoflow_kind_cluster_name | default('akoflow-cluster') }}"
+        "$KIND_BIN" delete cluster --name "$CLUSTER_NAME" >/dev/null 2>&1 || true
+      changed_when: false
+
+    - name: Write ansible_outputs.json
+      copy:
+        dest: /tmp/ansible_outputs.json
+        content: |
+          {
+            "akoflow_status": "stopped"
+          }
+YAML,
+            'vars_mapping_json'   => ['environment_configuration' => ['ssh_user' => 'ansible_user', 'akoflow_workflow_engine_container_name' => 'akoflow_workflow_engine_container_name', 'akoflow_kind_cluster_name' => 'akoflow_kind_cluster_name']],
+            'outputs_mapping_json' => [
+                'resources' => [[
+                    'name'                  => 'akoflow-host',
+                    'ansible_resource_type' => 'akoflow_install',
+                    'outputs'               => ['metadata' => ['akoflow_status' => 'akoflow_status']],
+                ]],
+            ],
+            'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
+            'roles_json'          => [],
+            'tasks'               => [
+                ['name' => 'Stop AkôFlow workflow engine container', 'module' => 'shell'],
+              ['name' => 'Delete Kind cluster created for AkôFlow if present', 'module' => 'shell'],
+                ['name' => 'Write ansible_outputs.json', 'module' => 'copy'],
+            ],
+        ];
+    }
+
+    private function localAkoflowTeardown(): array
+    {
+        return [
+            'template_slug'    => 'akoflow-local-installer',
+            'template_version' => '1.0.0',
+            'provider_type'    => 'local',
+            'name'             => 'Remove AkôFlow Workflow Engine',
+            'description'      => 'Removes the AkôFlow workflow engine container, Kind cluster, workspace assets and local image before teardown.',
+            'trigger'          => AnsiblePlaybook::TRIGGER_BEFORE_TEARDOWN,
+            'position'         => 4,
+            'playbook_yaml'    => <<<'YAML'
+- name: Remove AkôFlow workflow engine container
+  hosts: all
+  become: false
+
+  tasks:
+    - name: Remove AkôFlow workflow engine container
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        if [ -z "$DOCKER_BIN" ]; then
+          echo 'Docker is not installed on this host'
+          exit 1
+        fi
+        export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+        "$DOCKER_BIN" rm -f "{{ akoflow_workflow_engine_container_name }}" >/dev/null 2>&1 || true
+
+    - name: Delete Kind cluster created for AkôFlow if present
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        KIND_BIN="$(command -v kind || ls /usr/local/bin/kind /usr/bin/kind /opt/homebrew/bin/kind 2>/dev/null | head -1 || true)"
+        CLUSTER_NAME="{{ akoflow_kind_cluster_name | default('akoflow-cluster') }}"
+        CONTROL_PLANE_CONTAINER="${CLUSTER_NAME}-control-plane"
+
+        if [ -n "$KIND_BIN" ]; then
+          "$KIND_BIN" delete cluster --name "$CLUSTER_NAME" >/dev/null 2>&1 || true
+        fi
+
+        if [ -n "$DOCKER_BIN" ]; then
+          export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+          "$DOCKER_BIN" rm -f "$CONTROL_PLANE_CONTAINER" >/dev/null 2>&1 || true
+        fi
+
+        if [ -n "$KIND_BIN" ] && "$KIND_BIN" get clusters | grep -qx "$CLUSTER_NAME"; then
+          echo "Failed to remove Kind cluster: $CLUSTER_NAME"
+          exit 1
+        fi
+
+        if [ -n "$DOCKER_BIN" ] && "$DOCKER_BIN" ps -a --format '{{.Names}}' | grep -qx "$CONTROL_PLANE_CONTAINER"; then
+          echo "Failed to remove Kind control-plane container: $CONTROL_PLANE_CONTAINER"
+          exit 1
+        fi
+      changed_when: false
+
+    - name: Remove AkôFlow workspace directory
+      shell: |
+        set -eux
+        WORKSPACE_DIR="{{ akoflow_workflow_engine_workspace_dir | default('/Users/<username>/akospace') }}"
+        if [ "$WORKSPACE_DIR" = '/Users/<username>/akospace' ]; then
+          WORKSPACE_DIR="${HOME}/akospace"
+        fi
+        rm -rf "$WORKSPACE_DIR"
+      changed_when: false
+
+    - name: Remove AkôFlow workflow engine image if present
+      shell: |
+        set -eux
+        DOCKER_BIN="$(command -v docker || ls /usr/local/bin/docker /usr/bin/docker /opt/homebrew/bin/docker 2>/dev/null | head -1 || true)"
+        if [ -z "$DOCKER_BIN" ]; then
+          echo 'Docker is not installed on this host'
+          exit 1
+        fi
+        export PATH="$(dirname "$DOCKER_BIN"):$PATH"
+        "$DOCKER_BIN" image rm -f akoflow/akoflow-workflow-engine:latest >/dev/null 2>&1 || true
+      changed_when: false
+YAML,
+            'vars_mapping_json'   => ['environment_configuration' => ['ssh_user' => 'ansible_user', 'akoflow_workflow_engine_container_name' => 'akoflow_workflow_engine_container_name', 'akoflow_workflow_engine_workspace_dir' => 'akoflow_workflow_engine_workspace_dir', 'akoflow_kind_cluster_name' => 'akoflow_kind_cluster_name']],
+            'credential_env_keys' => ['SSH_PRIVATE_KEY', 'SSH_PASSWORD'],
+            'roles_json'          => [],
+            'tasks'               => [
+                ['name' => 'Remove AkôFlow workflow engine container', 'module' => 'shell'],
+                ['name' => 'Delete Kind cluster created for AkôFlow if present', 'module' => 'shell'],
+                ['name' => 'Remove AkôFlow workspace directory', 'module' => 'shell'],
+                ['name' => 'Remove AkôFlow workflow engine image if present', 'module' => 'shell'],
             ],
         ];
     }

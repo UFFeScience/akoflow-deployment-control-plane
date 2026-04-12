@@ -11,8 +11,8 @@ class AkoflowLocalInstallerDefinition
             'required_providers' => ['local'],
 
             'environment_configuration' => [
-                'label'       => 'AkôFlow Local Installer',
-                'description' => 'Installs AkôFlow on a remote host via SSH using Docker. Requires Docker to be pre-installed on the target host.',
+                'label'       => 'AkôFlow Workflow Engine',
+                'description' => 'Installs and manages the AkôFlow workflow engine on a remote host via SSH, Docker and Kind. The host must already have Docker installed.',
                 'type'        => 'environment',
 
                 'sections' => [
@@ -42,27 +42,35 @@ class AkoflowLocalInstallerDefinition
                         ],
                     ],
 
-                    // ── AkôFlow Settings ──────────────────────────────────────
+                    // ── Workflow Engine Settings ──────────────────────────────
                     [
                         'name'        => 'akoflow',
-                        'label'       => 'AkôFlow Settings',
-                        'description' => 'Port and workspace directory for the AkôFlow installation.',
+                        'label'       => 'Workflow Engine Settings',
+                        'description' => 'Container name and host port used by the AkôFlow workflow engine.',
                         'fields'      => [
                             [
-                                'name'        => 'akoflow_port',
-                                'label'       => 'AkôFlow Port',
-                                'type'        => 'number',
+                                'name'        => 'akoflow_workflow_engine_container_name',
+                                'label'       => 'Container Name',
+                                'type'        => 'string',
                                 'required'    => false,
-                                'default'     => 8080,
-                                'description' => 'Host port that AkôFlow will listen on. Must be free on the target machine.',
+                                'default'     => 'akoflow-engine',
+                                'description' => 'Name assigned to the workflow engine container.',
                             ],
                             [
-                                'name'        => 'akospace_dir',
-                                'label'       => 'AkoSpace Directory',
+                                'name'        => 'akoflow_workflow_engine_host_port',
+                                'label'       => 'Host Port',
+                                'type'        => 'number',
+                                'required'    => false,
+                                'default'     => 18080,
+                                'description' => 'Host port mapped to the workflow engine container.',
+                            ],
+                            [
+                                'name'        => 'akoflow_workflow_engine_workspace_dir',
+                                'label'       => 'Workspace Path',
                                 'type'        => 'string',
                                 'required'    => false,
                                 'default'     => '/Users/<username>/akospace',
-                                'description' => 'Directory on the host where AkôFlow stores its .env, database and logs.',
+                                'description' => 'Folder where the .env file will be written.',
                             ],
                         ],
                     ],
