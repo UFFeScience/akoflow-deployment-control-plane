@@ -20,16 +20,26 @@ terraform {
 # Credentials injected via env: GOOGLE_CREDENTIALS, GOOGLE_PROJECT, GOOGLE_REGION
 provider "google" {}
 
-# Reads OAuth2 token from the configured credentials — no IAM permissions required
 data "google_client_config" "current" {}
+data "google_project" "current" {
+  project_id = data.google_client_config.current.project
+}
+
+data "google_project_service" "container_api" {
+  project = data.google_client_config.current.project
+  service = "container.googleapis.com"
+}
 
 output "project_id" {
   value = data.google_client_config.current.project
 }
 
-output "access_token" {
-  value     = data.google_client_config.current.access_token
-  sensitive = true
+output "project_number" {
+  value = data.google_project.current.number
+}
+
+output "container_api_service_id" {
+  value = data.google_project_service.container_api.id
 }
 HCL;
     }

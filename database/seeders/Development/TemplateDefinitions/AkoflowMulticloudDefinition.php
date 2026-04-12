@@ -13,8 +13,8 @@ class AkoflowMulticloudDefinition
             'environment_configuration' => [
                 'label'       => 'AkoFlow Multicloud — EKS + GKE + Server',
                 'description' => 'Provisions an Ubuntu EC2 instance (AkoFlow server) on AWS, an EKS cluster on AWS, '
-                    . 'and a GKE cluster on GCP. The server automatically configures kubectl for both clusters, '
-                    . 'deploys AkoFlow, generates tokens, and writes the .env file.',
+                    . 'and a GKE cluster on GCP. Terraform creates the infrastructure, then Ansible bootstraps the '
+                    . 'AkoFlow server and provides standalone lifecycle playbooks for the engine.',
                 'type'        => 'environment',
 
                 'groups' => [

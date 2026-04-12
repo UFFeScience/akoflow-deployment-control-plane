@@ -108,6 +108,12 @@ class TemplateAnsiblePlaybooksSeeder extends Seeder
             // ── SSCAD 2025 Federated Learning ──────────────────────────────
             $this->sscad2025Bootstrap(),
 
+            // ── AkôFlow Multicloud Demo ────────────────────────────────────
+            $this->akoflowMulticloudBootstrap(),
+            $this->akoflowMulticloudEngineStart(),
+            $this->akoflowMulticloudEngineRestart(),
+            $this->akoflowMulticloudEngineStop(),
+
             // ── AkôFlow Local Installer ────────────────────────────────────
             $this->localAkoflowInstall(),
             $this->localAkoflowRestart(),
@@ -984,6 +990,369 @@ YAML,
                 ['name' => 'Prepare job config', 'module' => 'shell'],
                 ['name' => 'Submit NVFlare job', 'module' => 'shell'],
                 ['name' => 'Write post-execution ansible_outputs.json', 'module' => 'copy'],
+            ],
+        ];
+    }
+
+    private function akoflowMulticloudBootstrap(): array
+    {
+        return [
+            'template_slug'    => 'akoflow-multicloud',
+            'template_version' => '1.0.0',
+          'provider_type'    => 'custom',
+            'name'             => 'AkôFlow Multicloud Bootstrap',
+            'description'      => 'Installs and starts the AkôFlow engine after Terraform provision, then writes the connection outputs.',
+            'trigger'          => AnsiblePlaybook::TRIGGER_AFTER_PROVISION,
+            'position'         => 0,
+            'playbook_slug'    => 'akoflow-multicloud-bootstrap',
+            'playbook_yaml'    => <<<'YAML'
+- name: Bootstrap AkôFlow Multicloud server
+  hosts: all
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Wait for SSH to become ready
+      wait_for_connection:
+        connect_timeout: 15
+        delay: 10
+        sleep: 10
+        timeout: 600
+
+    - name: Gather facts
+      setup:
+
+  tasks:
+    - name: Install AkôFlow bootstrap dependencies
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - unzip
+          - gnupg
+          - lsb-release
+          - apt-transport-https
+          - jq
+        state: present
+        update_cache: yes
+
+    - name: Install Docker runtime
+      shell: |
+        set -eux
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        chmod a+r /etc/apt/keyrings/docker.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" | tee /etc/apt/sources.list.d/docker.list
+        apt-get update -y
+        apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+        systemctl enable docker
+        systemctl start docker
+        usermod -aG docker ubuntu || true
+      changed_when: false
+
+    - name: Install kubectl, AWS CLI and GCP CLI
+      shell: |
+        set -eux
+        curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list
+        apt-get update -y
+        apt-get install -y kubectl
+        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        cd /tmp && unzip -q awscliv2.zip && ./aws/install && rm -rf awscliv2.zip aws
+        cd /
+        echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee /etc/apt/sources.list.d/google-cloud-sdk.list
+        curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+        apt-get update -y
+        apt-get install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
+      changed_when: false
+
+    - name: Prepare AkôFlow workspace
+      shell: |
+        set -eux
+        mkdir -p /root/akospace /home/ubuntu/.kube
+        chown -R ubuntu:ubuntu /root/akospace /home/ubuntu/.kube
+      changed_when: false
+
+    - name: Write GCP service account key
+      copy:
+        dest: /root/akospace/gcp-sa.json
+        content: |
+          {{ gcp_sa_key_json }}
+        mode: '0600'
+
+    - name: Configure EKS and GKE access
+      shell: |
+        set -eux
+        resource_prefix="akocloud-{{ environment_id | default('') }}"
+        if [ -z "{{ environment_id | default('') }}" ]; then
+          resource_prefix="akocloud"
+        fi
+        eks_cluster_name="${resource_prefix}-eks"
+        gke_cluster_name="${resource_prefix}-gke"
+
+        export GOOGLE_APPLICATION_CREDENTIALS=/root/akospace/gcp-sa.json
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+        export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+
+        aws eks update-kubeconfig --name "${eks_cluster_name}" --region "{{ aws_region }}" --kubeconfig /home/ubuntu/.kube/config-eks
+
+        gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+        gcloud config set project "{{ gcp_project_id }}"
+        export KUBECONFIG=/home/ubuntu/.kube/config-gke
+        gcloud container clusters get-credentials "${gke_cluster_name}" --region "{{ gcp_region }}" --project "{{ gcp_project_id }}"
+        chown -R ubuntu:ubuntu /home/ubuntu/.kube
+      changed_when: false
+
+    - name: Apply AkôFlow manifests to both clusters
+      shell: |
+        set -eux
+        AKOFLOW_YAML="https://raw.githubusercontent.com/UFFeScience/akoflow/main/pkg/server/resource/akoflow-dev-dockerdesktop.yaml"
+
+        for i in 1 2 3 4 5; do
+          KUBECONFIG=/home/ubuntu/.kube/config-eks kubectl apply -f "$AKOFLOW_YAML" && break
+          echo "  retry $i/5 in 30s..."
+          sleep 30
+        done
+
+        for i in 1 2 3 4 5; do
+          KUBECONFIG=/home/ubuntu/.kube/config-gke kubectl apply -f "$AKOFLOW_YAML" && break
+          echo "  retry $i/5 in 30s..."
+          sleep 30
+        done
+
+        for i in $(seq 1 30); do
+          KUBECONFIG=/home/ubuntu/.kube/config-eks kubectl get serviceaccount akoflow-server-sa -n akoflow 2>/dev/null && break
+          echo "  waiting... ($i/30)"
+          sleep 10
+        done
+
+        for i in $(seq 1 30); do
+          KUBECONFIG=/home/ubuntu/.kube/config-gke USE_GKE_GCLOUD_AUTH_PLUGIN=True kubectl get serviceaccount akoflow-server-sa -n akoflow 2>/dev/null && break
+          echo "  waiting... ($i/30)"
+          sleep 10
+        done
+
+        EKS_TOKEN=$(KUBECONFIG=/home/ubuntu/.kube/config-eks kubectl create token akoflow-server-sa --duration=800h --namespace=akoflow)
+        GKE_TOKEN=$(KUBECONFIG=/home/ubuntu/.kube/config-gke USE_GKE_GCLOUD_AUTH_PLUGIN=True kubectl create token akoflow-server-sa --duration=800h --namespace=akoflow)
+        EKS_API=$(KUBECONFIG=/home/ubuntu/.kube/config-eks kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | sed 's|https\?://||')
+        GKE_API=$(KUBECONFIG=/home/ubuntu/.kube/config-gke kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | sed 's|https\?://||')
+        INSTANCE_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+
+        cat > /root/akospace/.env << ENVEOF
+        K8S1_API_SERVER_HOST=$EKS_API
+        K8S1_API_SERVER_TOKEN=$EKS_TOKEN
+        K8S2_API_SERVER_HOST=$GKE_API
+        K8S2_API_SERVER_TOKEN=$GKE_TOKEN
+        AKOFLOW_SERVER_SERVICE_SERVICE_HOST=$INSTANCE_IP
+        AKOFLOW_SERVER_SERVICE_SERVICE_PORT=8080
+        ENVEOF
+
+        chown ubuntu:ubuntu /root/akospace/.env
+        mkdir -p /akospace
+        cp /root/akospace/.env /akospace/.env
+      changed_when: false
+
+    - name: Start AkôFlow engine
+      shell: |
+        set -eux
+        cd /root/akospace
+        curl -fsSL https://akoflow.com/run | bash
+      changed_when: false
+
+    - name: Write ansible_outputs.json
+      copy:
+        dest: "{{ playbook_dir }}/ansible_outputs.json"
+        content: |
+          {
+            "akoflow_url": "http://{{ ansible_host }}:8080",
+            "container_name": "akoflow"
+          }
+      delegate_to: localhost
+YAML,
+            'vars_mapping_json'    => [
+                'environment_configuration' => [
+                    'aws_region'       => 'aws_region',
+                    'gcp_project_id'   => 'gcp_project_id',
+                    'gcp_region'       => 'gcp_region',
+                    'gcp_sa_key_json'  => 'gcp_sa_key_json',
+                ],
+            ],
+            'outputs_mapping_json' => [
+                'resources' => [[
+                    'name'                  => 'akoflow-server',
+                    'ansible_resource_type' => 'akoflow_engine',
+                    'outputs'               => ['metadata' => ['akoflow_url' => 'akoflow_url']],
+                ]],
+            ],
+            'credential_env_keys' => [],
+            'roles_json'          => [],
+            'tasks'               => [
+                ['name' => 'Wait for SSH to become ready', 'module' => 'wait_for_connection'],
+                ['name' => 'Gather facts', 'module' => 'setup'],
+                ['name' => 'Install AkôFlow bootstrap dependencies', 'module' => 'apt'],
+                ['name' => 'Install Docker runtime', 'module' => 'shell'],
+                ['name' => 'Install kubectl, AWS CLI and GCP CLI', 'module' => 'shell'],
+                ['name' => 'Prepare AkôFlow workspace', 'module' => 'shell'],
+                ['name' => 'Write GCP service account key', 'module' => 'copy'],
+                ['name' => 'Configure EKS and GKE access', 'module' => 'shell'],
+                ['name' => 'Apply AkôFlow manifests to both clusters', 'module' => 'shell'],
+                ['name' => 'Start AkôFlow engine', 'module' => 'shell'],
+                ['name' => 'Write ansible_outputs.json', 'module' => 'copy'],
+            ],
+        ];
+    }
+
+    private function akoflowMulticloudEngineStart(): array
+    {
+        return [
+            'template_slug'    => 'akoflow-multicloud',
+            'template_version' => '1.0.0',
+          'provider_type'    => 'custom',
+            'name'             => 'Start AkôFlow Engine',
+            'description'      => 'Starts the AkôFlow engine on the multicloud server.',
+            'trigger'          => AnsiblePlaybook::TRIGGER_MANUAL,
+            'position'         => 1,
+            'playbook_slug'    => 'akoflow-multicloud-engine-start',
+            'playbook_yaml'    => <<<'YAML'
+- name: Start AkôFlow engine
+  hosts: all
+  become: true
+  tasks:
+    - name: Start AkôFlow engine
+      shell: |
+        set -eux
+        cd /root/akospace
+        curl -fsSL https://akoflow.com/run | bash start
+      changed_when: false
+
+    - name: Write ansible_outputs.json
+      copy:
+        dest: "{{ playbook_dir }}/ansible_outputs.json"
+        content: |
+          {
+            "akoflow_status": "running",
+            "akoflow_url": "http://{{ ansible_host }}:8080"
+          }
+      delegate_to: localhost
+YAML,
+            'vars_mapping_json'    => [
+                'environment_configuration' => [],
+            ],
+            'outputs_mapping_json' => [
+                'resources' => [[
+                    'name'                  => 'akoflow-server',
+                    'ansible_resource_type' => 'akoflow_engine',
+                    'outputs'               => ['metadata' => ['akoflow_status' => 'akoflow_status', 'akoflow_url' => 'akoflow_url']],
+                ]],
+            ],
+            'credential_env_keys' => [],
+            'roles_json'          => [],
+            'tasks'               => [
+                ['name' => 'Start AkôFlow engine', 'module' => 'shell'],
+                ['name' => 'Write ansible_outputs.json', 'module' => 'copy'],
+            ],
+        ];
+    }
+
+    private function akoflowMulticloudEngineRestart(): array
+    {
+        return [
+            'template_slug'    => 'akoflow-multicloud',
+            'template_version' => '1.0.0',
+          'provider_type'    => 'custom',
+            'name'             => 'Restart AkôFlow Engine',
+            'description'      => 'Restarts the AkôFlow engine on the multicloud server.',
+            'trigger'          => AnsiblePlaybook::TRIGGER_MANUAL,
+            'position'         => 2,
+            'playbook_slug'    => 'akoflow-multicloud-engine-restart',
+            'playbook_yaml'    => <<<'YAML'
+- name: Restart AkôFlow engine
+  hosts: all
+  become: true
+  tasks:
+    - name: Restart AkôFlow engine
+      shell: |
+        set -eux
+        cd /root/akospace
+        curl -fsSL https://akoflow.com/run | bash restart
+      changed_when: false
+
+    - name: Write ansible_outputs.json
+      copy:
+        dest: "{{ playbook_dir }}/ansible_outputs.json"
+        content: |
+          {
+            "akoflow_status": "running",
+            "akoflow_url": "http://{{ ansible_host }}:8080"
+          }
+      delegate_to: localhost
+YAML,
+            'vars_mapping_json'    => [
+                'environment_configuration' => [],
+            ],
+            'outputs_mapping_json' => [
+                'resources' => [[
+                    'name'                  => 'akoflow-server',
+                    'ansible_resource_type' => 'akoflow_engine',
+                    'outputs'               => ['metadata' => ['akoflow_status' => 'akoflow_status', 'akoflow_url' => 'akoflow_url']],
+                ]],
+            ],
+            'credential_env_keys' => [],
+            'roles_json'          => [],
+            'tasks'               => [
+                ['name' => 'Restart AkôFlow engine', 'module' => 'shell'],
+                ['name' => 'Write ansible_outputs.json', 'module' => 'copy'],
+            ],
+        ];
+    }
+
+    private function akoflowMulticloudEngineStop(): array
+    {
+        return [
+            'template_slug'    => 'akoflow-multicloud',
+            'template_version' => '1.0.0',
+          'provider_type'    => 'custom',
+            'name'             => 'Stop AkôFlow Engine',
+            'description'      => 'Stops the AkôFlow engine on the multicloud server.',
+            'trigger'          => AnsiblePlaybook::TRIGGER_MANUAL,
+            'position'         => 3,
+            'playbook_slug'    => 'akoflow-multicloud-engine-stop',
+            'playbook_yaml'    => <<<'YAML'
+- name: Stop AkôFlow engine
+  hosts: all
+  become: true
+  tasks:
+    - name: Stop AkôFlow engine
+      shell: |
+        set -eux
+        cd /root/akospace
+        curl -fsSL https://akoflow.com/run | bash stop
+      changed_when: false
+
+    - name: Write ansible_outputs.json
+      copy:
+        dest: "{{ playbook_dir }}/ansible_outputs.json"
+        content: |
+          {
+            "akoflow_status": "stopped"
+          }
+      delegate_to: localhost
+YAML,
+            'vars_mapping_json'    => [
+                'environment_configuration' => [],
+            ],
+            'outputs_mapping_json' => [
+                'resources' => [[
+                    'name'                  => 'akoflow-server',
+                    'ansible_resource_type' => 'akoflow_engine',
+                    'outputs'               => ['metadata' => ['akoflow_status' => 'akoflow_status']],
+                ]],
+            ],
+            'credential_env_keys' => [],
+            'roles_json'          => [],
+            'tasks'               => [
+                ['name' => 'Stop AkôFlow engine', 'module' => 'shell'],
+                ['name' => 'Write ansible_outputs.json', 'module' => 'copy'],
             ],
         ];
     }

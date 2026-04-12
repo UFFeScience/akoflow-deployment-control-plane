@@ -254,7 +254,7 @@ class TemplateTerraformModulesSeeder extends Seeder
         return [
             'template_slug'    => 'akoflow-multicloud',
             'template_version' => '1.0.0',
-            'provider_type'    => 'aws',
+            'provider_type'    => 'custom',
             'module_slug'      => 'akoflow-multicloud-aws-gcp',
             'main_tf'          => $this->readTerraformFile('akoflow_multicloud_aws_gcp/main.tf'),
             'variables_tf'     => $this->readTerraformFile('akoflow_multicloud_aws_gcp/variables.tf'),
