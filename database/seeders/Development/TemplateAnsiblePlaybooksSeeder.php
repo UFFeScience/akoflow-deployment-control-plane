@@ -510,6 +510,24 @@ YAML,
 - name: SSCAD 2025 bootstrap
   hosts: all
   become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Wait for SSH to become ready
+      wait_for_connection:
+        connect_timeout: 15
+        delay: 10
+        sleep: 10
+        timeout: 600
+
+    - name: Wait for cloud-init and apt locks to be released
+      raw: |
+        cloud-init status --wait 2>/dev/null || true
+        while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do sleep 3; done
+      changed_when: false
+
+    - name: Gather facts
+      setup:
 
   tasks:
     - name: Install Docker and execution prerequisites
@@ -571,6 +589,18 @@ YAML,
 - name: SSCAD 2025 startup DfAnalyse
   hosts: dfanalyse
   become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Wait for SSH to become ready
+      wait_for_connection:
+        connect_timeout: 15
+        delay: 10
+        sleep: 10
+        timeout: 600
+
+    - name: Gather facts
+      setup:
 
   tasks:
     - name: Install DfAnalyse dependencies
@@ -607,6 +637,18 @@ YAML,
 - name: SSCAD 2025 startup Overseer
   hosts: overseer
   become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Wait for SSH to become ready
+      wait_for_connection:
+        connect_timeout: 15
+        delay: 10
+        sleep: 10
+        timeout: 600
+
+    - name: Gather facts
+      setup:
 
   tasks:
     - name: Install Overseer dependencies
@@ -643,15 +685,27 @@ YAML,
       shell: |
         set -eux
         cd /fed-clustering
-        docker run --rm --name overseer --add-host overseer:$(hostname -I | awk '{print $1}') -p 8443:8443 -v $(pwd)/overseer:/workspace -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest ovvesley/nvflare-service:latest /workspace/startup/start.sh
+        docker run -d --rm --name overseer --add-host overseer:$(hostname -I | awk '{print $1}') -p 8443:8443 -v $(pwd)/overseer:/workspace/data -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest ovvesley/nvflare-service:latest /workspace/startup/start.sh
       changed_when: false
 
 - name: SSCAD 2025 startup Server
   hosts: server
   become: true
+  gather_facts: false
   vars:
     dfa_host: "{{ hostvars['dfanalyse'].ansible_host }}"
     overseer_host: "{{ hostvars['overseer'].ansible_host }}"
+
+  pre_tasks:
+    - name: Wait for SSH to become ready
+      wait_for_connection:
+        connect_timeout: 15
+        delay: 10
+        sleep: 10
+        timeout: 600
+
+    - name: Gather facts
+      setup:
 
   tasks:
     - name: Install Server dependencies
@@ -694,16 +748,28 @@ YAML,
       shell: |
         set -eux
         echo "{{ overseer_host }} overseer" >> /etc/hosts
-        docker run --rm --name server1 -v $(pwd)/server1:/workspace -v nvflare_svc_persist:/tmp/nvflare/ --add-host overseer:{{ overseer_host }} --add-host server1:$(hostname -I | awk '{print $1}') -e DFA_URL=http://{{ dfa_host }}:22000 -p 8002:8002 -p 8003:8003 -e PYTHON_EXECUTABLE=python3 -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest -w /workspace/server1 ovvesley/nvflare-service:latest python -u -m nvflare.private.fed.app.server.server_train -m /workspace -s fed_server.json --set secure_train=true config_folder=config org=nvidia
+        docker run -d --rm --name server1 -v $(pwd)/server1:/workspace/data -v nvflare_svc_persist:/tmp/nvflare/ --add-host overseer:{{ overseer_host }} --add-host server1:$(hostname -I | awk '{print $1}') -e DFA_URL=http://{{ dfa_host }}:22000 -p 8002:8002 -p 8003:8003 -e PYTHON_EXECUTABLE=python3 -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest -w /workspace/data/server1 ovvesley/nvflare-service:latest python -u -m nvflare.private.fed.app.server.server_train -m /workspace -s fed_server.json --set secure_train=true config_folder=config org=nvidia
       changed_when: false
 
 - name: SSCAD 2025 startup Sites
   hosts: all
   become: true
+  gather_facts: false
   vars:
     server_host: "{{ hostvars['server'].ansible_host }}"
     overseer_host: "{{ hostvars['overseer'].ansible_host }}"
     dfa_host: "{{ hostvars['dfanalyse'].ansible_host }}"
+
+  pre_tasks:
+    - name: Wait for SSH to become ready
+      wait_for_connection:
+        connect_timeout: 15
+        delay: 10
+        sleep: 10
+        timeout: 600
+
+    - name: Gather facts
+      setup:
 
   tasks:
     - name: Install site dependencies
@@ -774,7 +840,7 @@ YAML,
       shell: |
         set -eux
         site_name={{ inventory_hostname }}
-        docker run --rm --name "$site_name" --add-host overseer:{{ overseer_host }} --add-host server1:{{ server_host }} -e DFA_URL=http://{{ dfa_host }}:22000 -e OVERSEER_HOST=overseer -e SERVER_HOST=server1 -e SITE_NAME=$site_name -e DATASET_URL={{ dataset_folder_key }} -e SITE_FOLDER_URL={{ site_folder_url }} -v $(pwd)/$site_name:/workspace ovvesley/nvflare-service:latest /workspace/startup/start.sh
+        docker run -d --rm --name "$site_name" --add-host overseer:{{ overseer_host }} --add-host server1:{{ server_host }} -e DFA_URL=http://{{ dfa_host }}:22000 -e OVERSEER_HOST=overseer -e SERVER_HOST=server1 -e SITE_NAME=$site_name -e DATASET_URL={{ dataset_folder_key }} -e SITE_FOLDER_URL={{ site_folder_url }} -v $(pwd)/$site_name:/workspace/data ovvesley/nvflare-service:latest /workspace/startup/start.sh
       changed_when: false
       when: inventory_hostname is match('^site-')
 

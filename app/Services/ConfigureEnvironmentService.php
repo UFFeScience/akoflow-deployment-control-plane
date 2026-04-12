@@ -66,7 +66,13 @@ class ConfigureEnvironmentService
         $runs = [];
 
         foreach ($playbooks as $activity) {
-            $run = $this->executeActivity($activity, $deployment, $environment, $provider, $credentials);
+            $run = $this->executeActivity(
+                $activity,
+                $deployment,
+                $environment,
+                $provider,
+                $credentials,
+            );
             $runs[] = $run;
         }
 
@@ -85,27 +91,21 @@ class ConfigureEnvironmentService
         mixed           $provider,
         array           $credentials,
     ): AnsiblePlaybookRun {
-        /** @var AnsiblePlaybookRun $run */
-        $run = AnsiblePlaybookRun::create([
-            'deployment_id' => $deployment->id,
-            'playbook_id'   => $activity->id,
-            'playbook_name' => $activity->name,
-            'trigger'       => AnsiblePlaybook::TRIGGER_AFTER_PROVISION,
-            'status'        => AnsiblePlaybookRun::STATUS_INITIALIZING,
-            'provider_type' => $provider->type,
-            'triggered_by'  => 'system',
-            'started_at'    => now(),
-        ]);
+        $run = $this->resolveRunForExecution($activity, $deployment, $provider);
 
         try {
             $run->appendLog("[akocloud] Activity: {$activity->name}");
             $run->appendLog("[akocloud] Provider: {$provider->name} (type: {$provider->type})");
 
-            $run->update(['status' => AnsiblePlaybookRun::STATUS_RUNNING]);
+            $run->update([
+                'status'     => AnsiblePlaybookRun::STATUS_INITIALIZING,
+                'started_at' => $run->started_at ?? now(),
+            ]);
 
             $workspace = $this->workspaceService->buildForActivity($environment, $deployment, $provider->type, $activity);
 
             $run->update([
+                'status'          => AnsiblePlaybookRun::STATUS_RUNNING,
                 'workspace_path'  => $workspace['workspace_path'],
                 'extra_vars_json' => $workspace['extra_vars'],
                 'inventory_ini'   => $workspace['inventory_ini'],
@@ -163,6 +163,32 @@ class ConfigureEnvironmentService
         }
 
         return $run->fresh();
+    }
+
+    private function resolveRunForExecution(AnsiblePlaybook $activity, Deployment $deployment, mixed $provider): AnsiblePlaybookRun
+    {
+        $run = AnsiblePlaybookRun::query()
+            ->where('deployment_id', $deployment->id)
+            ->where('playbook_id', $activity->id)
+            ->where('trigger', AnsiblePlaybook::TRIGGER_AFTER_PROVISION)
+            ->where('status', AnsiblePlaybookRun::STATUS_QUEUED)
+            ->whereNull('started_at')
+            ->orderBy('id')
+            ->first();
+
+        if ($run) {
+            return $run;
+        }
+
+        return AnsiblePlaybookRun::create([
+            'deployment_id' => $deployment->id,
+            'playbook_id'   => $activity->id,
+            'playbook_name' => $activity->name,
+            'trigger'       => AnsiblePlaybook::TRIGGER_AFTER_PROVISION,
+            'status'        => AnsiblePlaybookRun::STATUS_QUEUED,
+            'provider_type' => $provider->type,
+            'triggered_by'  => 'system',
+        ]);
     }
 
     private function markEnvironmentRunning(Deployment $deployment, Environment $environment): void
