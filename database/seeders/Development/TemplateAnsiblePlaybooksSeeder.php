@@ -623,14 +623,14 @@ YAML,
         cd /DfAnalyzer
         wget https://github.com/nymeria-42/federated_clustering/archive/refs/heads/main.zip -O main.zip
         unzip -o main.zip
-        mv federated_clustering-main/dfanalyzer/ /DfAnalyzer/DfAnalyzer
+        mv federated_clustering-main/dfanalyzer/ /DfAnalyzer
         rm -rf main.zip federated_clustering-main
       changed_when: false
 
     - name: Start DfAnalyse container
       shell: |
         set -eux
-        cd /DfAnalyzer/DfAnalyzer
+        cd /DfAnalyzer
         docker run --rm --name dfanalyzer -d -p 22000:22000 -e DFA_URL=http://0.0.0.0 -w /DfAnalyzer -v $(pwd)/save_results.sql:/DfAnalyzer/save_results.sql -v $(pwd)/data:/DfAnalyzer/data -v $(pwd)/results:/DfAnalyzer/results nymeria0042/dfanalyzer sh start-dfanalyzer.sh
       changed_when: false
 
@@ -671,9 +671,9 @@ YAML,
         cd /fed-clustering
         wget https://github.com/nymeria-42/federated_clustering/archive/refs/heads/main.zip -O main.zip
         unzip -o main.zip
-        mv federated_clustering-main/fed-clustering/ /fed-clustering/app
+        mv federated_clustering-main/fed-clustering/ /fed-clustering
         rm -rf main.zip federated_clustering-main
-        wget https://storage.googleapis.com/outliers-ccpe-2026/infra-sscad-2/prod_01.zip -O prod_01.zip
+        wget https://storage.googleapis.com/outliers-ccpe-2026/prod_01.zip -O prod_01.zip
         unzip -o prod_01.zip
         cp -R prod_01/overseer ./
         rm -rf prod_01 prod_01.zip
@@ -685,7 +685,7 @@ YAML,
       shell: |
         set -eux
         cd /fed-clustering
-        docker run -d --rm --name overseer --add-host overseer:$(hostname -I | awk '{print $1}') -p 8443:8443 -v $(pwd)/overseer:/workspace/data -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest ovvesley/nvflare-service:latest /workspace/startup/start.sh
+        docker run -d --rm --name overseer --add-host overseer:$(hostname -I | awk '{print $1}') -p 8443:8443 -v $(pwd)/overseer:/workspace -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest ovvesley/nvflare-service:latest /workspace/startup/start.sh
       changed_when: false
 
 - name: SSCAD 2025 startup Server
@@ -695,6 +695,7 @@ YAML,
   vars:
     dfa_host: "{{ hostvars['dfanalyse'].ansible_host }}"
     overseer_host: "{{ hostvars['overseer'].ansible_host }}"
+    algorithm: "{{ algorithm }}"
 
   pre_tasks:
     - name: Wait for SSH to become ready
@@ -728,7 +729,7 @@ YAML,
         cd /fed-clustering
         wget https://github.com/nymeria-42/federated_clustering/archive/refs/heads/main.zip -O main.zip
         unzip -o main.zip
-        mv federated_clustering-main/fed-clustering/ /fed-clustering/app
+        mv federated_clustering-main/fed-clustering/ /fed-clustering
         rm -rf main.zip federated_clustering-main
         wget https://storage.googleapis.com/outliers-ccpe-2026/infra-sscad-2/prod_01.zip -O prod_01.zip
         unzip -o prod_01.zip
@@ -744,11 +745,20 @@ YAML,
         chmod -R 777 server1
       changed_when: false
 
+    - name: Generate prospective provenance
+      shell: |
+        set -eux
+        cd /fed-clustering
+        sleep 10
+        docker run --rm --add-host overseer:{{ overseer_host }} -e DFA_URL=http://{{ dfa_host }}:22000 -e PYTHON_EXECUTABLE=python3 ovvesley/nvflare-service:latest bash -c "python /fed-clustering/utils/prospective_provenance.py --algorithm {{ algorithm }}"
+      changed_when: false
+
     - name: Start Server container
       shell: |
         set -eux
+        cd /fed-clustering
         echo "{{ overseer_host }} overseer" >> /etc/hosts
-        docker run -d --rm --name server1 -v $(pwd)/server1:/workspace/data -v nvflare_svc_persist:/tmp/nvflare/ --add-host overseer:{{ overseer_host }} --add-host server1:$(hostname -I | awk '{print $1}') -e DFA_URL=http://{{ dfa_host }}:22000 -p 8002:8002 -p 8003:8003 -e PYTHON_EXECUTABLE=python3 -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest -w /workspace/data/server1 ovvesley/nvflare-service:latest python -u -m nvflare.private.fed.app.server.server_train -m /workspace -s fed_server.json --set secure_train=true config_folder=config org=nvidia
+        docker run -d --rm --name server1 -v $(pwd)/server1:/workspace -v nvflare_svc_persist:/tmp/nvflare/ --add-host overseer:{{ overseer_host }} --add-host server1:$(hostname -I | awk '{print $1}') -e DFA_URL=http://{{ dfa_host }}:22000 -p 8002:8002 -p 8003:8003 -e PYTHON_EXECUTABLE=python3 -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest -w /workspace/server1 ovvesley/nvflare-service:latest python -u -m nvflare.private.fed.app.server.server_train -m /workspace -s fed_server.json --set secure_train=true config_folder=config org=nvidia
       changed_when: false
 
 - name: SSCAD 2025 startup Sites
@@ -794,7 +804,7 @@ YAML,
         cd /fed-clustering
         wget https://github.com/nymeria-42/federated_clustering/archive/refs/heads/main.zip -O main.zip
         unzip -o main.zip
-        mv federated_clustering-main/fed-clustering/ /fed-clustering/app
+        mv federated_clustering-main/fed-clustering/ /fed-clustering
         rm -rf main.zip federated_clustering-main
       changed_when: false
       when: inventory_hostname is match('^site-')
@@ -820,6 +830,13 @@ YAML,
       changed_when: false
       when: inventory_hostname is match('^site-')
 
+    - name: Wait before site dataset preprocessing
+      shell: |
+        set -eux
+        sleep 10
+      changed_when: false
+      when: inventory_hostname is match('^site-')
+
     - name: Prepare site dataset for NVFlare
       shell: |
         set -eux
@@ -839,8 +856,9 @@ YAML,
     - name: Start site container
       shell: |
         set -eux
+        cd /fed-clustering
         site_name={{ inventory_hostname }}
-        docker run -d --rm --name "$site_name" --add-host overseer:{{ overseer_host }} --add-host server1:{{ server_host }} -e DFA_URL=http://{{ dfa_host }}:22000 -e OVERSEER_HOST=overseer -e SERVER_HOST=server1 -e SITE_NAME=$site_name -e DATASET_URL={{ dataset_folder_key }} -e SITE_FOLDER_URL={{ site_folder_url }} -v $(pwd)/$site_name:/workspace/data ovvesley/nvflare-service:latest /workspace/startup/start.sh
+        docker run -d --rm --name "$site_name" -v $(pwd)/$site_name:/workspace -v $(pwd)/output/:/tmp/nvflare/ --add-host overseer:{{ overseer_host }} --add-host server1:{{ server_host }} -e DFA_URL=http://{{ dfa_host }}:22000 -e PYTHON_EXECUTABLE=python3 -e WORKSPACE=/workspace -e IMAGE_NAME=ovvesley/nvflare-service:latest -w /workspace/$site_name ovvesley/nvflare-service:latest python -u -m nvflare.private.fed.app.client.client_train -m /workspace -s fed_client.json --set secure_train=true uid=$site_name org=nvidia config_folder=config
       changed_when: false
       when: inventory_hostname is match('^site-')
 
@@ -863,32 +881,27 @@ YAML,
     - name: Adjust server round count
       shell: |
         set -eux
-        sudo docker exec server1 bash -c '
+        sudo docker exec -e ALGORITHM="{{ algorithm }}" server1 bash -c '
           export PYTHON_EXECUTABLE=python3
           export WORKSPACE=/workspace
           export IMAGE_NAME=ovvesley/nvflare-service:latest
           sed -i -e "s/\"num_rounds\": *100/\"num_rounds\": 5/" /fed-clustering/jobs/sklearn_${ALGORITHM}_base/app/config/config_fed_server.json
         '
-      environment:
-        ALGORITHM: "{{ algorithm }}"
       changed_when: false
 
     - name: Prepare job config
       shell: |
         set -eux
-        sudo docker exec server1 bash -c '
+        sudo docker exec -e ALGORITHM="{{ algorithm }}" -e CLIENTS="{{ clients }}" server1 bash -c '
           export PYTHON_EXECUTABLE=python3
           export WORKSPACE=/workspace
           export IMAGE_NAME=ovvesley/nvflare-service:latest
-          sed -i -e "s/NUM_CLIENTS=20/NUM_CLIENTS='"${CLIENTS}"'/" /fed-clustering/prepare_job_config.sh
+          sed -i -e "s/NUM_CLIENTS=20/NUM_CLIENTS=${CLIENTS}/" /fed-clustering/prepare_job_config.sh
           sed -i -e "s/sklearn_kmeans/sklearn_${ALGORITHM}/" /fed-clustering/prepare_job_config.sh
           cd /fed-clustering
           source prepare_job_config.sh
           cp -R /fed-clustering/jobs/* /workspace/admin/transfer/
         '
-      environment:
-        ALGORITHM: "{{ algorithm }}"
-        CLIENTS: "{{ clients }}"
       changed_when: false
 
     - name: Submit NVFlare job

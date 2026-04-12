@@ -19,6 +19,8 @@ use RuntimeException;
  */
 class AnsibleProcessRunnerService
 {
+    private const DEFAULT_FORKS = 10;
+
     /**
      * Run ansible-galaxy + ansible-playbook inside the given workspace directory.
      *
@@ -159,14 +161,28 @@ class AnsibleProcessRunnerService
     private function runPlaybook(string $workspacePath, array $env, HasRunLog $run, ?callable $onLogLine = null): int
     {
         $run->appendLog('[akocloud] Running ansible-playbook...');
+        $forks = $this->resolveForks();
 
         return $this->streamProcess(
-            'ansible-playbook -i inventory.ini playbook.yml --extra-vars @extra_vars.json',
+            'ansible-playbook -f ' . $forks . ' -i inventory.ini playbook.yml --extra-vars @extra_vars.json',
             $workspacePath,
             $env,
             $run,
             $onLogLine,
         );
+    }
+
+    private function resolveForks(): int
+    {
+        $configuredForks = getenv('ANSIBLE_FORKS');
+
+        if ($configuredForks === false) {
+            return self::DEFAULT_FORKS;
+        }
+
+        $forks = filter_var($configuredForks, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+        return $forks !== false ? $forks : self::DEFAULT_FORKS;
     }
 
 
